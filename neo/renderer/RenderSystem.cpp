@@ -628,6 +628,19 @@ void idRenderSystemLocal::BeginFrame( int windowWidth, int windowHeight ) {
 
 	// this is the ONLY place this is modified
 	frameCount++;
+	{
+		static int demoflowFrameStartMsec = -1;
+		const int nowMsec = eventLoop->Milliseconds();
+
+		if ( frameCount == 1 ) {
+			demoflowFrameStartMsec = nowMsec;
+		}
+		if ( frameCount == 1 || frameCount == 100 || frameCount == 200 || frameCount == 300 ) {
+			const int elapsedMsec = demoflowFrameStartMsec >= 0 ? nowMsec - demoflowFrameStartMsec : 0;
+			common->Printf( "[frame] frame=%d elapsed=%dms avg=%dus/frame\n",
+				frameCount, elapsedMsec, frameCount > 1 ? ( elapsedMsec * 1000 ) / ( frameCount - 1 ) : 0 );
+		}
+	}
 
 	// just in case we did a common->Error while this
 	// was set

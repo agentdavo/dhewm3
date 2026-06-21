@@ -52,6 +52,11 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/RenderWorld.h"
 
 #include "cm/CollisionModel_local.h"
+#ifdef BAREMETAL
+#include "framework/CVarSystem.h"
+
+extern idCVar bm_quietAssetLoads;
+#endif
 
 idCollisionModelManagerLocal	collisionModelManagerLocal;
 idCollisionModelManager *		collisionModelManager = &collisionModelManagerLocal;
@@ -3175,7 +3180,10 @@ cm_model_t *idCollisionModelManagerLocal::LoadRenderModel( const char *fileName 
 	// shutdown the hash
 	ShutdownHash();
 
-	common->Printf( "loaded collision model %s\n", model->name.c_str() );
+#ifdef BAREMETAL
+	if ( !bm_quietAssetLoads.GetBool() )
+#endif
+		common->Printf( "loaded collision model %s\n", model->name.c_str() );
 
 	return model;
 }

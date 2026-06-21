@@ -40,6 +40,12 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "sys/sys_public.h"
 
+#ifdef BAREMETAL
+extern "C" {
+#include "engine/dos_thread.h"
+}
+#endif
+
 #if SDL_MAJOR_VERSION < 2
   // SDL1.2 doesn't have SDL_threadID but uses Uint32.
   // this typedef helps using the same code for SDL1.2 and SDL2
@@ -79,6 +85,38 @@ static size_t		thread_count = 0;
 static bool mainThreadIDset = false;
 static SDL_threadID mainThreadID = -1;
 
+#ifdef BAREMETAL
+struct bmCriticalSection {
+	volatile int locked;
+	volatile unsigned long owner;
+	int depth;
+};
+
+static const unsigned long BM_NO_OWNER = ~0UL;
+static bmCriticalSection bm_lock[MAX_CRITICAL_SECTIONS];
+static bool bm_asyncThreadReal = false;
+
+static ID_INLINE void BM_CpuPauseThread() {
+	__asm__ __volatile__(".insn i 0x0F, 0, x0, x0, 0x010" ::: "memory");
+}
+
+static bool BM_IsAsyncThreadName( const char *name ) {
+	const char *want = "AsyncThread";
+	if ( name == NULL ) {
+		return false;
+	}
+	while ( *name != '\0' && *want != '\0' && *name == *want ) {
+		name++;
+		want++;
+	}
+	return *name == '\0' && *want == '\0';
+}
+
+extern "C" bool Sys_BareMetalAsyncThreadIsReal( void ) {
+	return bm_asyncThreadReal;
+}
+#endif
+
 /*
 ==============
 Sys_Sleep
@@ -94,6 +132,31 @@ Sys_InitThreads
 ==================
 */
 void Sys_InitThreads() {
+#ifdef BAREMETAL
+	dos_threads_init();
+	mainThreadID = (SDL_threadID)dos_thread_self_id();
+	mainThreadIDset = true;
+
+	for (int i = 0; i < MAX_CRITICAL_SECTIONS; i++) {
+		bm_lock[i].locked = 0;
+		bm_lock[i].owner = BM_NO_OWNER;
+		bm_lock[i].depth = 0;
+		mutex[i] = NULL;
+	}
+
+	for (int i = 0; i < MAX_TRIGGER_EVENTS; i++) {
+		cond[i] = NULL;
+		signaled[i] = false;
+		waiting[i] = false;
+	}
+
+	for (int i = 0; i < MAX_THREADS; i++)
+		thread[i] = NULL;
+
+	thread_count = 0;
+	bm_asyncThreadReal = false;
+	return;
+#else
 	mainThreadID = SDL_GetCurrentThreadID();
 	mainThreadIDset = true;
 
@@ -125,6 +188,7 @@ void Sys_InitThreads() {
 		thread[i] = NULL;
 
 	thread_count = 0;
+#endif
 }
 
 /*
@@ -139,7 +203,11 @@ void Sys_ShutdownThreads() {
 			continue;
 
 		Sys_Printf("WARNING: Thread '%s' still running\n", thread[i]->name);
-#if SDL_VERSION_ATLEAST(2, 0, 0)
+#ifdef BAREMETAL
+		if (dos_thread_is_handle((void *)thread[i]->threadHandle)) {
+			dos_thread_join((void *)thread[i]->threadHandle);
+		}
+#elif SDL_VERSION_ATLEAST(2, 0, 0)
 		// TODO no equivalent in SDL2
 #else
 		SDL_KillThread(thread[i]->threadHandle);
@@ -149,7 +217,9 @@ void Sys_ShutdownThreads() {
 
 	// events
 	for (int i = 0; i < MAX_TRIGGER_EVENTS; i++) {
+#ifndef BAREMETAL
 		SDL_DestroyCond(cond[i]);
+#endif
 		cond[i] = NULL;
 		signaled[i] = false;
 		waiting[i] = false;
@@ -157,9 +227,19 @@ void Sys_ShutdownThreads() {
 
 	// critical sections
 	for (int i = 0; i < MAX_CRITICAL_SECTIONS; i++) {
+#ifndef BAREMETAL
 		SDL_DestroyMutex(mutex[i]);
+#endif
 		mutex[i] = NULL;
+#ifdef BAREMETAL
+		bm_lock[i].locked = 0;
+		bm_lock[i].owner = BM_NO_OWNER;
+		bm_lock[i].depth = 0;
+#endif
 	}
+#ifdef BAREMETAL
+	bm_asyncThreadReal = false;
+#endif
 }
 
 /*
@@ -170,11 +250,25 @@ Sys_EnterCriticalSection
 void Sys_EnterCriticalSection(int index) {
 	assert(index >= 0 && index < MAX_CRITICAL_SECTIONS);
 
+#ifdef BAREMETAL
+	unsigned long self = dos_thread_self_id();
+	if ( bm_lock[index].owner == self ) {
+		bm_lock[index].depth++;
+		return;
+	}
+	while ( __sync_lock_test_and_set( &bm_lock[index].locked, 1 ) != 0 ) {
+		BM_CpuPauseThread();
+	}
+	__sync_synchronize();
+	bm_lock[index].owner = self;
+	bm_lock[index].depth = 1;
+#else
 #if SDL_VERSION_ATLEAST(3, 0, 0)
 	SDL_LockMutex(mutex[index]); // in SDL3, this returns void and can't fail
 #else // SDL2 and SDL1.2
 	if (SDL_LockMutex(mutex[index]) != 0)
 		common->Error("ERROR: SDL_LockMutex failed\n");
+#endif
 #endif
 }
 
@@ -186,11 +280,22 @@ Sys_LeaveCriticalSection
 void Sys_LeaveCriticalSection(int index) {
 	assert(index >= 0 && index < MAX_CRITICAL_SECTIONS);
 
+#ifdef BAREMETAL
+	unsigned long self = dos_thread_self_id();
+	assert(bm_lock[index].owner == self);
+	if ( --bm_lock[index].depth > 0 ) {
+		return;
+	}
+	bm_lock[index].owner = BM_NO_OWNER;
+	__sync_synchronize();
+	__sync_lock_release( &bm_lock[index].locked );
+#else
 #if SDL_VERSION_ATLEAST(3, 0, 0)
 	SDL_UnlockMutex(mutex[index]); // in SDL3, this returns void and can't fail
 #else // SDL2 and SDL1.2
 	if (SDL_UnlockMutex(mutex[index]) != 0)
 		common->Error("ERROR: SDL_UnlockMutex failed\n");
+#endif
 #endif
 }
 
@@ -215,6 +320,28 @@ Sys_WaitForEvent
 void Sys_WaitForEvent(int index) {
 	assert(index >= 0 && index < MAX_TRIGGER_EVENTS);
 
+#ifdef BAREMETAL
+	Sys_EnterCriticalSection(CRITICAL_SECTION_SYS);
+
+	assert(!waiting[index]);
+	if (__atomic_load_n(&signaled[index], __ATOMIC_ACQUIRE)) {
+		__atomic_store_n(&signaled[index], false, __ATOMIC_RELEASE);
+		Sys_LeaveCriticalSection(CRITICAL_SECTION_SYS);
+		return;
+	}
+
+	waiting[index] = true;
+	Sys_LeaveCriticalSection(CRITICAL_SECTION_SYS);
+
+	while (!__atomic_load_n(&signaled[index], __ATOMIC_ACQUIRE)) {
+		BM_CpuPauseThread();
+	}
+
+	Sys_EnterCriticalSection(CRITICAL_SECTION_SYS);
+	__atomic_store_n(&signaled[index], false, __ATOMIC_RELEASE);
+	waiting[index] = false;
+	Sys_LeaveCriticalSection(CRITICAL_SECTION_SYS);
+#else
 	Sys_EnterCriticalSection(CRITICAL_SECTION_SYS);
 
 	assert(!waiting[index]);	// WaitForEvent from multiple threads? that wouldn't be good
@@ -233,6 +360,7 @@ void Sys_WaitForEvent(int index) {
 	}
 
 	Sys_LeaveCriticalSection(CRITICAL_SECTION_SYS);
+#endif
 }
 
 /*
@@ -245,6 +373,9 @@ void Sys_TriggerEvent(int index) {
 
 	Sys_EnterCriticalSection(CRITICAL_SECTION_SYS);
 
+#ifdef BAREMETAL
+	__atomic_store_n(&signaled[index], true, __ATOMIC_RELEASE);
+#else
 	if (waiting[index]) {
 #if SDL_VERSION_ATLEAST(3, 0, 0)
 		SDL_CondSignal(cond[index]); // in SDL3, this returns void and can't fail
@@ -256,6 +387,7 @@ void Sys_TriggerEvent(int index) {
 		// emulate windows behaviour: if no thread is waiting, leave the signal on so next wait keeps going
 		signaled[index] = true;
 	}
+#endif
 
 	Sys_LeaveCriticalSection(CRITICAL_SECTION_SYS);
 }
@@ -267,6 +399,36 @@ Sys_CreateThread
 */
 void Sys_CreateThread(xthread_t function, void *parms, xthreadInfo& info, const char *name) {
 	Sys_EnterCriticalSection();
+
+#ifdef BAREMETAL
+	if ( BM_IsAsyncThreadName( name ) ) {
+#ifndef BM_REAL_ASYNC_THREAD
+		info.name = name;
+		info.threadHandle = (SDL_Thread *)(void *)(uintptr_t)1;
+		info.threadId = mainThreadIDset ? (uintptr_t)mainThreadID : 0;
+		bm_asyncThreadReal = false;
+		if (thread_count < MAX_THREADS)
+			thread[thread_count++] = &info;
+		Sys_LeaveCriticalSection();
+		return;
+#endif
+	}
+
+	void *dosThread = dos_thread_create(function, parms, name);
+	info.name = name;
+	info.threadHandle = (SDL_Thread *)(dosThread ? dosThread : (void *)(uintptr_t)1);
+	info.threadId = dosThread ? dos_thread_hartid(dosThread) : 0;
+	if ( BM_IsAsyncThreadName( name ) ) {
+		bm_asyncThreadReal = dosThread != NULL;
+		if ( !bm_asyncThreadReal ) {
+			common->DPrintf("WARNING: dOS could not start real AsyncThread; using main-loop async pump\n");
+		}
+	}
+	if (thread_count < MAX_THREADS)
+		thread[thread_count++] = &info;
+	Sys_LeaveCriticalSection();
+	return;
+#endif
 
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	SDL_Thread *t = SDL_CreateThread(function, name, parms);
@@ -300,7 +462,16 @@ Sys_DestroyThread
 void Sys_DestroyThread(xthreadInfo& info) {
 	assert(info.threadHandle);
 
+#ifdef BAREMETAL
+	if ( BM_IsAsyncThreadName( info.name ) ) {
+		bm_asyncThreadReal = false;
+	}
+	if (dos_thread_is_handle((void *)info.threadHandle)) {
+		dos_thread_join((void *)info.threadHandle);
+	}
+#else
 	SDL_WaitThread(info.threadHandle, NULL);
+#endif
 
 	info.name = NULL;
 	info.threadHandle = NULL;
@@ -337,7 +508,11 @@ const char *Sys_GetThreadName(int *index) {
 
 	Sys_EnterCriticalSection();
 
+#ifdef BAREMETAL
+	SDL_threadID id = (SDL_threadID)dos_thread_self_id();
+#else
 	SDL_threadID id = SDL_GetCurrentThreadID();
+#endif
 
 	for (int i = 0; i < thread_count; i++) {
 		if (id == thread[i]->threadId) {
@@ -368,9 +543,15 @@ returns true if the current thread is the main thread
 ==================
 */
 bool Sys_IsMainThread() {
+#ifdef BAREMETAL
+	if ( mainThreadIDset )
+		return dos_thread_self_id() == mainThreadID;
+	return true;
+#else
 	if ( mainThreadIDset )
 		return SDL_GetCurrentThreadID() == mainThreadID;
 	// if this is called before mainThreadID is set, we haven't created
 	// any threads yet so it should be the main thread
 	return true;
+#endif
 }

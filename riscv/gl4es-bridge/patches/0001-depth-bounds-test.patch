@@ -1,0 +1,37 @@
+diff --git a/src/gl/getter.c b/src/gl/getter.c
+index 3a9acc5..f855473 100644
+--- a/src/gl/getter.c
++++ b/src/gl/getter.c
+@@ -84,6 +84,7 @@ void BuildExtensionsList() {
+ 		glstate->extensions = (GLubyte*)malloc(5000);	// arbitrary size...
+         char *extensions = (char *) glstate->extensions;
+ 		strcpy(extensions,
++				"GL_EXT_depth_bounds_test " // softgles2 implements glDepthBoundsEXT (light/shadow depth cull)
+ 				"GL_EXT_abgr "
+                 #ifdef AMIGAOS4
+                 "GL_MGL_packed_pixels " // same as GL_EXT_packed_pixels, but older, some old Amiga games may check for this
+diff --git a/src/gl/gl_lookup.c b/src/gl/gl_lookup.c
+index e79c31a..e39dcc8 100644
+--- a/src/gl/gl_lookup.c
++++ b/src/gl/gl_lookup.c
+@@ -34,8 +34,20 @@ void gl4es_Stub(void *x, ...) {
+ void APIENTRY_GL4ES gl4es_Stub(void *x) {}
+ #endif
+ 
++/* GL_EXT_depth_bounds_test: a pure state-setter implemented by the softgles2
++ * backend (sgl2_glDepthBoundsEXT, resolved at the final engine link), with no
++ * gl4es wrapper of its own. The engine's PFNGLDEPTHBOUNDSEXTPROC passes GLclampd
++ * (double); softgles2 takes float, so bridge the ABI here. glEnable(GL_DEPTH_
++ * BOUNDS_TEST_EXT) still routes through gl4es's normal enable passthrough. */
++extern void sgl2_glDepthBoundsEXT(float zmin, float zmax);
++static void gl4es_glDepthBoundsEXT_shim(double zmin, double zmax) {
++    sgl2_glDepthBoundsEXT((float)zmin, (float)zmax);
++}
++
+ void* APIENTRY_GL4ES gl4es_GetProcAddress(const char *name) {
+     DBG(printf("glGetProcAddress(\"%s\")", name);)
++    if (name && !strcmp(name, "glDepthBoundsEXT"))
++        return (void *)gl4es_glDepthBoundsEXT_shim;
+     // generated gles wrappers
+     #include "glesfuncs.inc"
+ 

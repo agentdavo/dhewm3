@@ -37,6 +37,22 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "framework/Session_local.h"
 
+#if defined(BAREMETAL)
+extern "C" void bm_io_stats_print(void);
+extern "C" int bm_io_stats_enabled(void);
+static ID_INLINE void BM_PrintIOStatsPhase( const char *phase ) {
+	if ( !bm_io_stats_enabled() ) {
+		return;
+	}
+	common->Printf( "[io] phase=%s\n", phase );
+	bm_io_stats_print();
+}
+#else
+static ID_INLINE void BM_PrintIOStatsPhase( const char *phase ) {
+	(void)phase;
+}
+#endif
+
 #if defined(__AROS__)
 #define CDKEY_FILEPATH CDKEY_FILE
 #define XPKEY_FILEPATH XPKEY_FILE
@@ -49,6 +65,12 @@ idCVar	idSessionLocal::com_showAngles( "com_showAngles", "0", CVAR_SYSTEM | CVAR
 idCVar	idSessionLocal::com_minTics( "com_minTics", "1", CVAR_SYSTEM, "" );
 idCVar	idSessionLocal::com_showTics( "com_showTics", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_fixedTic( "com_fixedTic", "0", CVAR_SYSTEM | CVAR_INTEGER | CVAR_ARCHIVE, "", -1, 10 );
+// Max game tics caught up per frame after a render "hitch". Stock is a hardcoded 10, which
+// on bare metal under TCG (every render is a ~15s hitch) throttles game/cinematic time to
+// ~167ms per render frame. Raise it to let slow renders advance more game time per frame so
+// long cinematics are reachable in a sane number of captured frames. Game logic is cheap
+// next to the software render, so a higher cap costs almost nothing per frame.
+idCVar	com_maxCatchupTics( "com_maxCatchupTics", "10", CVAR_SYSTEM | CVAR_INTEGER, "max game tics to catch up per frame after a slow render", 1, 1000 );
 idCVar	idSessionLocal::com_showDemo( "com_showDemo", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_skipGameDraw( "com_skipGameDraw", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_aviDemoSamples( "com_aviDemoSamples", "16", CVAR_SYSTEM, "" );
@@ -109,6 +131,9 @@ static void Session_Map_f( const idCmdArgs &args ) {
 	idCmdArgs	rl_args;
 
 	map = args.Argv(1);
+#ifdef BAREMETAL
+	common->Printf( "bm Session_Map_f argc=%d map='%s'\n", args.Argc(), map.c_str() );
+#endif
 	if ( !map.Length() ) {
 		// DG: if the map command is called without any arguments, print the current map
 		// TODO: could check whether we're currently in a game, otherwise the last loaded
@@ -137,6 +162,9 @@ static void Session_Map_f( const idCmdArgs &args ) {
 		cmdSystem->SetupReloadEngine( rl_args );
 		return;
 	default:
+#ifdef BAREMETAL
+		common->Printf( "bm map file found: %s\n", string.c_str() );
+#endif
 		break;
 	}
 
@@ -1174,6 +1202,9 @@ void idSessionLocal::StartNewGame( const char *mapName, bool devmap ) {
 	common->Printf( "Dedicated servers cannot start singleplayer games.\n" );
 	return;
 #else
+#ifdef BAREMETAL
+	common->Printf( "bm StartNewGame map='%s' devmap=%d\n", mapName, devmap ? 1 : 0 );
+#endif
 #if ID_ENFORCE_KEY
 	// strict check. don't let a game start without a definitive answer
 	if ( !CDKeysAreValid( true ) ) {
@@ -1246,6 +1277,9 @@ Leaves the existing userinfo and serverinfo
 */
 void idSessionLocal::MoveToNewMap( const char *mapName ) {
 	mapSpawnData.serverInfo.Set( "si_map", mapName );
+#ifdef BAREMETAL
+	common->Printf( "bm MoveToNewMap si_map='%s'\n", mapName );
+#endif
 
 	ExecuteMapChange();
 
@@ -1580,6 +1614,9 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	// extract the map name from serverinfo
 	idStr mapString = mapSpawnData.serverInfo.GetString( "si_map" );
+#ifdef BAREMETAL
+	common->Printf( "bm ExecuteMapChange si_map='%s'\n", mapString.c_str() );
+#endif
 
 	idStr fullMapName = "maps/";
 	fullMapName += mapString;
@@ -1645,9 +1682,12 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	common->Printf( "Map: %s\n", mapString.c_str() );
 
 	// let the renderSystem load all the geometry
+	common->Printf( "[demoflow] +%dms START rw->InitFromMap (proc/BSP + materials)\n", Sys_Milliseconds() - start );
 	if ( !rw->InitFromMap( fullMapName ) ) {
 		common->Error( "couldn't load %s", fullMapName.c_str() );
 	}
+	common->Printf( "[demoflow] +%dms DONE rw->InitFromMap (proc/BSP + materials)\n", Sys_Milliseconds() - start );
+	BM_PrintIOStatsPhase( "rw.InitFromMap" );
 
 	// for the synchronous networking we needed to roll the angles over from
 	// level to level, but now we can just clear everything
@@ -1662,6 +1702,7 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	// load and spawn all other entities ( from a savegame possibly )
 	if ( loadingSaveGame && savegameFile ) {
+		common->Printf( "[demoflow] +%dms START game->InitFromSaveGame\n", Sys_Milliseconds() - start );
 		if ( game->InitFromSaveGame( fullMapName + ".map", rw, sw, savegameFile ) == false ) {
 			// If the loadgame failed, restart the map with the player persistent data
 			loadingSaveGame = false;
@@ -1673,9 +1714,14 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 			game->SetServerInfo( mapSpawnData.serverInfo );
 			game->InitFromNewMap( fullMapName + ".map", rw, sw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() );
 		}
+		common->Printf( "[demoflow] +%dms DONE game->InitFromSaveGame\n", Sys_Milliseconds() - start );
+		BM_PrintIOStatsPhase( "game.InitFromSaveGame" );
 	} else {
 		game->SetServerInfo( mapSpawnData.serverInfo );
+		common->Printf( "[demoflow] +%dms START game->InitFromNewMap\n", Sys_Milliseconds() - start );
 		game->InitFromNewMap( fullMapName + ".map", rw, sw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() );
+		common->Printf( "[demoflow] +%dms DONE game->InitFromNewMap\n", Sys_Milliseconds() - start );
+		BM_PrintIOStatsPhase( "game.InitFromNewMap" );
 	}
 
 	if ( !idAsyncNetwork::IsActive() && !loadingSaveGame ) {
@@ -1687,10 +1733,13 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	// actually purge/load the media
 	if ( !reloadingSameMap ) {
+		common->Printf( "[demoflow] +%dms START EndLevelLoad: gl4es texture uploads (software)\n", Sys_Milliseconds() - start );
 		renderSystem->EndLevelLoad();
 		soundSystem->EndLevelLoad( mapString.c_str() );
 		declManager->EndLevelLoad();
 		SetBytesNeededForMapLoad( mapString.c_str(), fileSystem->GetReadCount() );
+		common->Printf( "[demoflow] +%dms DONE EndLevelLoad\n", Sys_Milliseconds() - start );
+		BM_PrintIOStatsPhase( "EndLevelLoad" );
 	}
 	uiManager->EndLevelLoad();
 
@@ -1705,7 +1754,9 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	common->Printf( "%6d msec to load %s\n", msec, mapString.c_str() );
 
 	// let the renderSystem generate interactions now that everything is spawned
+	common->Printf( "[demoflow] +%dms START GenerateAllInteractions (light/surface table)\n", Sys_Milliseconds() - start );
 	rw->GenerateAllInteractions();
+	common->Printf( "[demoflow] +%dms DONE GenerateAllInteractions\n", Sys_Milliseconds() - start );
 
 	common->PrintWarnings();
 
@@ -1757,6 +1808,7 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	soundSystem->SetMute( false );
 
 	// we are valid for game draws now
+	common->Printf( "[demoflow] +%dms map-change COMPLETE -> mapSpawned (ready to render)\n", Sys_Milliseconds() - start );
 	mapSpawned = true;
 	Sys_ClearEvents();
 }
@@ -2470,10 +2522,17 @@ void idSessionLocal::PacifierUpdate() {
 
 	int	time = eventLoop->Milliseconds();
 
-	if ( time - lastPacifierTime < 100 ) {
+	// Adaptive throttle. The loading screen is drawn by the same path as a game
+	// frame; on the software (RVV) rasteriser that costs ~1s. A fixed 100ms gate
+	// then lets the pacifier dominate the whole load — every Printf of a loaded
+	// model triggers a full repaint. Back the interval off to ~49x the last
+	// repaint's measured cost, keeping pacifier overhead near ~2% of load
+	// wall-time (a headless capture never sees the loading screen anyway); on a
+	// fast (desktop) renderer this collapses to the old ~100ms.
+	static int pacifierInterval = 100;
+	if ( time - lastPacifierTime < pacifierInterval ) {
 		return;
 	}
-	lastPacifierTime = time;
 
 	if ( guiLoading && bytesNeededForMapLoad ) {
 		float n = fileSystem->GetReadCount();
@@ -2485,7 +2544,11 @@ void idSessionLocal::PacifierUpdate() {
 
 	Sys_GenerateEvents();
 
+	int renderStart = eventLoop->Milliseconds();
 	UpdateScreen();
+	int renderMsec = eventLoop->Milliseconds() - renderStart;
+	pacifierInterval = ( renderMsec * 49 > 100 ) ? renderMsec * 49 : 100;
+	lastPacifierTime = eventLoop->Milliseconds();
 
 	idAsyncNetwork::client.PacifierUpdate();
 	idAsyncNetwork::server.PacifierUpdate();
@@ -2621,6 +2684,8 @@ void idSessionLocal::UpdateScreen( bool outOfSequence ) {
 		Sys_GrabMouseCursor( false );
 	}
 
+	int demoflow_frame_t0 = Sys_Milliseconds();
+	common->Printf( "[demoflow] frame: render START (%dx%d)\n", renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
 	D3P_BeginCPUSample(Render_BeginFrame);
 	renderSystem->BeginFrame( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
 	D3P_EndCPUSample(Render_BeginFrame);
@@ -2635,6 +2700,19 @@ void idSessionLocal::UpdateScreen( bool outOfSequence ) {
 		renderSystem->EndFrame( NULL, NULL );
 	}
 	D3P_EndCPUSample(Render_EndFrame);
+	common->Printf( "[demoflow] frame: render END (+%dms)\n", Sys_Milliseconds() - demoflow_frame_t0 );
+
+	// com_speeds for the bare-metal render loop. The stock per-frame readout
+	// lives in idCommonLocal::Frame (Common.cpp:2564), but this port drives
+	// rendering through Session::UpdateScreen (called via the async/load loop)
+	// rather than the standard Com::Frame sequence, so that print is never
+	// reached. EndFrame() just above already populated time_frontend/time_backend
+	// when com_speeds is set, so report Doom 3's frontend-vs-backend split here,
+	// per render -- this is what actually measures the softgles2 cost.
+	if ( com_speeds.GetBool() ) {
+		common->Printf( "[speeds] render:%dms  rf(frontend):%dms  bk(backend):%dms\n",
+			Sys_Milliseconds() - demoflow_frame_t0, time_frontend, time_backend );
+	}
 
 	insideUpdateScreen = false;
 }
@@ -2810,9 +2888,14 @@ void idSessionLocal::Frame() {
 		timeHitch = 0;
 	}
 
-	// don't get too far behind after a hitch
-	if ( numCmdsToRun > 10 ) {
-		lastGameTic = latchedTicNumber - 10;
+	// don't get too far behind after a hitch (cap is com_maxCatchupTics; stock 10)
+	{
+		extern idCVar com_maxCatchupTics;
+		int maxCatchup = com_maxCatchupTics.GetInteger();
+		if ( maxCatchup < 1 ) maxCatchup = 1;
+		if ( numCmdsToRun > maxCatchup ) {
+			lastGameTic = latchedTicNumber - maxCatchup;
+		}
 	}
 
 	// never use more than USERCMD_PER_DEMO_FRAME,
@@ -2901,7 +2984,9 @@ void idSessionLocal::RunGameTic() {
 
 	// run the game logic every player move
 	int	start = Sys_Milliseconds();
+	Sys_Printf( "[demoflow] RunGameTic -> game->RunFrame() ENTER\n" );
 	gameReturn_t	ret = game->RunFrame( &cmd );
+	Sys_Printf( "[demoflow] RunGameTic <- game->RunFrame() returned (+%dms)\n", Sys_Milliseconds() - start );
 
 	int end = Sys_Milliseconds();
 	time_gameFrame += end - start;	// note time used for com_speeds

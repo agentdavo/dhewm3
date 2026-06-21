@@ -315,10 +315,22 @@ restart the sound thread
 ===============
 */
 void SoundSystemRestart_f( const idCmdArgs &args ) {
+#ifdef BAREMETAL
+	common->Printf( "bm s_restart: SetMute(true)\n" );
+	soundSystem->SetMute( true );
+	common->Printf( "bm s_restart: ShutdownHW\n" );
+	soundSystemLocal.ShutdownHW();
+	common->Printf( "bm s_restart: InitHW\n" );
+	soundSystemLocal.InitHW();
+	common->Printf( "bm s_restart: SetMute(false)\n" );
+	soundSystem->SetMute( false );
+	common->Printf( "bm s_restart: done\n" );
+#else
 	soundSystem->SetMute( true );
 	soundSystemLocal.ShutdownHW();
 	soundSystemLocal.InitHW();
 	soundSystem->SetMute( false );
+#endif
 }
 
 // DG: make this function callable from idSessionLocal::Frame() without having to

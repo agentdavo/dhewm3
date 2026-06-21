@@ -76,6 +76,88 @@ if(NOT MSVC) # GCC/clang or compatible, hopefully
 	endif()
 endif()
 
+# ===========================================================================
+# BAREMETAL — bare-metal RISC-V64 "dOS" cross build (Path B: SDL3-on-dOS).
+# Normally set ON (FORCE) by riscv/toolchain/baremetal-rva23s64.cmake. All edits
+# below are guarded by if(BAREMETAL); a normal desktop build is unaffected.
+# See riscv/docs/design/30-engine-bringup.md and 31-engine-crossbuild-status.md.
+# ===========================================================================
+option(BAREMETAL "Bare-metal RISC-V64 cross build (no OS; uses prebuilt SDL3/gl4es .a)" OFF)
+option(D3_GLPROF "Emit compact per-frame GL call profiling lines on the serial console" OFF)
+if(D3_GLPROF)
+	add_definitions(-DD3_GLPROF=1)
+	message(STATUS "D3_GLPROF: compact GL call profiling enabled")
+endif()
+if(BAREMETAL)
+	add_definitions(-DBAREMETAL)
+	# newlib has no LFS64 (fopen64/ftello64/fseeko64); use minizip's 32-bit FILE API.
+	add_definitions(-DIOAPI_NO_64)
+	message(STATUS "BAREMETAL: bare-metal RISC-V64 cross build (Path B: SDL3-on-dOS)")
+
+	# Force the only supported feature matrix for the bare-metal target.
+	set(BASE          ON  CACHE BOOL "" FORCE)   # hardlinked base game
+	set(D3XP          OFF CACHE BOOL "" FORCE)
+	set(SDL2          OFF CACHE BOOL "" FORCE)
+	set(SDL3          ON  CACHE BOOL "" FORCE)   # Path B keeps SDL3 ON (prebuilt .a)
+	set(IMGUI         OFF CACHE BOOL "" FORCE)   # -> -DIMGUI_DISABLE, C++98 default
+	set(DEDICATED     OFF CACHE BOOL "" FORCE)
+	set(HARDLINK_GAME ON  CACHE BOOL "" FORCE)   # no dlopen on bare metal
+	set(ONATIVE       OFF CACHE BOOL "" FORCE)   # bare-metal toolchain -march must win
+	set(TRACY         OFF CACHE BOOL "" FORCE)
+	set(REPRODUCIBLE_BUILD ON CACHE BOOL "" FORCE)
+
+	# Locations of the prebuilt static deps (do NOT rebuild; see riscv/dos/Makefile).
+	# Overridable with -D on the cmake line.
+	if(NOT DEFINED BAREMETAL_RISCV_DIR)
+		set(BAREMETAL_RISCV_DIR "${CMAKE_SOURCE_DIR}/../riscv")
+	endif()
+	set(BAREMETAL_DEFER_PRECACHE "0" CACHE STRING "bare-metal demo: defer render-model/sound/GUI precache to first-use to speed map load")
+	if(NOT BAREMETAL_DEFER_PRECACHE MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_DEFER_PRECACHE must be 0 or 1")
+	endif()
+	set(BAREMETAL_QUIET_ASSET_LOADS "0" CACHE STRING "bare-metal demo: suppress high-volume per-asset load logs")
+	if(NOT BAREMETAL_QUIET_ASSET_LOADS MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_QUIET_ASSET_LOADS must be 0 or 1")
+	endif()
+	set(BAREMETAL_IO_STATS "0" CACHE STRING "bare-metal demo: print low-frequency I/O timing summaries")
+	if(NOT BAREMETAL_IO_STATS MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_IO_STATS must be 0 or 1")
+	endif()
+	set(BAREMETAL_SIMD_BENCH "0" CACHE STRING "bare-metal demo: run a small idSIMDProcessor microbench after init")
+	if(NOT BAREMETAL_SIMD_BENCH MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_SIMD_BENCH must be 0 or 1")
+	endif()
+	set(BAREMETAL_BOOT_TO_MENU "0" CACHE STRING "bare-metal demo: drop +map and boot to the main-menu GUI (reachable capture target)")
+	if(NOT BAREMETAL_BOOT_TO_MENU MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_BOOT_TO_MENU must be 0 or 1")
+	endif()
+	set(BAREMETAL_RENDER_PROF "0" CACHE STRING "bare-metal demo: enable softgles2 per-stage [rprof] + [fssrc]/[fsdump]/[fswork] shader-workload profiler (Phase 0 archetype discovery)")
+	if(NOT BAREMETAL_RENDER_PROF MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_RENDER_PROF must be 0 or 1")
+	endif()
+	get_filename_component(BAREMETAL_RISCV_DIR "${BAREMETAL_RISCV_DIR}" ABSOLUTE)
+	set(BM_SDL3_INCLUDE "${BAREMETAL_RISCV_DIR}/sdl3/include")
+	set(BM_SDL3_LIB     "${BAREMETAL_RISCV_DIR}/sdl3/libSDL3-riscv.a")
+	set(BM_GL4ES_LIB    "${BAREMETAL_RISCV_DIR}/gl4es/lib/libGL-riscv.a")
+	set(BM_GL4ES_INCLUDE "${BAREMETAL_RISCV_DIR}/gl4es/include")
+	set(BM_SGL_DIR      "${BAREMETAL_RISCV_DIR}/softgles2")
+	set(BM_BRIDGE_DIR   "${BAREMETAL_RISCV_DIR}/gl4es-bridge")
+	set(BM_BOOT_DIR     "${BAREMETAL_RISCV_DIR}/boot")
+	set(BM_DOS_DIR      "${BAREMETAL_RISCV_DIR}/dos")
+	set(BM_ENGINE_DIR   "${BAREMETAL_RISCV_DIR}/engine")
+	set(BM_AUDIO_DIR    "${BAREMETAL_RISCV_DIR}/audio")
+
+	foreach(f "${BM_SDL3_LIB}" "${BM_GL4ES_LIB}")
+		if(NOT EXISTS "${f}")
+			message(WARNING "BAREMETAL: prebuilt lib not found: ${f} (build it per riscv/dos/Makefile / build-gl4es.sh)")
+		endif()
+	endforeach()
+
+	# riscv/engine/{sys_dos,cxxrt}.cpp include "boot/runtime.h" (and the AL/ stub
+	# headers live under riscv/engine/include) -> put riscv/ on every TU's path.
+	include_directories("${BAREMETAL_RISCV_DIR}")
+endif()
+
 if(NOT CMAKE_SYSTEM_PROCESSOR)
 	message(FATAL_ERROR "No target CPU architecture set")
 endif()
@@ -194,10 +276,26 @@ if(CMAKE_MAJOR_VERSION LESS 3 OR ( CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_V
 endif()
 
 # libs
-find_package(OpenAL REQUIRED)
-include_directories(${OPENAL_INCLUDE_DIR})
+if(BAREMETAL)
+	# No system OpenAL on bare metal: the openal_stub.cpp provides the AL_* impls.
+	# Headers (AL/al.h etc.) come from a vendored set under riscv/engine/include.
+	# (find_package(OpenAL REQUIRED) would FATAL under CMAKE_SYSTEM_NAME=Generic.)
+	set(OPENAL_LIBRARY "")
+	include_directories("${BM_ENGINE_DIR}/include")  # vendored AL/ headers, if present
+else()
+	find_package(OpenAL REQUIRED)
+	include_directories(${OPENAL_INCLUDE_DIR})
+endif()
 
-if (SDL3)
+if(BAREMETAL)
+	# Path B keeps SDL3 ON but uses the PREBUILT static libSDL3-riscv.a + headers
+	# directly (the find_package(SDL3 ... COMPONENTS SDL3-shared) CONFIG lookup
+	# would fail for a static, non-installed SDL3). idlib + every target just need
+	# the headers on the include path and the .a in the link group (added later).
+	include_directories(SYSTEM "${BM_SDL3_INCLUDE}")
+	set(SDLx_LIBRARY "${BM_SDL3_LIB}")
+	add_definitions(-DD3_SDL3=1)
+elseif (SDL3)
 	if(SDL2)
 		message(WARNING "You enabled both SDL2 and SDL3. Only one can be used at a time, disabling SDL2")
 		set(SDL2 OFF CACHE BOOL "Use SDL2 (make sure SDL3 is disabled!)" FORCE)
@@ -256,12 +354,26 @@ if(NOT IMGUI)
 	set (CMAKE_CXX_STANDARD 98)
 endif()
 
+if(BAREMETAL)
+	# The bare-metal engine + SDL3 headers + threads.cpp static_assert need C++11.
+	# (IMGUI is OFF, which would otherwise drop us to C++98.)
+	set(CMAKE_CXX_STANDARD 11)
+	set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+
 if(DEFINED ENV{MSYSTEM})
 	message(STATUS "Detected MSYS or similar environment. Using alternate curl path")
 	set(CURL_NO_CURL_CMAKE ON)
 endif()
 
-find_package(CURL QUIET)
+if(BAREMETAL)
+	# Never use the HOST libcurl when cross-compiling for bare metal (it would be
+	# found via the host sysroot and wrongly enable ID_ENABLE_CURL / link host .so).
+	set(CURL_FOUND OFF)
+endif()
+if(NOT BAREMETAL)
+	find_package(CURL QUIET)
+endif()
 if(CURL_FOUND)
 	set(ID_ENABLE_CURL ON)
 	include_directories(${CURL_INCLUDE_DIR})
@@ -366,7 +478,12 @@ if(D3_COMPILER_IS_GCC_OR_CLANG)
 	add_compile_options(-pipe)
 	add_compile_options(-Wall)
 
-	if(NOT CMAKE_CROSSCOMPILING AND ONATIVE)
+	if(BAREMETAL)
+		# Do NOT inject any -march/-mtune: the bare-metal toolchain's explicit
+		# rva23s64 profile, -mabi=lp64d and -mcmodel=medany must win (already true
+		# since this is a cross build with
+		# ONATIVE off and cpu!=x86, but make it explicit and future-proof).
+	elseif(NOT CMAKE_CROSSCOMPILING AND ONATIVE)
 		add_compile_options(-march=native)
 	elseif(NOT APPLE AND cpu STREQUAL "x86")
 		add_compile_options(-march=pentium3)
@@ -858,6 +975,7 @@ set(src_idlib
 	idlib/math/Rotation.cpp
 	idlib/math/Simd.cpp
 	idlib/math/Simd_Generic.cpp
+	idlib/math/Simd_RVV.cpp
 	idlib/math/Simd_AltiVec.cpp
 	idlib/math/Simd_MMX.cpp
 	idlib/math/Simd_3DNow.cpp
@@ -1183,7 +1301,28 @@ else()
 endif()
 
 
-if(AROS)
+if(BAREMETAL)
+	# Path B sys layer: keep the stock, portable, SDL3-based files (cpu/threads/
+	# events/glimp/sys_local) and replace ONLY the POSIX-specific files
+	# (posix_main.cpp + posix_net.cpp + linux/main.cpp) with riscv/engine/sys_dos.cpp.
+	# The CRT (_start/_cstart), entry adapter (kmain) and newlib bottom-end live in
+	# riscv/{boot,engine} and are added to the link group, not as engine TUs here.
+	set(src_sys_base
+		sys/cpu.cpp
+		sys/threads.cpp
+		sys/events.cpp
+		sys/sys_local.cpp
+		"${BM_ENGINE_DIR}/sys_dos.cpp"   # Sys_* not covered by the SDL files + dhewm3_main
+		"${BM_ENGINE_DIR}/cxxrt.cpp"     # operator new/delete, __cxa_* glue
+		sys/platform.h
+		sys/sys_local.h
+		sys/sys_public.h
+	)
+
+	set(src_sys_core
+		sys/glimp.cpp                    # stock SDL3 GLimp -> SDL_GL_* -> dos driver
+	)
+elseif(AROS)
 	set(DHEWM3BINARY "ADoom3")
 	set(sys_libs ${sys_libs} dynmod)
 
@@ -1286,8 +1425,9 @@ include_directories(${CMAKE_BINARY_DIR})
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_library(idlib STATIC ${src_idlib})
-if(SDL3)
+if(SDL3 AND NOT BAREMETAL)
 	target_link_libraries(idlib SDL3::Headers) # so it can use SDL_Endian.h
+	# (BAREMETAL adds the prebuilt SDL3 headers via include_directories instead.)
 endif()
 if (AROS)
 	if(CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
@@ -1295,13 +1435,120 @@ if (AROS)
 	else()
 		set(AROS_ARCH ${CMAKE_SYSTEM_PROCESSOR})
 	endif()
+elseif(BAREMETAL)
+	# No -fPIC on the static bare-metal image (fixed-address, -fno-pic toolchain).
 else()
 	if(D3_COMPILER_IS_GCC_OR_CLANG AND NOT MINGW)
 		set_target_properties(idlib PROPERTIES COMPILE_FLAGS "-fPIC")
 	endif()
 endif()
 
+if(BAREMETAL)
+	# Some bare-metal sys/runtime sources live under riscv/ (outside neo/), which
+	# breaks source_group(TREE neo ...) ("not a prefix"). source_group is purely
+	# cosmetic IDE grouping, so make it a no-op for the bare-metal build.
+	function(source_group)
+	endfunction()
+endif()
+
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX neo FILES ${src_idlib})
+
+if(BAREMETAL)
+	# ----- bare-metal C runtime + renderer-backend static libs ---------------
+	# Built as plain C with the toolchain's freestanding C flags. These mirror the
+	# proven riscv/dos/Makefile recipe (boot + dos_syscalls + softgles2 backend +
+	# gl4es bridge + dos_present). The prebuilt libSDL3-riscv.a + libGL-riscv.a are
+	# linked directly (NOT rebuilt). See riscv/dos/Makefile "sdl-dos" target.
+	enable_language(ASM)
+
+	# 1) boot CRT (start.S/_start, runtime.c/_cstart, sbi.c, trap.c) + entry adapter.
+	add_library(bm_boot STATIC
+		"${BM_BOOT_DIR}/start.S"
+		"${BM_BOOT_DIR}/runtime.c"
+		"${BM_BOOT_DIR}/sbi.c"
+		"${BM_BOOT_DIR}/trap.c"
+		"${BM_BOOT_DIR}/irq.c"
+		"${BM_ENGINE_DIR}/engine_kmain.c"
+		"${BM_ENGINE_DIR}/dos_syscalls.c"
+		"${BM_ENGINE_DIR}/dos_hart_entry.S"
+		"${BM_ENGINE_DIR}/dos_thread.c"
+		"${BM_ENGINE_DIR}/dos_virtio_blk.c"   # virtio-blk MMIO read+write driver (doc 10)
+		"${BM_ENGINE_DIR}/dosfs.c"            # flat read-only dosfs reader  (doc 12)
+		"${BM_ENGINE_DIR}/dos_ramfs.c"        # writable save/config RAM overlay
+		"${BM_ENGINE_DIR}/savefs.c"           # persistent append-only journal (doc 13)
+	)
+	target_include_directories(bm_boot PRIVATE "${BAREMETAL_RISCV_DIR}")
+	target_compile_definitions(bm_boot PRIVATE
+		"BM_DEFER_PRECACHE=${BAREMETAL_DEFER_PRECACHE}"
+		"BM_QUIET_ASSET_LOADS=${BAREMETAL_QUIET_ASSET_LOADS}"
+		"BM_IO_STATS=${BAREMETAL_IO_STATS}"
+		"BM_SIMD_BENCH=${BAREMETAL_SIMD_BENCH}"
+		"BM_BOOT_TO_MENU=${BAREMETAL_BOOT_TO_MENU}"
+		"BM_RENDER_PROF=${BAREMETAL_RENDER_PROF}"
+	)
+
+	# 2) softgles2 software-rasteriser backend, namespaced to sgl2_* (so it backs
+	#    gl4es's GLES2 resolver), compiled exactly as riscv/dos/Makefile does.
+	add_library(bm_sgl STATIC
+		"${BM_SGL_DIR}/src/fb.c"
+		"${BM_SGL_DIR}/src/sg_diag.c"
+		"${BM_SGL_DIR}/src/sg_raster.c"
+		"${BM_SGL_DIR}/src/gles2.c"
+		"${BM_SGL_DIR}/src/glsl.c"
+		"${BM_SGL_DIR}/src/glsl_lex.c"
+		"${BM_SGL_DIR}/src/glsl_parse.c"
+		"${BM_SGL_DIR}/src/glsl_ir.c"
+		"${BM_SGL_DIR}/src/glsl_simt.c"
+		"${BM_SGL_DIR}/src/sg_kernels.c"
+		"${BM_SGL_DIR}/src/sg_mt.c"
+		"${BM_SGL_DIR}/src/sg_mt_prim.c"
+		"${BM_SGL_DIR}/src/sg_mt_tiles.c"
+		"${BM_SGL_DIR}/src/sg_mt_raster.c"
+		"${BM_SGL_DIR}/src/sg_mt_sched.c"
+		"${BM_SGL_DIR}/src/sg_state.c"
+		"${BM_SGL_DIR}/src/sg_vertex.c"
+		"${BM_SGL_DIR}/src/sg_frag.c"
+		"${BM_SGL_DIR}/src/sg_frame.c"
+		"${BM_SGL_DIR}/src/sg_framebin.c"
+		"${BM_SGL_DIR}/src/sg_prof.c"
+		"${BM_SGL_DIR}/src/sg_buffer.c"
+		"${BM_SGL_DIR}/src/sg_texture.c"
+		"${BM_SGL_DIR}/src/sg_framebuffer.c"
+		"${BM_SGL_DIR}/src/sg_shader.c"
+		"${BM_SGL_DIR}/src/sg_draw.c"
+		"${BM_SGL_DIR}/src/sg_clip.c"
+	)
+	target_compile_options(bm_sgl PRIVATE
+		-DSGL_BAREMETAL -fno-tree-loop-distribute-patterns -fno-math-errno
+		-include "${BM_BRIDGE_DIR}/sgl2_names.h")
+	target_include_directories(bm_sgl PRIVATE
+		"${BAREMETAL_RISCV_DIR}" "${BM_SGL_DIR}/include" "${BM_SGL_DIR}/src"
+		"${BM_BRIDGE_DIR}" "${BM_GL4ES_INCLUDE}")
+
+	# 3) gl4es <-> softgles2 bridge + the dos present/blit surface that the SDL3
+	#    "dos" video driver forwards into (DOS_GL_CreateContext/SwapWindow/...).
+	add_library(bm_bridge STATIC
+		"${BM_BRIDGE_DIR}/bridge.c"
+		"${BM_DOS_DIR}/dos_present.c"
+		"${BM_DOS_DIR}/dos_virtio_gpu.c"
+	)
+	target_compile_options(bm_bridge PRIVATE -DSGL_BAREMETAL)
+	target_include_directories(bm_bridge PRIVATE
+		"${BAREMETAL_RISCV_DIR}" "${BM_DOS_DIR}" "${BM_SGL_DIR}/include"
+		"${BM_BRIDGE_DIR}" "${BM_GL4ES_INCLUDE}")
+
+	# 4) dOS OpenAL ABI shim -> miniaudio device-less mixer -> serial PCM sink.
+	# The virtio-snd backend is selected later by compiling dos_audio.c with
+	# DOS_AUDIO_VIRTIO once the TX virtqueue driver is complete.
+	add_library(bm_audio STATIC
+		"${BM_AUDIO_DIR}/miniaudio_impl.c"
+		"${BM_AUDIO_DIR}/ma_stubs.c"
+		"${BM_AUDIO_DIR}/dos_audio.c"
+		"${BM_AUDIO_DIR}/openal/al.c"
+	)
+	target_include_directories(bm_audio BEFORE PRIVATE
+		"${BM_AUDIO_DIR}" "${BM_AUDIO_DIR}/openal" "${BAREMETAL_RISCV_DIR}")
+endif()
 
 if(HARDLINK_GAME)
 	if(BASE)
@@ -1341,6 +1588,33 @@ if(HARDLINK_GAME)
 else()
 	set_target_properties(${DHEWM3BINARY} PROPERTIES COMPILE_DEFINITIONS "__DOOM_DLL__;${TOOLS_DEFINES}")
 endif()
+if(BAREMETAL)
+	# -nostdlib static image at engine.ld's load address. The whole-program link
+	# group resolves the mutual references between the engine objects, idlib, the
+	# prebuilt SDL3 + gl4es, the softgles2 backend / bridge / dos present surface,
+	# the boot CRT, and newlib + the C++ ABI support libs. The DWARF unwinder is
+	# in libgcc.a (there is NO libgcc_eh.a for this newlib gcc16 - see status doc),
+	# and libsupc++.a provides __cxa_throw / personality (exceptions are ON).
+	set_target_properties(${DHEWM3BINARY} PROPERTIES
+		LINK_FLAGS "-nostdlib -static -Wl,--gc-sections -Wl,--build-id=none -T \"${BAREMETAL_ENGINE_LD}\"")
+	set_property(TARGET ${DHEWM3BINARY} APPEND PROPERTY
+		LINK_DEPENDS "${BAREMETAL_ENGINE_LD}")
+	# Use --start-group/--end-group around the archives so the link order between
+	# idlib, the engine objects (the exe's own objects come first automatically),
+	# SDL3, gl4es, softgles2, the bridge, the boot CRT and newlib is irrelevant.
+	target_link_libraries(${DHEWM3BINARY}
+		-Wl,--start-group
+		idlib
+		bm_sgl
+		bm_bridge
+		bm_audio
+		"${BM_SDL3_LIB}"
+		"${BM_GL4ES_LIB}"
+		bm_boot
+		-lc -lm -lstdc++ -lsupc++ -lgcc
+		-Wl,--end-group
+	)
+else()
 	set_target_properties(${DHEWM3BINARY} PROPERTIES LINK_FLAGS "${ldflags}")
 	set_target_properties(${DHEWM3BINARY} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/sys/osx/Info.plist)
 
@@ -1351,13 +1625,26 @@ endif()
 		${SDLx_LIBRARY}
 		${sys_libs}
 	)
+endif()
 
-	if(NOT APPLE AND NOT WIN32)
+	if(NOT APPLE AND NOT WIN32 AND NOT BAREMETAL)
 		install(TARGETS ${DHEWM3BINARY}
 				RUNTIME DESTINATION "${bindir}"
 				LIBRARY DESTINATION "${libdir}"
 				ARCHIVE DESTINATION "${libdir}"
 		)
+	endif()
+
+	if(BAREMETAL)
+		# `cmake --build build-rv --target dist` rebuilds the engine, then stamps
+		# every built bare-metal rv64 ELF payload into riscv/dist/ with a MANIFEST
+		# (git hash, sizes, sha256, run commands). The script validates each ELF.
+		add_custom_target(dist
+			COMMAND bash "${BAREMETAL_RISCV_DIR}/scripts/stamp-dist.sh" "$<TARGET_FILE:${DHEWM3BINARY}>"
+			DEPENDS ${DHEWM3BINARY}
+			WORKING_DIRECTORY "${BAREMETAL_RISCV_DIR}/.."
+			COMMENT "Stamping rv64 ELF payloads -> riscv/dist/"
+			USES_TERMINAL VERBATIM)
 	endif()
 endif()
 

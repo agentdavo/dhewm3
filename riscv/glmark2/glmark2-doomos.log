@@ -1,0 +1,696 @@
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/djs/dhewm3/riscv/glmark2/build-cmake-doomos
+[  1%] Building C object CMakeFiles/glmark2_gles_loader.dir/src/glad/src/gles2.c.obj
+[  1%] Linking C static library libglmark2_gles_loader.a
+[  1%] Built target glmark2_gles_loader
+[  2%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/adler32.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c: In function 'adler32_z':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c:63:15: warning: old-style function definition [-Wold-style-definition]
+   63 | uLong ZEXPORT adler32_z(adler, buf, len)
+      |               ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c: In function 'adler32':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c:134:15: warning: old-style function definition [-Wold-style-definition]
+  134 | uLong ZEXPORT adler32(adler, buf, len)
+      |               ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c: In function 'adler32_combine_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c:143:13: warning: old-style function definition [-Wold-style-definition]
+  143 | local uLong adler32_combine_(adler1, adler2, len2)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c: In function 'adler32_combine':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c:172:15: warning: old-style function definition [-Wold-style-definition]
+  172 | uLong ZEXPORT adler32_combine(adler1, adler2, len2)
+      |               ^~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c: In function 'adler32_combine64':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/adler32.c:180:15: warning: old-style function definition [-Wold-style-definition]
+  180 | uLong ZEXPORT adler32_combine64(adler1, adler2, len2)
+      |               ^~~~~~~~~~~~~~~~~
+[  2%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/compress.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/compress.c: In function 'compress2':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/compress.c:22:13: warning: old-style function definition [-Wold-style-definition]
+   22 | int ZEXPORT compress2 (dest, destLen, source, sourceLen, level)
+      |             ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/compress.c: In function 'compress':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/compress.c:68:13: warning: old-style function definition [-Wold-style-definition]
+   68 | int ZEXPORT compress (dest, destLen, source, sourceLen)
+      |             ^~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/compress.c: In function 'compressBound':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/compress.c:81:15: warning: old-style function definition [-Wold-style-definition]
+   81 | uLong ZEXPORT compressBound (sourceLen)
+      |               ^~~~~~~~~~~~~
+[  3%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/crc32.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32_z':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:202:23: warning: old-style function definition [-Wold-style-definition]
+  202 | unsigned long ZEXPORT crc32_z(crc, buf, len)
+      |                       ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:237:23: warning: old-style function definition [-Wold-style-definition]
+  237 | unsigned long ZEXPORT crc32(crc, buf, len)
+      |                       ^~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32_little':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:266:21: warning: old-style function definition [-Wold-style-definition]
+  266 | local unsigned long crc32_little(crc, buf, len)
+      |                     ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32_big':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:306:21: warning: old-style function definition [-Wold-style-definition]
+  306 | local unsigned long crc32_big(crc, buf, len)
+      |                     ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'gf2_matrix_times':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:344:21: warning: old-style function definition [-Wold-style-definition]
+  344 | local unsigned long gf2_matrix_times(mat, vec)
+      |                     ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'gf2_matrix_square':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:361:12: warning: old-style function definition [-Wold-style-definition]
+  361 | local void gf2_matrix_square(square, mat)
+      |            ^~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32_combine_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:372:13: warning: old-style function definition [-Wold-style-definition]
+  372 | local uLong crc32_combine_(crc1, crc2, len2)
+      |             ^~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32_combine':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:428:15: warning: old-style function definition [-Wold-style-definition]
+  428 | uLong ZEXPORT crc32_combine(crc1, crc2, len2)
+      |               ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c: In function 'crc32_combine64':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/crc32.c:436:15: warning: old-style function definition [-Wold-style-definition]
+  436 | uLong ZEXPORT crc32_combine64(crc1, crc2, len2)
+      |               ^~~~~~~~~~~~~~~
+[  3%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/deflate.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'slide_hash':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:201:12: warning: old-style function definition [-Wold-style-definition]
+  201 | local void slide_hash(s)
+      |            ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateInit_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:228:13: warning: old-style function definition [-Wold-style-definition]
+  228 | int ZEXPORT deflateInit_(strm, level, version, stream_size)
+      |             ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateInit2_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:240:13: warning: old-style function definition [-Wold-style-definition]
+  240 | int ZEXPORT deflateInit2_(strm, level, method, windowBits, memLevel, strategy,
+      |             ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateStateCheck':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:353:11: warning: old-style function definition [-Wold-style-definition]
+  353 | local int deflateStateCheck (strm)
+      |           ^~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateSetDictionary':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:376:13: warning: old-style function definition [-Wold-style-definition]
+  376 | int ZEXPORT deflateSetDictionary (strm, dictionary, dictLength)
+      |             ^~~~~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateGetDictionary':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:445:13: warning: old-style function definition [-Wold-style-definition]
+  445 | int ZEXPORT deflateGetDictionary (strm, dictionary, dictLength)
+      |             ^~~~~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateResetKeep':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:467:13: warning: old-style function definition [-Wold-style-definition]
+  467 | int ZEXPORT deflateResetKeep (strm)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateReset':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:505:13: warning: old-style function definition [-Wold-style-definition]
+  505 | int ZEXPORT deflateReset (strm)
+      |             ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateSetHeader':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:517:13: warning: old-style function definition [-Wold-style-definition]
+  517 | int ZEXPORT deflateSetHeader (strm, head)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflatePending':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:528:13: warning: old-style function definition [-Wold-style-definition]
+  528 | int ZEXPORT deflatePending (strm, pending, bits)
+      |             ^~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflatePrime':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:542:13: warning: old-style function definition [-Wold-style-definition]
+  542 | int ZEXPORT deflatePrime (strm, bits, value)
+      |             ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateParams':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:568:13: warning: old-style function definition [-Wold-style-definition]
+  568 | int ZEXPORT deflateParams(strm, level, strategy)
+      |             ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateTune':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:617:13: warning: old-style function definition [-Wold-style-definition]
+  617 | int ZEXPORT deflateTune(strm, good_length, max_lazy, nice_length, max_chain)
+      |             ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateBound':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:652:15: warning: old-style function definition [-Wold-style-definition]
+  652 | uLong ZEXPORT deflateBound(strm, sourceLen)
+      |               ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'putShortMSB':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:716:12: warning: old-style function definition [-Wold-style-definition]
+  716 | local void putShortMSB (s, b)
+      |            ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'flush_pending':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:730:12: warning: old-style function definition [-Wold-style-definition]
+  730 | local void flush_pending(strm)
+      |            ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflate':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:763:13: warning: old-style function definition [-Wold-style-definition]
+  763 | int ZEXPORT deflate (strm, flush)
+      |             ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateEnd':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1076:13: warning: old-style function definition [-Wold-style-definition]
+ 1076 | int ZEXPORT deflateEnd (strm)
+      |             ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflateCopy':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1102:13: warning: old-style function definition [-Wold-style-definition]
+ 1102 | int ZEXPORT deflateCopy (dest, source)
+      |             ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'read_buf':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1164:16: warning: old-style function definition [-Wold-style-definition]
+ 1164 | local unsigned read_buf(strm, buf, size)
+      |                ^~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'lm_init':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1194:12: warning: old-style function definition [-Wold-style-definition]
+ 1194 | local void lm_init (s)
+      |            ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'longest_match':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1236:12: warning: old-style function definition [-Wold-style-definition]
+ 1236 | local uInt longest_match(s, cur_match)
+      |            ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'fill_window':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1482:12: warning: old-style function definition [-Wold-style-definition]
+ 1482 | local void fill_window(s)
+      |            ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflate_stored':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1643:19: warning: old-style function definition [-Wold-style-definition]
+ 1643 | local block_state deflate_stored(s, flush)
+      |                   ^~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflate_fast':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1824:19: warning: old-style function definition [-Wold-style-definition]
+ 1824 | local block_state deflate_fast(s, flush)
+      |                   ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflate_slow':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:1926:19: warning: old-style function definition [-Wold-style-definition]
+ 1926 | local block_state deflate_slow(s, flush)
+      |                   ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflate_rle':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:2057:19: warning: old-style function definition [-Wold-style-definition]
+ 2057 | local block_state deflate_rle(s, flush)
+      |                   ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c: In function 'deflate_huff':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/deflate.c:2130:19: warning: old-style function definition [-Wold-style-definition]
+ 2130 | local block_state deflate_huff(s, flush)
+      |                   ^~~~~~~~~~~~
+[  4%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/infback.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c: In function 'inflateBackInit_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c:28:13: warning: old-style function definition [-Wold-style-definition]
+   28 | int ZEXPORT inflateBackInit_(strm, windowBits, window, version, stream_size)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c: In function 'fixedtables':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c:82:12: warning: old-style function definition [-Wold-style-definition]
+   82 | local void fixedtables(state)
+      |            ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c: In function 'inflateBack':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c:250:13: warning: old-style function definition [-Wold-style-definition]
+  250 | int ZEXPORT inflateBack(strm, in, in_desc, out, out_desc)
+      |             ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c: In function 'inflateBackEnd':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/infback.c:631:13: warning: old-style function definition [-Wold-style-definition]
+  631 | int ZEXPORT inflateBackEnd(strm)
+      |             ^~~~~~~~~~~~~~
+[  5%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/inffast.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inffast.c: In function 'inflate_fast':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inffast.c:50:20: warning: old-style function definition [-Wold-style-definition]
+   50 | void ZLIB_INTERNAL inflate_fast(strm, start)
+      |                    ^~~~~~~~~~~~
+[  5%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/inflate.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateStateCheck':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:105:11: warning: old-style function definition [-Wold-style-definition]
+  105 | local int inflateStateCheck(strm)
+      |           ^~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateResetKeep':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:119:13: warning: old-style function definition [-Wold-style-definition]
+  119 | int ZEXPORT inflateResetKeep(strm)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateReset':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:144:13: warning: old-style function definition [-Wold-style-definition]
+  144 | int ZEXPORT inflateReset(strm)
+      |             ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateReset2':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:157:13: warning: old-style function definition [-Wold-style-definition]
+  157 | int ZEXPORT inflateReset2(strm, windowBits)
+      |             ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateInit2_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:195:13: warning: old-style function definition [-Wold-style-definition]
+  195 | int ZEXPORT inflateInit2_(strm, windowBits, version, stream_size)
+      |             ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateInit_':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:239:13: warning: old-style function definition [-Wold-style-definition]
+  239 | int ZEXPORT inflateInit_(strm, version, stream_size)
+      |             ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflatePrime':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:247:13: warning: old-style function definition [-Wold-style-definition]
+  247 | int ZEXPORT inflatePrime(strm, bits, value)
+      |             ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'fixedtables':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:278:12: warning: old-style function definition [-Wold-style-definition]
+  278 | local void fixedtables(state)
+      |            ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'updatewindow':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:396:11: warning: old-style function definition [-Wold-style-definition]
+  396 | local int updatewindow(strm, end, copy)
+      |           ^~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflate':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:622:13: warning: old-style function definition [-Wold-style-definition]
+  622 | int ZEXPORT inflate(strm, flush)
+      |             ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateEnd':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1277:13: warning: old-style function definition [-Wold-style-definition]
+ 1277 | int ZEXPORT inflateEnd(strm)
+      |             ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateGetDictionary':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1291:13: warning: old-style function definition [-Wold-style-definition]
+ 1291 | int ZEXPORT inflateGetDictionary(strm, dictionary, dictLength)
+      |             ^~~~~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateSetDictionary':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1314:13: warning: old-style function definition [-Wold-style-definition]
+ 1314 | int ZEXPORT inflateSetDictionary(strm, dictionary, dictLength)
+      |             ^~~~~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateGetHeader':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1349:13: warning: old-style function definition [-Wold-style-definition]
+ 1349 | int ZEXPORT inflateGetHeader(strm, head)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'syncsearch':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1377:16: warning: old-style function definition [-Wold-style-definition]
+ 1377 | local unsigned syncsearch(have, buf, len)
+      |                ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateSync':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1400:13: warning: old-style function definition [-Wold-style-definition]
+ 1400 | int ZEXPORT inflateSync(strm)
+      |             ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateSyncPoint':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1451:13: warning: old-style function definition [-Wold-style-definition]
+ 1451 | int ZEXPORT inflateSyncPoint(strm)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateCopy':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1461:13: warning: old-style function definition [-Wold-style-definition]
+ 1461 | int ZEXPORT inflateCopy(dest, source)
+      |             ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateUndermine':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1508:13: warning: old-style function definition [-Wold-style-definition]
+ 1508 | int ZEXPORT inflateUndermine(strm, subvert)
+      |             ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateValidate':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1526:13: warning: old-style function definition [-Wold-style-definition]
+ 1526 | int ZEXPORT inflateValidate(strm, check)
+      |             ^~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateMark':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1541:14: warning: old-style function definition [-Wold-style-definition]
+ 1541 | long ZEXPORT inflateMark(strm)
+      |              ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c: In function 'inflateCodesUsed':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inflate.c:1554:23: warning: old-style function definition [-Wold-style-definition]
+ 1554 | unsigned long ZEXPORT inflateCodesUsed(strm)
+      |                       ^~~~~~~~~~~~~~~~
+[  6%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/inftrees.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inftrees.c: In function 'inflate_table':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/inftrees.c:32:19: warning: old-style function definition [-Wold-style-definition]
+   32 | int ZLIB_INTERNAL inflate_table(type, lens, codes, table, bits, work)
+      |                   ^~~~~~~~~~~~~
+[  6%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/trees.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function '_tr_init':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:379:20: warning: old-style function definition [-Wold-style-definition]
+  379 | void ZLIB_INTERNAL _tr_init(s)
+      |                    ^~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'init_block':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:407:12: warning: old-style function definition [-Wold-style-definition]
+  407 | local void init_block(s)
+      |            ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'pqdownheap':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:451:12: warning: old-style function definition [-Wold-style-definition]
+  451 | local void pqdownheap(s, tree, k)
+      |            ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'gen_bitlen':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:486:12: warning: old-style function definition [-Wold-style-definition]
+  486 | local void gen_bitlen(s, desc)
+      |            ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'gen_codes':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:572:12: warning: old-style function definition [-Wold-style-definition]
+  572 | local void gen_codes (tree, max_code, bl_count)
+      |            ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'build_tree':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:615:12: warning: old-style function definition [-Wold-style-definition]
+  615 | local void build_tree(s, desc)
+      |            ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'scan_tree':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:703:12: warning: old-style function definition [-Wold-style-definition]
+  703 | local void scan_tree (s, tree, max_code)
+      |            ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'send_tree':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:748:12: warning: old-style function definition [-Wold-style-definition]
+  748 | local void send_tree (s, tree, max_code)
+      |            ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'build_bl_tree':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:799:11: warning: old-style function definition [-Wold-style-definition]
+  799 | local int build_bl_tree(s)
+      |           ^~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'send_all_trees':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:834:12: warning: old-style function definition [-Wold-style-definition]
+  834 | local void send_all_trees(s, lcodes, dcodes, blcodes)
+      |            ^~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function '_tr_stored_block':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:863:20: warning: old-style function definition [-Wold-style-definition]
+  863 | void ZLIB_INTERNAL _tr_stored_block(s, buf, stored_len, last)
+      |                    ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function '_tr_flush_bits':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:886:20: warning: old-style function definition [-Wold-style-definition]
+  886 | void ZLIB_INTERNAL _tr_flush_bits(s)
+      |                    ^~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function '_tr_align':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:896:20: warning: old-style function definition [-Wold-style-definition]
+  896 | void ZLIB_INTERNAL _tr_align(s)
+      |                    ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function '_tr_flush_block':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:911:20: warning: old-style function definition [-Wold-style-definition]
+  911 | void ZLIB_INTERNAL _tr_flush_block(s, buf, stored_len, last)
+      |                    ^~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function '_tr_tally':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:1014:19: warning: old-style function definition [-Wold-style-definition]
+ 1014 | int ZLIB_INTERNAL _tr_tally (s, dist, lc)
+      |                   ^~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'compress_block':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:1064:12: warning: old-style function definition [-Wold-style-definition]
+ 1064 | local void compress_block(s, ltree, dtree)
+      |            ^~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'detect_data_type':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:1124:11: warning: old-style function definition [-Wold-style-definition]
+ 1124 | local int detect_data_type(s)
+      |           ^~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'bi_reverse':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:1158:16: warning: old-style function definition [-Wold-style-definition]
+ 1158 | local unsigned bi_reverse(code, len)
+      |                ^~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'bi_flush':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:1173:12: warning: old-style function definition [-Wold-style-definition]
+ 1173 | local void bi_flush(s)
+      |            ^~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c: In function 'bi_windup':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/trees.c:1190:12: warning: old-style function definition [-Wold-style-definition]
+ 1190 | local void bi_windup(s)
+      |            ^~~~~~~~~
+[  7%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/uncompr.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/uncompr.c: In function 'uncompress2':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/uncompr.c:27:13: warning: old-style function definition [-Wold-style-definition]
+   27 | int ZEXPORT uncompress2 (dest, destLen, source, sourceLen)
+      |             ^~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/uncompr.c: In function 'uncompress':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/uncompr.c:86:13: warning: old-style function definition [-Wold-style-definition]
+   86 | int ZEXPORT uncompress (dest, destLen, source, sourceLen)
+      |             ^~~~~~~~~~
+[  7%] Building C object CMakeFiles/glmark2_zlib.dir/src/zlib/zutil.c.obj
+/home/djs/dhewm3/riscv/glmark2/src/zlib/zutil.c: In function 'zError':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/zutil.c:133:22: warning: old-style function definition [-Wold-style-definition]
+  133 | const char * ZEXPORT zError(err)
+      |                      ^~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/zutil.c: In function 'zcalloc':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/zutil.c:305:22: warning: old-style function definition [-Wold-style-definition]
+  305 | voidpf ZLIB_INTERNAL zcalloc (opaque, items, size)
+      |                      ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/zlib/zutil.c: In function 'zcfree':
+/home/djs/dhewm3/riscv/glmark2/src/zlib/zutil.c:315:20: warning: old-style function definition [-Wold-style-definition]
+  315 | void ZLIB_INTERNAL zcfree (opaque, ptr)
+      |                    ^~~~~~
+[  8%] Linking C static library libglmark2_zlib.a
+[  8%] Built target glmark2_zlib
+[  9%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/png.c.obj
+[  9%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngerror.c.obj
+[ 10%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pnggccrd.c.obj
+[ 11%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngget.c.obj
+[ 11%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngmem.c.obj
+[ 12%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngpread.c.obj
+[ 12%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngread.c.obj
+[ 13%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngrio.c.obj
+[ 13%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngrtran.c.obj
+[ 14%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngrutil.c.obj
+[ 14%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngset.c.obj
+[ 15%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngtrans.c.obj
+[ 16%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngvcrd.c.obj
+[ 16%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngwio.c.obj
+[ 17%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngwrite.c.obj
+[ 17%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngwtran.c.obj
+[ 18%] Building C object CMakeFiles/glmark2_png.dir/src/libpng/pngwutil.c.obj
+[ 18%] Linking C static library libglmark2_png.a
+[ 18%] Built target glmark2_png
+[ 19%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcapimin.c.obj
+[ 19%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcapistd.c.obj
+[ 20%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jccoefct.c.obj
+[ 20%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jccolor.c.obj
+[ 21%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcdctmgr.c.obj
+[ 21%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jchuff.c.obj
+[ 22%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcinit.c.obj
+[ 23%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcmainct.c.obj
+[ 23%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcmarker.c.obj
+[ 24%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcmaster.c.obj
+[ 24%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcomapi.c.obj
+[ 25%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcparam.c.obj
+[ 25%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcphuff.c.obj
+[ 26%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcprepct.c.obj
+[ 26%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jcsample.c.obj
+[ 27%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdapimin.c.obj
+[ 27%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdapistd.c.obj
+[ 28%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdatadst.c.obj
+[ 29%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdatasrc.c.obj
+[ 29%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdcoefct.c.obj
+[ 30%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdcolor.c.obj
+[ 30%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jddctmgr.c.obj
+[ 31%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdhuff.c.obj
+[ 31%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdinput.c.obj
+[ 32%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdmainct.c.obj
+[ 32%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdmarker.c.obj
+[ 33%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdmaster.c.obj
+[ 33%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdmerge.c.obj
+[ 34%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdphuff.c.obj
+[ 35%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdpostct.c.obj
+[ 35%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jdsample.c.obj
+[ 36%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jerror.c.obj
+[ 36%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jfdctflt.c.obj
+[ 37%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jfdctfst.c.obj
+[ 37%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jfdctint.c.obj
+[ 38%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jidctflt.c.obj
+[ 38%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jidctfst.c.obj
+[ 39%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jidctint.c.obj
+[ 40%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jidctred.c.obj
+[ 40%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jmemmgr.c.obj
+[ 41%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jmemnobs.c.obj
+[ 41%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jquant1.c.obj
+[ 42%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jquant2.c.obj
+[ 42%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jsimd_none.c.obj
+[ 43%] Building C object CMakeFiles/glmark2_jpeg.dir/src/libjpeg-turbo/jutils.c.obj
+[ 43%] Linking C static library libglmark2_jpeg.a
+[ 43%] Built target glmark2_jpeg
+[ 43%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/fb.c.obj
+[ 44%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_diag.c.obj
+[ 45%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_raster.c.obj
+[ 45%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/gles2.c.obj
+[ 46%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/glsl.c.obj
+[ 46%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/glsl_lex.c.obj
+[ 47%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/glsl_parse.c.obj
+[ 47%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/glsl_ir.c.obj
+[ 48%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/glsl_simt.c.obj
+[ 48%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_mt.c.obj
+[ 49%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_mt_prim.c.obj
+[ 49%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_mt_tiles.c.obj
+[ 50%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_mt_raster.c.obj
+[ 51%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_mt_sched.c.obj
+[ 51%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_state.c.obj
+[ 52%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_vertex.c.obj
+[ 52%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_frag.c.obj
+[ 53%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_buffer.c.obj
+[ 53%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_texture.c.obj
+[ 54%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_framebuffer.c.obj
+[ 54%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_shader.c.obj
+[ 55%] Building C object CMakeFiles/softgles2.dir/home/djs/dhewm3/riscv/softgles2/src/sg_draw.c.obj
+[ 56%] Linking C static library libsoftgles2.a
+[ 56%] Built target softgles2
+[ 57%] Building CXX object CMakeFiles/glmark2_common.dir/src/benchmark-collection.cpp.obj
+[ 58%] Building CXX object CMakeFiles/glmark2_common.dir/src/benchmark.cpp.obj
+[ 58%] Building CXX object CMakeFiles/glmark2_common.dir/src/gl-headers.cpp.obj
+[ 59%] Building CXX object CMakeFiles/glmark2_common.dir/src/gl-visual-config.cpp.obj
+[ 59%] Building CXX object CMakeFiles/glmark2_common.dir/src/image-reader.cpp.obj
+[ 60%] Building CXX object CMakeFiles/glmark2_common.dir/src/libmatrix/log.cc.obj
+[ 60%] Building CXX object CMakeFiles/glmark2_common.dir/src/libmatrix/mat.cc.obj
+[ 61%] Building CXX object CMakeFiles/glmark2_common.dir/src/libmatrix/program.cc.obj
+[ 61%] Building CXX object CMakeFiles/glmark2_common.dir/src/libmatrix/shader-source.cc.obj
+[ 62%] Building CXX object CMakeFiles/glmark2_common.dir/src/libmatrix/util.cc.obj
+[ 63%] Building CXX object CMakeFiles/glmark2_common.dir/src/main-loop.cpp.obj
+[ 63%] Building CXX object CMakeFiles/glmark2_common.dir/src/mesh.cpp.obj
+[ 64%] Building CXX object CMakeFiles/glmark2_common.dir/src/model.cpp.obj
+[ 64%] Building CXX object CMakeFiles/glmark2_common.dir/src/options.cpp.obj
+[ 65%] Building CXX object CMakeFiles/glmark2_common.dir/src/results-file.cpp.obj
+[ 65%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-buffer.cpp.obj
+[ 66%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-build.cpp.obj
+[ 66%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-bump.cpp.obj
+[ 67%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-clear.cpp.obj
+[ 67%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-conditionals.cpp.obj
+[ 68%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene.cpp.obj
+[ 69%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-default-options.cpp.obj
+[ 69%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-desktop.cpp.obj
+[ 70%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-effect-2d.cpp.obj
+[ 70%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-function.cpp.obj
+[ 71%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-grid.cpp.obj
+[ 71%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/a.cc.obj
+[ 72%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas.cpp.obj
+[ 72%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/d.cc.obj
+[ 73%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/e.cc.obj
+[ 74%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/i.cc.obj
+[ 74%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/lamp.cc.obj
+[ 75%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/logo.cc.obj
+[ 75%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/m.cc.obj
+[ 76%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/n.cc.obj
+[ 76%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/o.cc.obj
+[ 77%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/s.cc.obj
+[ 77%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/splines.cc.obj
+[ 78%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/table.cc.obj
+[ 78%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-ideas/t.cc.obj
+[ 79%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-jellyfish.cpp.obj
+[ 80%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-loop.cpp.obj
+[ 80%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-pulsar.cpp.obj
+[ 81%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-refract.cpp.obj
+[ 81%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-shading.cpp.obj
+[ 82%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-shadow.cpp.obj
+[ 82%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/base-renderer.cpp.obj
+[ 83%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/blur-renderer.cpp.obj
+[ 83%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/copy-renderer.cpp.obj
+[ 84%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain.cpp.obj
+[ 85%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/luminance-renderer.cpp.obj
+[ 85%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/normal-from-height-renderer.cpp.obj
+[ 86%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/overlay-renderer.cpp.obj
+[ 86%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/renderer-chain.cpp.obj
+[ 87%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/simplex-noise-renderer.cpp.obj
+[ 87%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/terrain-renderer.cpp.obj
+[ 88%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-terrain/texture-renderer.cpp.obj
+[ 88%] Building CXX object CMakeFiles/glmark2_common.dir/src/scene-texture.cpp.obj
+[ 89%] Building CXX object CMakeFiles/glmark2_common.dir/src/text-renderer.cpp.obj
+[ 89%] Building CXX object CMakeFiles/glmark2_common.dir/src/texture.cpp.obj
+[ 90%] Linking CXX static library libglmark2_common.a
+[ 90%] Built target glmark2_common
+[ 90%] Building ASM object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/boot/start.S.obj
+[ 91%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/boot/runtime.c.obj
+[ 91%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/boot/sbi.c.obj
+[ 92%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/boot/trap.c.obj
+[ 92%] Building ASM object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/dos_hart_entry.S.obj
+[ 93%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/dos_syscalls.c.obj
+[ 93%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/dos_thread.c.obj
+[ 94%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/dos_virtio_blk.c.obj
+[ 94%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/dosfs.c.obj
+[ 95%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/dos_ramfs.c.obj
+[ 96%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/savefs.c.obj
+[ 96%] Building CXX object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/engine/cxxrt.cpp.obj
+[ 97%] Building C object CMakeFiles/doomos_runtime.dir/home/djs/dhewm3/riscv/libc/string.c.obj
+[ 97%] Building C object CMakeFiles/doomos_runtime.dir/src/doomos-compat.c.obj
+[ 97%] Built target doomos_runtime
+[ 98%] Building CXX object CMakeFiles/glmark2-es2-doomos.dir/src/doomos-kmain.cpp.obj
+[ 98%] Building CXX object CMakeFiles/glmark2-es2-doomos.dir/src/main.cpp.obj
+[ 99%] Building CXX object CMakeFiles/glmark2-es2-doomos.dir/src/canvas-generic.cpp.obj
+[ 99%] Building CXX object CMakeFiles/glmark2-es2-doomos.dir/src/native-state-null.cpp.obj
+[100%] Building CXX object CMakeFiles/glmark2-es2-doomos.dir/src/gl-state-doomos.cpp.obj
+In file included from /home/djs/dhewm3/riscv/glmark2/src/gl-state-doomos.cpp:139:
+/home/djs/dhewm3/riscv/glmark2/src/../../softgles2/include/sgl_gl.h:162:9: warning: 'GL_RGB8' redefined
+  162 | #define GL_RGB8              0x8051
+      |         ^~~~~~~
+In file included from /home/djs/dhewm3/riscv/glmark2/src/gl-state-doomos.cpp:3:
+/home/djs/dhewm3/riscv/glmark2/src/gl-headers.h:65:9: note: this is the location of the previous definition
+   65 | #define GL_RGB8 GL_RGB8_OES
+      |         ^~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/../../softgles2/include/sgl_gl.h:163:9: warning: 'GL_RGBA8' redefined
+  163 | #define GL_RGBA8             0x8058
+      |         ^~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/gl-headers.h:62:9: note: this is the location of the previous definition
+   62 | #define GL_RGBA8 GL_RGBA8_OES
+      |         ^~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/../../softgles2/include/sgl_gl.h:176:9: warning: 'GL_DEPTH_COMPONENT24' redefined
+  176 | #define GL_DEPTH_COMPONENT24 0x81A6
+      |         ^~~~~~~~~~~~~~~~~~~~
+/home/djs/dhewm3/riscv/glmark2/src/gl-headers.h:56:9: note: this is the location of the previous definition
+   56 | #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
+      |         ^~~~~~~~~~~~~~~~~~~~
+[100%] Linking CXX executable glmark2-es2-doomos
+[100%] Built target glmark2-es2-doomos
+dosfs: 135 files, dir_off=512, data_off=17920, image=9476096 bytes (9 MiB)
+savefs: no write-region (legacy image)
++ qemu-system-riscv64  -accel tcg,thread=multi,tb-size=1024  -cpu rva23s64,vlen=1024,v=true,vext_spec=v1.0,elen=64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zfh=true,zvfh=true,zvfbfmin=true,zvfbfwma=true,zvbc=true,zvkng=true,zvksg=true  -m 4G  -smp 4  -drive /home/djs/dhewm3/riscv/glmark2/build-cmake-doomos/glmark2.img  -pin-harts 0,1,2,3
++ machine: virt,acpi=off
++ kernel: /home/djs/dhewm3/riscv/glmark2/build-cmake-doomos/glmark2-es2-doomos
+---------------------------------------------------------------
+[pin] hart/vCPU 0 thread 996 (CPU 0/TCG) -> host CPU 0
+[pin] hart/vCPU 1 thread 997 (CPU 1/TCG) -> host CPU 1
+[pin] hart/vCPU 2 thread 998 (CPU 2/TCG) -> host CPU 2
+[pin] hart/vCPU 3 thread 999 (CPU 3/TCG) -> host CPU 3
+
+OpenSBI v1.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name               : riscv-virtio,qemu
+Platform Features           : medeleg
+Platform HART Count         : 4
+Platform IPI Device         : aclint-mswi
+Platform Timer Device       : aclint-mtimer @ 10000000Hz
+Platform Console Device     : uart8250
+Platform HSM Device         : ---
+Platform PMU Device         : ---
+Platform Reboot Device      : syscon-reboot
+Platform Shutdown Device    : syscon-poweroff
+Platform Suspend Device     : ---
+Platform CPPC Device        : ---
+Firmware Base               : 0x80000000
+Firmware Size               : 353 KB
+Firmware RW Offset          : 0x40000
+Firmware RW Size            : 97 KB
+Firmware Heap Offset        : 0x4c000
+Firmware Heap Size          : 49 KB (total), 3 KB (reserved), 12 KB (used), 33 KB (free)
+Firmware Scratch Size       : 4096 B (total), 1400 B (used), 2696 B (free)
+Runtime SBI Version         : 3.0
+Standard SBI Extensions     : time,rfnc,ipi,base,hsm,srst,pmu,dbcn,fwft,legacy,dbtr,sse
+Experimental SBI Extensions : none
+
+Domain0 Name                : root
+Domain0 Boot HART           : 1
+Domain0 HARTs               : 0*,1*,2*,3*
+Domain0 Region00            : 0x0000000000100000-0x0000000000100fff M: (I,R,W) S/U: (R,W)
+Domain0 Region01            : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
+Domain0 Region02            : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region03            : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region04            : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region05            : 0x000000000c400000-0x000000000c5fffff M: (I,R,W) S/U: (R,W)
+Domain0 Region06            : 0x000000000c000000-0x000000000c3fffff M: (I,R,W) S/U: (R,W)
+Domain0 Region07            : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
+Domain0 Next Address        : 0x0000000080200000
+Domain0 Next Arg1           : 0x000000017fe00000
+Domain0 Next Mode           : S-mode
+Domain0 SysReset            : yes
+Domain0 SysSuspend          : yes
+
+Boot HART ID                : 1
+Boot HART Domain            : root
+Boot HART Priv Version      : v1.12
+Boot HART Base ISA          : rv64imafdcbvh
+Boot HART ISA Extensions    : smstateen,sscofpmf,sstc,zicntr,zihpm,zicboz,zicbom,svpbmt,sdtrig,svade,smnpm,ssstateen
+Boot HART PMP Count         : 0
+Boot HART PMP Granularity   : 0 bits
+Boot HART PMP Address Bits  : 0
+Boot HART MHPM Info         : 16 (0x0007fff8)
+Boot HART Debug Triggers    : 2 triggers
+Boot HART MIDELEG           : 0x0000000000003666
+Boot HART MEDELEG           : 0x0000000000f4b509
+[glmark2] kmain: entering main (1 benchmark(s): build:use-vbo=false:duration=1)
+[glmark2] dosfs: mounted 135 files
+[dos-thread] boot hart 1; HSM reports 4 hart(s) present (scan max 8)
+=======================================================
+    glmark2 2023.01-doomos
+=======================================================
+    OpenGL Information
+    GL_VENDOR:      dhewm3-riscv
+    GL_RENDERER:    softgles2 (RVV software rasteriser)
+    GL_VERSION:     OpenGL ES 2.0 (softgles2 v0)
+    Surface Config: buf=32 r=8 g=8 b=8 a=8 depth=24 stencil=8 samples=0
+    Surface Size:   320x240 windowed
+=======================================================
+[build] duration=1:use-vbo=false: FPS: 3 FrameTime: 350.735 ms
+=======================================================
+                                  glmark2 Score: 2 
+=======================================================
+[glmark2] kmain: main returned

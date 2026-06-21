@@ -1,0 +1,43 @@
+diff --git a/src/gl/fpe.c b/src/gl/fpe.c
+index 7d53643..01f9e78 100644
+--- a/src/gl/fpe.c
++++ b/src/gl/fpe.c
+@@ -300,7 +300,7 @@ uniform_t* findUniform(khash_t(uniformlist) *uniforms, const char* name)
+ void APIENTRY_GL4ES fpe_oldprogram(fpe_state_t* state) {
+     LOAD_GLES2(glGetShaderInfoLog);
+     LOAD_GLES2(glGetProgramInfoLog);
+-    GLint status;
++    GLint status = GL_FALSE;   // never leave it uninitialised: a failed CreateShader must read as "not ok"
+     // There is an old program (either vtx or frg or both)
+     oldprogram_t* old_vtx = getOldProgram(state->vertex_prg_id);
+     oldprogram_t* old_frg = getOldProgram(state->fragment_prg_id);
+@@ -318,7 +318,7 @@ void APIENTRY_GL4ES fpe_oldprogram(fpe_state_t* state) {
+             else
+                 printf("LIBGL: FPE ARB Vertex program compile failed: %s\n", buff);
+         }
+-        getShader(glstate->fpe->vert)->old = old_vtx;
++        { shader_t* s = getShader(glstate->fpe->vert); if(s) s->old = old_vtx; }   // vert may be 0 if the shader pool is exhausted
+     } else {
+         // use fragment need to build default vertex shader
+         gl4es_glShaderSource(glstate->fpe->vert, 1, fpe_VertexShader(&old_frg->shader->need, state), NULL);
+@@ -344,7 +344,7 @@ void APIENTRY_GL4ES fpe_oldprogram(fpe_state_t* state) {
+             else
+                 printf("LIBGL: FPE ARB Fragment program compile failed: %s\n", buff);
+         }
+-        getShader(glstate->fpe->frag)->old = old_frg;
++        { shader_t* s = getShader(glstate->fpe->frag); if(s) s->old = old_frg; }   // frag may be 0 if the shader pool is exhausted
+     } else {
+         // use vertex need to build default fragment shader
+         gl4es_glShaderSource(glstate->fpe->frag, 1, fpe_FragmentShader(&old_vtx->shader->need, state), NULL);
+diff --git a/src/gl/shader.c b/src/gl/shader.c
+index 0bde8f1..78b58b2 100644
+--- a/src/gl/shader.c
++++ b/src/gl/shader.c
+@@ -309,6 +309,7 @@ void APIENTRY_GL4ES gl4es_glGetShaderInfoLog(GLuint shader, GLsizei maxLength, G
+ 
+ void APIENTRY_GL4ES gl4es_glGetShaderiv(GLuint shader, GLenum pname, GLint *params) {
+     DBG(printf("glGetShaderiv(%d, %s, %p)\n", shader, PrintEnum(pname), params);)
++    if(params) *params = 0;   // defined output even for an invalid handle (e.g. CreateShader returned 0)
+     // find shader
+     CHECK_SHADER(void, shader)
+     LOAD_GLES2(glGetShaderiv);

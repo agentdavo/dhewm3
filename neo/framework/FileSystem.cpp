@@ -3555,11 +3555,19 @@ idFileSystemLocal::StartBackgroundReadThread
 =================
 */
 void idFileSystemLocal::StartBackgroundDownloadThread() {
+#ifdef BAREMETAL
+	// No curl (DL_URL) and the SP demo path queues no background file reads, so
+	// this thread would just block forever in Sys_WaitForEvent() — permanently
+	// occupying one of our few harts. Skip it so the softgles2 band-parallel
+	// raster gets that hart instead (at -smp 4: frees hart 3 -> 2 raster workers).
+	return;
+#else
 	if ( !backgroundThread.threadHandle ) {
 		Sys_CreateThread( BackgroundDownloadThread, &backgroundThread_exit, backgroundThread, "backgroundDownload" );
 	} else {
 		common->Printf( "background thread already running\n" );
 	}
+#endif
 }
 
 /*

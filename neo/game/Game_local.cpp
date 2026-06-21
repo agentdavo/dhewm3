@@ -51,6 +51,22 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "Game_local.h"
 
+#ifdef BAREMETAL
+extern "C" void bm_io_stats_print(void);
+extern "C" int bm_io_stats_enabled(void);
+static ID_INLINE void BM_GamePrintIOStatsPhase( const char *phase ) {
+	if ( !bm_io_stats_enabled() ) {
+		return;
+	}
+	common->Printf( "[io] phase=%s\n", phase );
+	bm_io_stats_print();
+}
+#else
+static ID_INLINE void BM_GamePrintIOStatsPhase( const char *phase ) {
+	(void)phase;
+}
+#endif
+
 #ifndef GAME_DLL
 #include "tools/compilers/aas/AASFileManager.h"
 #endif
@@ -891,6 +907,10 @@ Initializes all map variables common to both save games and spawned games.
 void idGameLocal::LoadMap( const char *mapName, int randseed ) {
 	int i;
 	bool sameMap = (mapFile && idStr::Icmp(mapFileName, mapName) == 0);
+	int startMsec = Sys_Milliseconds();
+	int phaseMsec;
+
+	Printf( "[demoflow] game.LoadMap ENTER map=%s same=%d\n", mapName, sameMap ? 1 : 0 );
 
 	// clear the sound system
 	gameSoundWorld->ClearAllSoundEmitters();
@@ -903,16 +923,25 @@ void idGameLocal::LoadMap( const char *mapName, int randseed ) {
 			delete mapFile;
 		}
 		mapFile = new idMapFile;
+		phaseMsec = Sys_Milliseconds();
 		if ( !mapFile->Parse( idStr( mapName ) + ".map" ) ) {
 			delete mapFile;
 			mapFile = NULL;
 			Error( "Couldn't load %s", mapName );
 		}
+		Printf( "[demoflow] game.LoadMap mapFile.Parse EXIT dt=%dms entities=%d\n",
+			Sys_Milliseconds() - phaseMsec, mapFile->GetNumEntities() );
+	} else {
+		Printf( "[demoflow] game.LoadMap mapFile.Parse SKIP sameMap=1 entities=%d\n",
+			mapFile->GetNumEntities() );
 	}
 	mapFileName = mapFile->GetName();
 
 	// load the collision map
+	phaseMsec = Sys_Milliseconds();
 	collisionModelManager->LoadMap( mapFile );
+	Printf( "[demoflow] game.LoadMap collisionModelManager.LoadMap EXIT dt=%dms\n",
+		Sys_Milliseconds() - phaseMsec );
 
 	numClients = 0;
 
@@ -979,19 +1008,26 @@ void idGameLocal::LoadMap( const char *mapName, int randseed ) {
 	playerConnectedAreas.i = -1;
 
 	// load navigation system for all the different monster sizes
+	phaseMsec = Sys_Milliseconds();
 	for( i = 0; i < aasNames.Num(); i++ ) {
 		aasList[ i ]->Init( idStr( mapFileName ).SetFileExtension( aasNames[ i ] ).c_str(), mapFile->GetGeometryCRC() );
 	}
+	Printf( "[demoflow] game.LoadMap AAS init EXIT dt=%dms count=%d\n",
+		Sys_Milliseconds() - phaseMsec, aasNames.Num() );
 
 	// clear the smoke particle free list
 	smokeParticles->Init();
 
 	// cache miscellanious media references
+	phaseMsec = Sys_Milliseconds();
 	FindEntityDef( "preCacheExtras", false );
+	Printf( "[demoflow] game.LoadMap preCacheExtras EXIT dt=%dms\n",
+		Sys_Milliseconds() - phaseMsec );
 
 	if ( !sameMap ) {
 		mapFile->RemovePrimitiveData();
 	}
+	Printf( "[demoflow] game.LoadMap EXIT dt=%dms\n", Sys_Milliseconds() - startMsec );
 }
 
 /*
@@ -1213,6 +1249,8 @@ idGameLocal::InitFromNewMap
 ===================
 */
 void idGameLocal::InitFromNewMap( const char *mapName, idRenderWorld *renderWorld, idSoundWorld *soundWorld, bool isServer, bool isClient, int randseed) {
+	int startMsec = Sys_Milliseconds();
+	int phaseMsec;
 
 	this->isServer = isServer;
 	this->isClient = isClient;
@@ -1229,20 +1267,38 @@ void idGameLocal::InitFromNewMap( const char *mapName, idRenderWorld *renderWorl
 	gameRenderWorld = renderWorld;
 	gameSoundWorld = soundWorld;
 
+	phaseMsec = Sys_Milliseconds();
 	LoadMap( mapName, randseed );
+	Printf( "[demoflow] game.InitFromNewMap LoadMap EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
+	BM_GamePrintIOStatsPhase( "game.LoadMap" );
 
+	phaseMsec = Sys_Milliseconds();
 	InitScriptForMap();
+	Printf( "[demoflow] game.InitFromNewMap InitScriptForMap EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
+	phaseMsec = Sys_Milliseconds();
 	MapPopulate();
+	Printf( "[demoflow] game.InitFromNewMap MapPopulate EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
+	BM_GamePrintIOStatsPhase( "game.MapPopulate" );
 
 	mpGame.Reset();
 
+	phaseMsec = Sys_Milliseconds();
 	mpGame.Precache();
+	Printf( "[demoflow] game.InitFromNewMap mpGame.Precache EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	// free up any unused animations
+	phaseMsec = Sys_Milliseconds();
 	animationLib.FlushUnusedAnims();
+	Printf( "[demoflow] game.InitFromNewMap FlushUnusedAnims EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	gamestate = GAMESTATE_ACTIVE;
+	Printf( "[demoflow] game.InitFromNewMap EXIT dt=%dms\n", Sys_Milliseconds() - startMsec );
 }
 
 /*
@@ -1255,6 +1311,8 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 	int num;
 	idEntity *ent;
 	idDict si;
+	int startMsec = Sys_Milliseconds();
+	int phaseMsec;
 
 	if ( mapFileName.Length() ) {
 		MapShutdown();
@@ -1302,9 +1360,13 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 	// DG end
 
 	// Create the list of all objects in the game
+	phaseMsec = Sys_Milliseconds();
 	savegame.CreateObjects();
+	Printf( "[demoflow] game.InitFromSaveGame CreateObjects EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	// Load the idProgram, also checking to make sure scripting hasn't changed since the savegame
+	phaseMsec = Sys_Milliseconds();
 	if ( program.Restore( &savegame ) == false ) {
 
 		// Abort the load process, and let the session know so that it can restart the level
@@ -1314,14 +1376,20 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 
 		return false;
 	}
+	Printf( "[demoflow] game.InitFromSaveGame program.Restore EXIT dt=%dms total=%dms ok=1\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	// load the map needed for this savegame
+	phaseMsec = Sys_Milliseconds();
 	LoadMap( mapName, 0 );
+	Printf( "[demoflow] game.InitFromSaveGame LoadMap EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	savegame.ReadInt( i );
 	g_skill.SetInteger( i );
 
 	// precache the player
+	phaseMsec = Sys_Milliseconds();
 	FindEntityDef( "player_doommarine", false );
 
 	// precache any media specified in the map
@@ -1336,6 +1404,8 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 			}
 		}
 	}
+	Printf( "[demoflow] game.InitFromSaveGame map-media-precache EXIT dt=%dms total=%dms entities=%d\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec, mapFile->GetNumEntities() );
 
 	savegame.ReadDict( &si );
 	SetServerInfo( si );
@@ -1356,6 +1426,8 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 			entities[ i ]->entityNumber = i;
 		}
 	}
+	Printf( "[demoflow] game.InitFromSaveGame read-entity-table EXIT total=%dms\n",
+		Sys_Milliseconds() - startMsec );
 
 	savegame.ReadInt( firstFreeIndex );
 	savegame.ReadInt( num_entities );
@@ -1478,19 +1550,29 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 	// shakeSounds
 
 	// Read out pending events
+	phaseMsec = Sys_Milliseconds();
 	idEvent::Restore( &savegame );
+	Printf( "[demoflow] game.InitFromSaveGame idEvent.Restore EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
+	phaseMsec = Sys_Milliseconds();
 	savegame.RestoreObjects();
+	Printf( "[demoflow] game.InitFromSaveGame RestoreObjects EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	mpGame.Reset();
 
 	mpGame.Precache();
 
 	// free up any unused animations
+	phaseMsec = Sys_Milliseconds();
 	animationLib.FlushUnusedAnims();
+	Printf( "[demoflow] game.InitFromSaveGame FlushUnusedAnims EXIT dt=%dms total=%dms\n",
+		Sys_Milliseconds() - phaseMsec, Sys_Milliseconds() - startMsec );
 
 	gamestate = GAMESTATE_ACTIVE;
 
+	Printf( "[demoflow] game.InitFromSaveGame EXIT dt=%dms\n", Sys_Milliseconds() - startMsec );
 	return true;
 }
 
@@ -1718,8 +1800,34 @@ merging the entitydef.  It could be done post-merge, but that would
 avoid the fast pre-cache check associated with each entityDef
 ===================
 */
+static bool bm_cacheMediaProfileActive = false;
+static int bm_cacheMediaCalls = 0;
+static int bm_cacheMediaModelKeys = 0;
+static int bm_cacheMediaRenderModelCalls = 0;
+static int bm_cacheMediaCollisionModelCalls = 0;
+static int bm_cacheMediaSoundKeys = 0;
+static int bm_cacheMediaGuiKeys = 0;
+static int bm_cacheMediaRenderModelMsec = 0;
+static int bm_cacheMediaCollisionModelMsec = 0;
+static int bm_cacheMediaSoundMsec = 0;
+static int bm_cacheMediaGuiMsec = 0;
+static int bm_cacheMediaTotalMsec = 0;
+
 void idGameLocal::CacheDictionaryMedia( const idDict *dict ) {
 	const idKeyValue *kv;
+	int profileStartMsec = 0;
+	int phaseMsec = 0;
+
+	// bare metal: render-model, sound and GUI precache is a cache-warm only —
+	// each gets reloaded lazily on first spawn/render/play, so deferring it just
+	// moves the cost off the map-load path (most of it never gets touched for an
+	// early-frame capture). Collision models stay (cheap, needed for clip).
+	const bool deferPrecache = g_bmDeferPrecache.GetBool();
+
+	if ( bm_cacheMediaProfileActive ) {
+		profileStartMsec = Sys_Milliseconds();
+		bm_cacheMediaCalls++;
+	}
 
 	if ( dict == NULL ) {
 		if ( cvarSystem->GetCVarBool( "com_makingBuild") ) {
@@ -1735,45 +1843,85 @@ void idGameLocal::CacheDictionaryMedia( const idDict *dict ) {
 	kv = dict->MatchPrefix( "model" );
 	while( kv ) {
 		if ( kv->GetValue().Length() ) {
+			if ( bm_cacheMediaProfileActive ) {
+				bm_cacheMediaModelKeys++;
+			}
 			declManager->MediaPrint( "Precaching model %s\n", kv->GetValue().c_str() );
 			// precache model/animations
 			if ( declManager->FindType( DECL_MODELDEF, kv->GetValue(), false ) == NULL ) {
 				// precache the render model
-				renderModelManager->FindModel( kv->GetValue() );
+				if ( !deferPrecache ) {
+					if ( bm_cacheMediaProfileActive ) {
+						phaseMsec = Sys_Milliseconds();
+					}
+					renderModelManager->FindModel( kv->GetValue() );
+					if ( bm_cacheMediaProfileActive ) {
+						bm_cacheMediaRenderModelMsec += Sys_Milliseconds() - phaseMsec;
+						bm_cacheMediaRenderModelCalls++;
+					}
+				}
+				if ( bm_cacheMediaProfileActive ) {
+					phaseMsec = Sys_Milliseconds();
+				}
 				// precache .cm files only
 				collisionModelManager->LoadModel( kv->GetValue(), true );
+				if ( bm_cacheMediaProfileActive ) {
+					bm_cacheMediaCollisionModelMsec += Sys_Milliseconds() - phaseMsec;
+					bm_cacheMediaCollisionModelCalls++;
+				}
 			}
 		}
 		kv = dict->MatchPrefix( "model", kv );
 	}
 
 	kv = dict->FindKey( "s_shader" );
-	if ( kv && kv->GetValue().Length() ) {
+	if ( kv && kv->GetValue().Length() && !deferPrecache ) {
+		if ( bm_cacheMediaProfileActive ) {
+			phaseMsec = Sys_Milliseconds();
+			bm_cacheMediaSoundKeys++;
+		}
 		declManager->FindType( DECL_SOUND, kv->GetValue() );
+		if ( bm_cacheMediaProfileActive ) {
+			bm_cacheMediaSoundMsec += Sys_Milliseconds() - phaseMsec;
+		}
 	}
 
 	kv = dict->MatchPrefix( "snd", NULL );
-	while( kv ) {
+	while( kv && !deferPrecache ) {
 		if ( kv->GetValue().Length() ) {
+			if ( bm_cacheMediaProfileActive ) {
+				phaseMsec = Sys_Milliseconds();
+				bm_cacheMediaSoundKeys++;
+			}
 			declManager->FindType( DECL_SOUND, kv->GetValue() );
+			if ( bm_cacheMediaProfileActive ) {
+				bm_cacheMediaSoundMsec += Sys_Milliseconds() - phaseMsec;
+			}
 		}
 		kv = dict->MatchPrefix( "snd", kv );
 	}
 
 
 	kv = dict->MatchPrefix( "gui", NULL );
-	while( kv ) {
+	while( kv && !deferPrecache ) {
 		if ( kv->GetValue().Length() ) {
 			if ( !idStr::Icmp( kv->GetKey(), "gui_noninteractive" )
 				|| !idStr::Icmpn( kv->GetKey(), "gui_parm", 8 )
 				|| !idStr::Icmp( kv->GetKey(), "gui_inventory" ) ) {
 				// unfortunate flag names, they aren't actually a gui
 			} else {
+				if ( bm_cacheMediaProfileActive ) {
+					phaseMsec = Sys_Milliseconds();
+					bm_cacheMediaGuiKeys++;
+				}
 				declManager->MediaPrint( "Precaching gui %s\n", kv->GetValue().c_str() );
 				idUserInterface *gui = uiManager->Alloc();
 				if ( gui ) {
 					gui->InitFromFile( kv->GetValue() );
 					uiManager->DeAlloc( gui );
+				}
+				if ( bm_cacheMediaProfileActive ) {
+					bm_cacheMediaGuiMsec += Sys_Milliseconds() - phaseMsec;
 				}
 			}
 		}
@@ -1872,6 +2020,10 @@ void idGameLocal::CacheDictionaryMedia( const idDict *dict ) {
 			declManager->FindType( DECL_AUDIO, kv->GetValue().c_str(), false );
 		}
 		kv = dict->MatchPrefix( "audio", kv );
+	}
+
+	if ( bm_cacheMediaProfileActive ) {
+		bm_cacheMediaTotalMsec += Sys_Milliseconds() - profileStartMsec;
 	}
 }
 
@@ -2253,6 +2405,12 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 	gameReturn_t		ret;
 	idPlayer			*player;
 	const renderView_t	*view;
+#if defined(BAREMETAL)
+	int					bm_runFrameStartMsec = Sys_Milliseconds();
+	int					bm_thinkStartMsec = 0;
+	int					bm_slowestThinkMsec = 0;
+	const char *		bm_slowestThinkName = "";
+#endif
 
 #ifdef _DEBUG
 	if ( isMultiplayer ) {
@@ -2273,6 +2431,9 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 			player->Think();
 		}
 	} else do {
+#if defined(BAREMETAL)
+		Printf( "[demoflow] game.RunFrame ENTER framenum=%d time=%d\n", framenum, time );
+#endif
 		// update the game time
 		framenum++;
 		previousTime = time;
@@ -2325,6 +2486,12 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 
 		timer_think.Clear();
 		timer_think.Start();
+#if defined(BAREMETAL)
+		bm_thinkStartMsec = Sys_Milliseconds();
+		bm_slowestThinkMsec = 0;
+		bm_slowestThinkName = "";
+		Printf( "[demoflow] game.RunFrame Think START active-list\n" );
+#endif
 
 		// let entities think
 		if ( g_timeentities.GetFloat() ) {
@@ -2339,6 +2506,12 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 				ent->Think();
 				timer_singlethink.Stop();
 				ms = timer_singlethink.Milliseconds();
+#if defined(BAREMETAL)
+				if ( ms > bm_slowestThinkMsec ) {
+					bm_slowestThinkMsec = idMath::FtoiFast( ms );
+					bm_slowestThinkName = ent->name.c_str();
+				}
+#endif
 				if ( ms >= g_timeentities.GetFloat() ) {
 					Printf( "%d: entity '%s': %.1f ms\n", time, ent->name.c_str(), ms );
 				}
@@ -2352,13 +2525,41 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 						ent->GetPhysics()->UpdateTime( time );
 						continue;
 					}
+#if defined(BAREMETAL)
+					int bm_entStartMsec = Sys_Milliseconds();
+					if ( ( num & 63 ) == 0 && bm_entStartMsec - bm_thinkStartMsec > 5000 ) {
+						Printf( "[demoflow] game.RunFrame Think progress entity=%d name=%s elapsed=%dms\n",
+							num, ent->name.c_str(), bm_entStartMsec - bm_thinkStartMsec );
+					}
+#endif
 					ent->Think();
+#if defined(BAREMETAL)
+					int bm_entMsec = Sys_Milliseconds() - bm_entStartMsec;
+					if ( bm_entMsec > bm_slowestThinkMsec ) {
+						bm_slowestThinkMsec = bm_entMsec;
+						bm_slowestThinkName = ent->name.c_str();
+					}
+#endif
 					num++;
 				}
 			} else {
 				num = 0;
 				for( ent = activeEntities.Next(); ent != NULL; ent = ent->activeNode.Next() ) {
+#if defined(BAREMETAL)
+					int bm_entStartMsec = Sys_Milliseconds();
+					if ( ( num & 63 ) == 0 && bm_entStartMsec - bm_thinkStartMsec > 5000 ) {
+						Printf( "[demoflow] game.RunFrame Think progress entity=%d name=%s elapsed=%dms\n",
+							num, ent->name.c_str(), bm_entStartMsec - bm_thinkStartMsec );
+					}
+#endif
 					ent->Think();
+#if defined(BAREMETAL)
+					int bm_entMsec = Sys_Milliseconds() - bm_entStartMsec;
+					if ( bm_entMsec > bm_slowestThinkMsec ) {
+						bm_slowestThinkMsec = bm_entMsec;
+						bm_slowestThinkName = ent->name.c_str();
+					}
+#endif
 					num++;
 				}
 			}
@@ -2380,13 +2581,28 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 		}
 
 		timer_think.Stop();
+#if defined(BAREMETAL)
+		if ( timer_think.Milliseconds() > 500 ) {
+			Printf( "[demoflow] game.RunFrame Think EXIT dt=%ums active=%d slowest=%dms name=%s total=%dms\n",
+				timer_think.Milliseconds(), num, bm_slowestThinkMsec, bm_slowestThinkName,
+				Sys_Milliseconds() - bm_runFrameStartMsec );
+		}
+#endif
 		timer_events.Clear();
 		timer_events.Start();
+#if defined(BAREMETAL)
+		Printf( "[demoflow] game.RunFrame ServiceEvents START total=%dms\n",
+			Sys_Milliseconds() - bm_runFrameStartMsec );
+#endif
 
 		// service any pending events
 		idEvent::ServiceEvents();
 
 		timer_events.Stop();
+#if defined(BAREMETAL)
+		Printf( "[demoflow] game.RunFrame ServiceEvents EXIT dt=%ums total=%dms\n",
+			timer_events.Milliseconds(), Sys_Milliseconds() - bm_runFrameStartMsec );
+#endif
 
 		// free the player pvs
 		FreePlayerPVS();
@@ -2440,11 +2656,30 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 	if ( skipCinematic ) {
 		soundSystem->SetMute( false );
 		skipCinematic = false;
+		// Headless/bare-metal: g_skipCinematic fast-forwards the intro camera, but the
+		// map script's fade-IN (scheduled to run after the cinematic finishes) may not
+		// have executed, leaving the screen faded to opaque black over the live, lit
+		// world. Force-clear the local player's screen fade so the world is visible
+		// immediately after an auto-skip. Only when g_skipCinematic drove the skip.
+		if ( g_skipCinematic.GetBool() ) {
+			idPlayer *skp = GetLocalPlayer();
+			if ( skp ) {
+				skp->playerView.Fade( idVec4( 0.0f, 0.0f, 0.0f, 0.0f ), 0 );
+			}
+		}
 	}
 
 	// show any debug info for this frame
+#if defined(BAREMETAL)
+	Printf( "[demoflow] game.RunFrame Debug START total=%dms\n",
+		Sys_Milliseconds() - bm_runFrameStartMsec );
+#endif
 	RunDebugInfo();
 	D_DrawDebugLines();
+#if defined(BAREMETAL)
+	Printf( "[demoflow] game.RunFrame EXIT total=%dms\n",
+		Sys_Milliseconds() - bm_runFrameStartMsec );
+#endif
 
 	return ret;
 }
@@ -3283,6 +3518,8 @@ void idGameLocal::SpawnMapEntities( void ) {
 	idMapEntity	*mapEnt;
 	int			numEntities;
 	idDict		args;
+	int			startMsec = Sys_Milliseconds();
+	int			phaseMsec;
 
 	Printf( "Spawning entities\n" );
 
@@ -3300,15 +3537,30 @@ void idGameLocal::SpawnMapEntities( void ) {
 
 	// the worldspawn is a special that performs any global setup
 	// needed by a level
+	phaseMsec = Sys_Milliseconds();
 	mapEnt = mapFile->GetEntity( 0 );
 	args = mapEnt->epairs;
 	args.SetInt( "spawn_entnum", ENTITYNUM_WORLD );
 	if ( !SpawnEntityDef( args ) || !entities[ ENTITYNUM_WORLD ] || !entities[ ENTITYNUM_WORLD ]->IsType( idWorldspawn::Type ) ) {
 		Error( "Problem spawning world entity" );
 	}
+	Printf( "[demoflow] game.SpawnMapEntities worldspawn EXIT dt=%dms\n",
+		Sys_Milliseconds() - phaseMsec );
 
 	num = 1;
 	inhibit = 0;
+	bm_cacheMediaProfileActive = true;
+	bm_cacheMediaCalls = 0;
+	bm_cacheMediaModelKeys = 0;
+	bm_cacheMediaRenderModelCalls = 0;
+	bm_cacheMediaCollisionModelCalls = 0;
+	bm_cacheMediaSoundKeys = 0;
+	bm_cacheMediaGuiKeys = 0;
+	bm_cacheMediaRenderModelMsec = 0;
+	bm_cacheMediaCollisionModelMsec = 0;
+	bm_cacheMediaSoundMsec = 0;
+	bm_cacheMediaGuiMsec = 0;
+	bm_cacheMediaTotalMsec = 0;
 
 	for ( i = 1 ; i < numEntities ; i++ ) {
 		mapEnt = mapFile->GetEntity( i );
@@ -3324,8 +3576,18 @@ void idGameLocal::SpawnMapEntities( void ) {
 			inhibit++;
 		}
 	}
+	bm_cacheMediaProfileActive = false;
 
 	Printf( "...%i entities spawned, %i inhibited\n\n", num, inhibit );
+	Printf( "[demoflow] game.SpawnMapEntities loop EXIT dt=%dms spawned=%d inhibited=%d entities=%d\n",
+		Sys_Milliseconds() - startMsec, num, inhibit, numEntities );
+	Printf( "[demoflow] game.SpawnMapEntities media-cache calls=%d total=%dms modelKeys=%d renderCalls=%d renderMs=%d collisionCalls=%d collisionMs=%d soundKeys=%d soundMs=%d guiKeys=%d guiMs=%d\n",
+		bm_cacheMediaCalls, bm_cacheMediaTotalMsec, bm_cacheMediaModelKeys,
+		bm_cacheMediaRenderModelCalls, bm_cacheMediaRenderModelMsec,
+		bm_cacheMediaCollisionModelCalls, bm_cacheMediaCollisionModelMsec,
+		bm_cacheMediaSoundKeys, bm_cacheMediaSoundMsec, bm_cacheMediaGuiKeys,
+		bm_cacheMediaGuiMsec );
+	BM_GamePrintIOStatsPhase( "game.SpawnMapEntities" );
 }
 
 /*
@@ -3962,6 +4224,15 @@ void idGameLocal::SetCamera( idCamera *cam ) {
 	camera = cam;
 	if ( camera ) {
 		inCinematic = true;
+
+		// Headless/bare-metal: there is no input to press ESC, so a map's intro
+		// cinematic would cover the player view forever. g_skipCinematic auto-skips
+		// it via the normal SkipCinematic() path (fast-forwards the cinematic in one
+		// frame) so the lit world renders. Leave "disconnect" cameras alone — those
+		// drop back to the menu, which is the demo-end, not gameplay.
+		if ( g_skipCinematic.GetBool() && !camera->spawnArgs.GetBool( "disconnect" ) ) {
+			SkipCinematic();
+		}
 
 		if ( skipCinematic && camera->spawnArgs.GetBool( "disconnect" ) ) {
 			camera->spawnArgs.SetBool( "disconnect", false );

@@ -455,6 +455,19 @@ idCVar joy_deltaPerMSLook( "joy_deltaPerMSLook", "0.003", CVAR_FLOAT | CVAR_ARCH
 
 idCVar in_useGamepad( "in_useGamepad", "1", CVAR_ARCHIVE | CVAR_BOOL, "enables/disables the gamepad for PC use" );
 
+// Bare-metal / headless scripted movement: with no HID backend, Sys_GetEvent yields
+// no events, so keyState/buttonState never change and the player stands still. When
+// in_scriptedMove is set, MakeCurrent() writes a deterministic usercmd directly (walk
+// forward + slow continuous yaw), bypassing key bindings and the dead input path. The
+// per-tic yaw is a pure function of the tic count (no wall-clock/RNG) so it is
+// reproducible under slow TCG. Default 0 => desktop builds are unaffected.
+idCVar in_scriptedMove( "in_scriptedMove", "0", CVAR_SYSTEM | CVAR_BOOL, "headless: inject a deterministic scripted usercmd (walk fwd + slow yaw) with no HID" );
+idCVar in_scriptedFwd( "in_scriptedFwd", "127", CVAR_SYSTEM | CVAR_INTEGER, "scripted forwardmove (-127..127)", -127, 127 );
+idCVar in_scriptedSide( "in_scriptedSide", "0", CVAR_SYSTEM | CVAR_INTEGER, "scripted rightmove/strafe (-127..127)", -127, 127 );
+idCVar in_scriptedYawPerTic( "in_scriptedYawPerTic", "0.25", CVAR_SYSTEM | CVAR_FLOAT, "scripted yaw degrees added per 60Hz tic (0.25 => ~15 deg/sec)" );
+idCVar in_scriptedPitch( "in_scriptedPitch", "0", CVAR_SYSTEM | CVAR_FLOAT, "scripted absolute view pitch in degrees (-89..89)", -89, 89 );
+idCVar in_scriptedRun( "in_scriptedRun", "0", CVAR_SYSTEM | CVAR_BOOL, "scripted movement uses run speed (BUTTON_RUN)" );
+
 // TODO idCVar in_mouseInvertLook( "in_mouseInvertLook", "0", CVAR_ARCHIVE | CVAR_BOOL, "inverts the look controls so the forward looks up (flight controls) - the proper way to play games!" );
 
 static idUsercmdGenLocal localUsercmdGen;
@@ -1065,6 +1078,24 @@ void idUsercmdGenLocal::MakeCurrent( void ) {
 	} else {
 		mouseDx = 0;
 		mouseDy = 0;
+	}
+
+	// Bare-metal / headless scripted movement. No real input exists on this build,
+	// so drive the player deterministically by writing the usercmd directly. Runs
+	// once per game tic (RunGameTic -> GetDirectUsercmd -> MakeCurrent), so a constant
+	// forwardmove plus a fixed per-tic yaw delta accumulates into a smooth walk+pan
+	// that is a pure function of the tic count (safe/reproducible under slow TCG).
+	// Placed before the ANGLE2SHORT loop so the scripted yaw lands in cmd.angles this
+	// same tic. Gated by !Inhibited() so it correctly pauses under menus/GUI/console.
+	if ( in_scriptedMove.GetBool() && !Inhibited() ) {
+		cmd.forwardmove = idMath::ClampChar( in_scriptedFwd.GetInteger() );
+		cmd.rightmove   = idMath::ClampChar( in_scriptedSide.GetInteger() );
+		cmd.upmove      = 0;
+		viewangles[YAW] += in_scriptedYawPerTic.GetFloat();
+		viewangles[PITCH] = in_scriptedPitch.GetFloat();
+		if ( in_scriptedRun.GetBool() ) {
+			cmd.buttons |= BUTTON_RUN;
+		}
 	}
 
 	for ( i = 0; i < 3; i++ ) {

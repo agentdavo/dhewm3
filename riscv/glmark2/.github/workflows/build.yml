@@ -1,0 +1,145 @@
+name: build
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  build-meson:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson libdrm-dev libgbm-dev libudev-dev libwayland-dev wayland-protocols libx11-dev
+    - name: Setup
+      run: meson setup build -Dflavors=x11-gl,x11-glesv2,x11-gl-egl,wayland-gl,wayland-glesv2,drm-gl,drm-glesv2,gbm-gl,gbm-glesv2,null-gl,null-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-only-drm:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson libdrm-dev libgbm-dev libudev-dev
+    - name: Setup
+      run: meson setup build -Dflavors=drm-gl,drm-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-only-gbm:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson libgbm-dev
+    - name: Setup
+      run: meson setup build -Dflavors=gbm-gl,gbm-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-only-wayland:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson libwayland-dev wayland-protocols
+    - name: Setup
+      run: meson setup build -Dflavors=wayland-gl,wayland-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-only-x11:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson libx11-dev
+    - name: Setup
+      run: meson setup build -Dflavors=x11-gl,x11-glesv2,x11-gl-egl
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-only-null:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson
+    - name: Setup
+      run: meson setup build -Dflavors=null-gl,null-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-only-dispmanx:
+    runs-on: ubuntu-22.04-arm
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson libraspberrypi-dev
+    - name: Setup
+      run: meson setup build -Dflavors=dispmanx-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-win32-mingw:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install meson mingw-w64
+    - name: Setup
+      run: meson setup --cross-file .github/x86_64-w64-mingw32.txt build -Dflavors=win32-gl,win32-glesv2
+    - name: Build
+      run: ninja -C build
+    - name: Install
+      run: DESTDIR=/tmp/glmark2-install ninja -C build install
+
+  build-meson-win32-msvc:
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install meson
+      run: pip install meson ninja
+    - name: Setup
+      run: meson setup --vsenv build -Dflavors='win32-gl,win32-glesv2'
+    - name: Build
+      run: meson compile -C build

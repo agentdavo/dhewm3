@@ -482,6 +482,11 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 	idToken			token;
 	idStr			filename;
 	idRenderModel *	lastModel;
+	int				startMsec = Sys_Milliseconds();
+	int				modelCount = 0;
+	int				shadowModelCount = 0;
+	int				portalBlockCount = 0;
+	int				nodeBlockCount = 0;
 
 	// if this is an empty world, initialize manually
 	if ( !name || !name[0] ) {
@@ -525,6 +530,8 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 		return false;
 	}
 
+	common->Printf( "[demoflow] +%dms rw->InitFromMap opened %s\n",
+		Sys_Milliseconds() - startMsec, filename.c_str() );
 
 	mapName = name;
 	mapTimeStamp = currentTimeStamp;
@@ -541,6 +548,7 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 	}
 
 	// parse the file
+	int parseStartMsec = Sys_Milliseconds();
 	while ( 1 ) {
 		if ( !src->ReadToken( &token ) ) {
 			break;
@@ -548,6 +556,7 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 
 		if ( token == "model" ) {
 			lastModel = ParseModel( src );
+			modelCount++;
 
 			// add it to the model manager list
 			renderModelManager->AddModel( lastModel );
@@ -559,6 +568,7 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 
 		if ( token == "shadowModel" ) {
 			lastModel = ParseShadowModel( src );
+			shadowModelCount++;
 
 			// add it to the model manager list
 			renderModelManager->AddModel( lastModel );
@@ -570,11 +580,13 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 
 		if ( token == "interAreaPortals" ) {
 			ParseInterAreaPortals( src );
+			portalBlockCount++;
 			continue;
 		}
 
 		if ( token == "nodes" ) {
 			ParseNodes( src );
+			nodeBlockCount++;
 			continue;
 		}
 
@@ -582,6 +594,9 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 	}
 
 	delete src;
+	common->Printf( "[demoflow] +%dms rw->InitFromMap parse proc models=%d shadow=%d portalBlocks=%d nodeBlocks=%d\n",
+		Sys_Milliseconds() - parseStartMsec, modelCount, shadowModelCount,
+		portalBlockCount, nodeBlockCount );
 
 	// if it was a trivial map without any areas, create a single area
 	if ( !numPortalAreas ) {
@@ -589,10 +604,18 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 	}
 
 	// find the points where we can early-our of reference pushing into the BSP tree
+	int bspStartMsec = Sys_Milliseconds();
 	CommonChildrenArea_r( &areaNodes[0] );
+	common->Printf( "[demoflow] +%dms rw->InitFromMap CommonChildrenArea areas=%d\n",
+		Sys_Milliseconds() - bspStartMsec, numPortalAreas );
 
+	int entitiesStartMsec = Sys_Milliseconds();
 	AddWorldModelEntities();
 	ClearPortalStates();
+	common->Printf( "[demoflow] +%dms rw->InitFromMap world refs/entities\n",
+		Sys_Milliseconds() - entitiesStartMsec );
+	common->Printf( "[demoflow] +%dms rw->InitFromMap DONE\n",
+		Sys_Milliseconds() - startMsec );
 
 	// done!
 	return true;

@@ -764,11 +764,17 @@ R_ReloadARBPrograms_f
 */
 void R_ReloadARBPrograms_f( const idCmdArgs &args ) {
 	int		i;
+	int		start = Sys_Milliseconds();
 
 	common->Printf( "----- R_ReloadARBPrograms -----\n" );
 	for ( i = 0 ; progs[i].name[0] ; i++ ) {
+		int programStart = Sys_Milliseconds();
 		R_LoadARBProgram( i );
+		common->Printf( "[demoflow] +%dms ARB program %s\n",
+			Sys_Milliseconds() - programStart, progs[i].name );
 	}
+	common->Printf( "[demoflow] +%dms R_ReloadARBPrograms DONE\n",
+		Sys_Milliseconds() - start );
 }
 
 /*

@@ -35,6 +35,7 @@ extern idCVar	developer;
 
 extern idCVar	g_cinematic;
 extern idCVar	g_cinematicMaxSkipTime;
+extern idCVar	g_skipCinematic;
 
 extern idCVar	r_aspectRatio;
 
@@ -250,6 +251,8 @@ extern idCVar	si_spectators;
 
 extern idCVar	net_clientSelfSmoothing;
 extern idCVar	net_clientLagOMeter;
+
+extern idCVar	g_bmDeferPrecache;
 
 extern const char *si_gameTypeArgs[];
 

@@ -44,6 +44,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "idlib/math/Simd_SSE2.h"
 #include "idlib/math/Simd_SSE3.h"
 #include "idlib/math/Simd_AltiVec.h"
+#include "idlib/math/Simd_RVV.h"
 #include "idlib/math/Plane.h"
 #include "idlib/bv/Bounds.h"
 #include "idlib/Lib.h"
@@ -86,6 +87,19 @@ void idSIMD::InitProcessor( const char *module, bool forceGeneric ) {
 	} else {
 
 		if ( !processor ) {
+#ifdef BAREMETAL
+			// The idSIMD_SSE/SSE2/SSE3/MMX/3DNow/AltiVec implementations (and
+			// their vtables) are #if'd out on non-x86/non-PPC (see Simd_SSE.cpp
+			// "#if defined(__GNUC__) && defined(__SSE__)"), so referencing
+			// "new idSIMD_SSE" here would be an undefined-vtable link error on
+			// RISC-V. Route RISC-V through the RVV subclass; it inherits generic
+			// behaviour until individual hot hooks are promoted to intrinsics.
+#if defined(__riscv)
+			processor = new idSIMD_RVV;
+#else
+			processor = generic;
+#endif
+#else
 			if ( ( cpuid & CPUID_ALTIVEC ) ) {
 				processor = new idSIMD_AltiVec;
 			} else if ( ( cpuid & CPUID_MMX ) && ( cpuid & CPUID_SSE ) && ( cpuid & CPUID_SSE2 ) && ( cpuid & CPUID_SSE3 ) ) {
@@ -101,6 +115,7 @@ void idSIMD::InitProcessor( const char *module, bool forceGeneric ) {
 			} else {
 				processor = generic;
 			}
+#endif
 			processor->cpuid = cpuid;
 		}
 
@@ -140,8 +155,20 @@ void idSIMD::Shutdown( void ) {
 //
 //===============================================================
 
+#if defined(BAREMETAL)
+#define COUNT		256			// bare metal: the Test* fns put several ALIGN16 float[COUNT]
+								// on the stack; keep it modest so the differential test does not
+								// overflow the boot stack (still exercises many vl groups + tail)
+#else
 #define COUNT		1024		// data count
+#endif
+#if defined(BAREMETAL)
+#define NUMTESTS	4			// bare metal / TCG: timing loops are meaningless under emulation;
+								// the RVV-vs-generic correctness compare runs once regardless, so
+								// keep the loop tiny (~500x faster boot for `testSIMD`)
+#else
 #define NUMTESTS	2048		// number of tests
+#endif
 
 #define RANDOM_SEED		1013904223L	//((int)idLib::sys->GetClockTicks())
 
@@ -4002,6 +4029,15 @@ void idSIMD::Test_f( const idCmdArgs &args ) {
 	p_simd = processor;
 	p_generic = generic;
 
+#ifdef BAREMETAL
+	// The arch-specific idSIMD_* classes are not compiled on RISC-V (see the
+	// InitProcessor comment above); only the generic path is available, so the
+	// "testSIMD <arch>" forms are unsupported on bare metal.
+	if ( idStr::Length( args.Argv( 1 ) ) != 0 ) {
+		common->Printf( "testSIMD: only the generic SIMD path is available on this target\n" );
+		return;
+	}
+#else
 	if ( idStr::Length( args.Argv( 1 ) ) != 0 ) {
 		int cpuid = idLib::sys->GetProcessorId();
 		idStr argString = args.Args();
@@ -4049,6 +4085,7 @@ void idSIMD::Test_f( const idCmdArgs &args ) {
 			return;
 		}
 	}
+#endif // BAREMETAL
 
 	idLib::common->SetRefreshOnPrint( true );
 
@@ -4056,7 +4093,11 @@ void idSIMD::Test_f( const idCmdArgs &args ) {
 
 	GetBaseClocks();
 
-	TestMath();
+#if !defined(BAREMETAL)
+	TestMath();   // scalar idMath self-test (fabs/sqrt/trig/pow) — not a SIMD-vs-generic
+	              // comparison; skip on bare metal (the idMath timing harness faults under
+	              // TCG and it is irrelevant to the idSIMD_RVV audit).
+#endif
 	TestAdd();
 	TestSub();
 	TestMul();

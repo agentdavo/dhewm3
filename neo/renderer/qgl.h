@@ -134,6 +134,107 @@ extern PFNGLDEPTHBOUNDSEXTPROC              qglDepthBoundsEXT;
 // GL_ARB_debug_output
 extern PFNGLDEBUGMESSAGECALLBACKARBPROC    qglDebugMessageCallbackARB;
 
+#if defined( D3_GLPROF ) && !defined( D3_GLPROF_NO_WRAP ) && defined( __cplusplus )
+void D3Glprof_RecordTextureBind( GLenum target, GLuint texture );
+void D3Glprof_RecordActiveTexture( GLenum texture );
+void D3Glprof_RecordProgramBind( GLenum target, GLuint program );
+void D3Glprof_RecordUniform( GLenum target, GLuint index, bool local );
+void D3Glprof_RecordState( char kind, GLenum a, GLenum b );
+void D3Glprof_RecordBuffer( char kind, GLenum target, unsigned long long value );
+void D3Glprof_RecordDraw( GLenum mode, GLsizei count );
+
+static inline void D3Glprof_qglBindTexture( GLenum target, GLuint texture ) {
+	D3Glprof_RecordTextureBind( target, texture );
+	qglBindTexture( target, texture );
+}
+
+static inline void D3Glprof_qglActiveTextureARB( GLenum texture ) {
+	D3Glprof_RecordActiveTexture( texture );
+	qglActiveTextureARB( texture );
+}
+
+static inline void D3Glprof_qglBindProgramARB( GLenum target, GLuint program ) {
+	D3Glprof_RecordProgramBind( target, program );
+	qglBindProgramARB( target, program );
+}
+
+static inline void D3Glprof_qglProgramEnvParameter4fvARB( GLenum target, GLuint index, const GLfloat *params ) {
+	D3Glprof_RecordUniform( target, index, false );
+	qglProgramEnvParameter4fvARB( target, index, params );
+}
+
+static inline void D3Glprof_qglProgramLocalParameter4fvARB( GLenum target, GLuint index, const GLfloat *params ) {
+	D3Glprof_RecordUniform( target, index, true );
+	qglProgramLocalParameter4fvARB( target, index, params );
+}
+
+static inline void D3Glprof_qglEnable( GLenum cap ) {
+	D3Glprof_RecordState( 'E', cap, 1 );
+	qglEnable( cap );
+}
+
+static inline void D3Glprof_qglDisable( GLenum cap ) {
+	D3Glprof_RecordState( 'E', cap, 0 );
+	qglDisable( cap );
+}
+
+static inline void D3Glprof_qglBlendFunc( GLenum sfactor, GLenum dfactor ) {
+	D3Glprof_RecordState( 'B', sfactor, dfactor );
+	qglBlendFunc( sfactor, dfactor );
+}
+
+static inline void D3Glprof_qglDepthFunc( GLenum func ) {
+	D3Glprof_RecordState( 'D', func, 0 );
+	qglDepthFunc( func );
+}
+
+static inline void D3Glprof_qglCullFace( GLenum mode ) {
+	D3Glprof_RecordState( 'C', mode, 0 );
+	qglCullFace( mode );
+}
+
+static inline void D3Glprof_qglBindBufferARB( GLenum target, GLuint buffer ) {
+	D3Glprof_RecordBuffer( 'b', target, buffer );
+	qglBindBufferARB( target, buffer );
+}
+
+static inline void D3Glprof_qglBufferDataARB( GLenum target, GLsizeiptrARB size, const GLvoid *data, GLenum usage ) {
+	D3Glprof_RecordBuffer( 'd', target, (unsigned long long)size );
+	qglBufferDataARB( target, size, data, usage );
+}
+
+static inline void D3Glprof_qglBufferSubDataARB( GLenum target, GLintptrARB offset, GLsizeiptrARB size, const GLvoid *data ) {
+	D3Glprof_RecordBuffer( 's', target, (unsigned long long)size );
+	qglBufferSubDataARB( target, offset, size, data );
+}
+
+static inline void D3Glprof_qglDrawElements( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices ) {
+	D3Glprof_RecordDraw( mode, count );
+	qglDrawElements( mode, count, type, indices );
+}
+
+static inline void D3Glprof_qglDrawArrays( GLenum mode, GLint first, GLsizei count ) {
+	D3Glprof_RecordDraw( mode, count );
+	qglDrawArrays( mode, first, count );
+}
+
+#define qglBindTexture( target, texture ) D3Glprof_qglBindTexture( (target), (texture) )
+#define qglActiveTextureARB( texture ) D3Glprof_qglActiveTextureARB( (texture) )
+#define qglBindProgramARB( target, program ) D3Glprof_qglBindProgramARB( (target), (program) )
+#define qglProgramEnvParameter4fvARB( target, index, params ) D3Glprof_qglProgramEnvParameter4fvARB( (target), (index), (params) )
+#define qglProgramLocalParameter4fvARB( target, index, params ) D3Glprof_qglProgramLocalParameter4fvARB( (target), (index), (params) )
+#define qglEnable( cap ) D3Glprof_qglEnable( (cap) )
+#define qglDisable( cap ) D3Glprof_qglDisable( (cap) )
+#define qglBlendFunc( sfactor, dfactor ) D3Glprof_qglBlendFunc( (sfactor), (dfactor) )
+#define qglDepthFunc( func ) D3Glprof_qglDepthFunc( (func) )
+#define qglCullFace( mode ) D3Glprof_qglCullFace( (mode) )
+#define qglBindBufferARB( target, buffer ) D3Glprof_qglBindBufferARB( (target), (buffer) )
+#define qglBufferDataARB( target, size, data, usage ) D3Glprof_qglBufferDataARB( (target), (size), (data), (usage) )
+#define qglBufferSubDataARB( target, offset, size, data ) D3Glprof_qglBufferSubDataARB( (target), (offset), (size), (data) )
+#define qglDrawElements( mode, count, type, indices ) D3Glprof_qglDrawElements( (mode), (count), (type), (indices) )
+#define qglDrawArrays( mode, first, count ) D3Glprof_qglDrawArrays( (mode), (first), (count) )
+#endif
+
 #if defined( _WIN32 ) && defined(ID_ALLOW_TOOLS)
 
 extern  BOOL(WINAPI * qwglSwapBuffers)(HDC);

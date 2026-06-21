@@ -230,6 +230,9 @@ private:
 	void						UnloadGameDLL( void );
 	void						PrintLoadingMessage( const char *msg );
 	void						FilterLangList( idStrList* list, idStr lang );
+#ifdef BAREMETAL
+	void						PumpBareMetalAsync( void );
+#endif
 
 	bool						com_fullyInitialized;
 	bool						com_refreshOnPrint;		// update the screen every print for dmap
@@ -1037,6 +1040,13 @@ bool idCommonLocal::AddStartupCommands( void ) {
 		if ( idStr::Icmpn( com_consoleLines[i].Argv(0), "set", 3 ) ) {
 			added = true;
 		}
+#ifdef BAREMETAL
+		Printf( "bm startup command[%d]: %s", i, com_consoleLines[i].Argv(0) );
+		for ( int j = 1; j < com_consoleLines[i].Argc(); j++ ) {
+			Printf( " %s", com_consoleLines[i].Argv(j) );
+		}
+		Printf( "\n" );
+#endif
 		// directly as tokenized so nothing gets screwed
 		cmdSystem->BufferCommandArgs( CMD_EXEC_APPEND, com_consoleLines[i] );
 	}
@@ -2496,6 +2506,10 @@ void idCommonLocal::Frame( void ) {
 		Com_UpdateTicNumber();
 		int ticNumAtStart = com_ticNumber;
 
+		static int demoflow_cf = 0;
+		int demoflow_n = demoflow_cf++;
+		Sys_Printf( "[demoflow] Com::Frame %d enter\n", demoflow_n );
+
 		// pump all the events
 		Sys_GenerateEvents();
 
@@ -2521,6 +2535,9 @@ void idCommonLocal::Frame( void ) {
 		D3::ImGuiHooks::NewFrame();
 
 		Com_UpdateFrameTime(); // DG: put updating com_frameTime into a function
+#ifdef BAREMETAL
+		PumpBareMetalAsync();
+#endif
 
 		idAsyncNetwork::RunFrame();
 
@@ -2530,9 +2547,11 @@ void idCommonLocal::Frame( void ) {
 				session->UpdateScreen( false );
 			}
 		} else {
+			Sys_Printf( "[demoflow] Com::Frame %d -> session->Frame() (game tick)\n", demoflow_n );
 			session->Frame();
 
 			// normal, in-sequence screen update
+			Sys_Printf( "[demoflow] Com::Frame %d -> UpdateScreen() (render)\n", demoflow_n );
 			session->UpdateScreen( false );
 		}
 
@@ -2592,6 +2611,9 @@ void idCommonLocal::GUIFrame( bool execCmd, bool network ) {
 	Sys_GenerateEvents();
 	eventLoop->RunEventLoop( execCmd );	// and execute any commands
 	Com_UpdateFrameTime(); // DG: put updating com_frameTime into a function
+#ifdef BAREMETAL
+	PumpBareMetalAsync();
+#endif
 	if ( network ) {
 		idAsyncNetwork::RunFrame();
 	}
@@ -2633,6 +2655,38 @@ void idCommonLocal::Async( void ) {
 
 	Sys_LeaveCriticalSection();
 }
+
+#ifdef BAREMETAL
+extern "C" bool Sys_BareMetalAsyncThreadIsReal( void );
+
+/*
+=================
+idCommonLocal::PumpBareMetalAsync
+
+dOS folds async sound into the main loop until Sys_CreateThread gets a real
+hart-backed AsyncThread. The fallback is still useful if no secondary hart is
+available or the SBI HSM start path is disabled by firmware.
+=================
+*/
+void idCommonLocal::PumpBareMetalAsync( void ) {
+	static double nextAsyncTime = 0.0;
+
+	if ( !runAsyncThread || Sys_BareMetalAsyncThreadIsReal() ) {
+		nextAsyncTime = 0.0;
+		return;
+	}
+
+	double now = Sys_MillisecondsPrecise();
+	if ( nextAsyncTime == 0.0 || now - nextAsyncTime > 250.0 ) {
+		nextAsyncTime = now;
+	}
+
+	for ( int pumped = 0; pumped < 4 && now + 0.1 >= nextAsyncTime; pumped++ ) {
+		Async();
+		nextAsyncTime += com_preciseFrameLengthMS;
+	}
+}
+#endif
 
 /*
 =================
@@ -3266,8 +3320,20 @@ void idCommonLocal::InitGame( void ) {
 
 	idCmdArgs args;
 	if ( sysDetect ) {
+#ifdef BAREMETAL
+		// dОС: the renderer is the softgles2 software rasteriser, so always pick
+		// the cheapest quality preset (Low: downsized/compressed images, no
+		// anisotropy) for per-frame cost — regardless of the (large) detected
+		// heap, which would otherwise classify as Ultra. Pass "nores" so r_mode
+		// keeps its BAREMETAL default (4 = 800x600, the project's bare-metal
+		// resolution) instead of being overwritten by the preset.
+		com_machineSpec.SetInteger( 0 );
+		idCmdArgs specArgs( "execMachineSpec nores", false );
+		Com_ExecMachineSpec_f( specArgs );
+#else
 		SetMachineSpec();
 		Com_ExecMachineSpec_f( args );
+#endif
 	}
 
 	// initialize the renderSystem data structures, but don't start OpenGL yet
@@ -3354,16 +3420,38 @@ void idCommonLocal::InitGame( void ) {
 	// init the session
 	session->Init();
 
+#ifdef BAREMETAL
+	Printf( "bm InitGame: session->Init returned, sysDetect=%d\n", sysDetect ? 1 : 0 );
+#endif
+
 	// have to do this twice.. first one sets the correct r_mode for the renderer init
 	// this time around the backend is all setup correct.. a bit fugly but do not want
 	// to mess with all the gl init at this point.. an old vid card will never qualify for
 	if ( sysDetect ) {
+#ifdef BAREMETAL
+		// dОС: keep the Low preset (software rasteriser) + r_mode unchanged here
+		// too — this second pass would otherwise re-detect the large heap as
+		// Ultra and re-enable full-size images. See the matching patch above.
+		com_machineSpec.SetInteger( 0 );
+		idCmdArgs specArgs( "execMachineSpec nores", false );
+		Com_ExecMachineSpec_f( specArgs );
+#else
 		SetMachineSpec();
 		Com_ExecMachineSpec_f( args );
+#endif
+#ifdef BAREMETAL
+		Printf( "bm InitGame: execMachineSpec done, before s_restart\n" );
+#endif
 		cvarSystem->SetCVarInteger( "s_numberOfSpeakers", 6 );
 		cmdSystem->BufferCommandText( CMD_EXEC_NOW, "s_restart\n" );
 		cmdSystem->ExecuteCommandBuffer();
+#ifdef BAREMETAL
+		Printf( "bm InitGame: s_restart done\n" );
+#endif
 	}
+#ifdef BAREMETAL
+	Printf( "bm InitGame: returning to Init()\n" );
+#endif
 }
 
 /*

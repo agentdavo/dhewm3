@@ -573,7 +573,13 @@ try_again:
 		}
 	#endif // SDL2
 
-		context = SDL_GL_CreateContext(window);
+	context = SDL_GL_CreateContext(window);
+	if ( context == NULL ) {
+		common->Warning( "SDL_GL_CreateContext failed: %s", SDL_GetError() );
+		SDL_DestroyWindow( window );
+		window = NULL;
+		return false;
+	}
 
 		GLimp_SetSwapInterval( r_swapInterval.GetInteger() );
 		r_swapInterval.ClearModified();
@@ -744,6 +750,16 @@ try_again:
 
 		{
 			int r, g, b, a, d, s, msaa;
+#ifdef BAREMETAL
+			/* The dOS SDL video driver routes GL to gl4es/softgles2 without
+			 * enabling SDL's platform GL attribute implementation. Report the
+			 * framebuffer contract directly so renderer code does not consume
+			 * unsupported/undefined SDL_GL_GetAttribute output. */
+			r = g = b = a = 8;
+			d = 24;
+			s = 8;
+			msaa = 0;
+#else
 			SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &r);
 			SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &g);
 			SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &b);
@@ -754,6 +770,7 @@ try_again:
 			if (msaa) {
 				SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &msaa);
 			}
+#endif
 
 			if (msaa > 0)
 				msaaStr = idStr::Format("%dx MSAA", msaa);

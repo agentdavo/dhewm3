@@ -14,3 +14,47 @@
 /.vs*
 
 /neo/CMakeSettings.json
+
+# locally-built QEMU 11 (for -cpu rva23s64); not part of the source tree
+/qemu-11.0.1/
+# bare-metal RISC-V build artifacts (top-level and per-subproject build dirs)
+/riscv/build/
+/riscv/**/build/
+*.img
+*.ppm
+/riscv/gl4es/
+
+# game assets (copyrighted) staged for the disk image, not source
+base/*.pk4
+# mkimage.sh build staging (copies of base/ assets; regenerable, not source)
+/riscv/image/staging/
+*:Zone.Identifier
+
+# raw reference specs (analysis lives in riscv/docs/spec/)
+/gles2.txt
+/riscv/docs/*.pdf
+/riscv/audio/miniaudio.h
+/riscv/sdl3/
+# stamped rv64 ELF payloads (build artifacts; regenerate with: cmake --build build-rv --target dist)
+/riscv/dist/
+/riscv/glmark2/build-cmake-doomos
+
+# Headless frame-capture artifacts (host-side screendump outputs + serial logs)
+/riscv/shots/
+/riscv/shots_verify/
+/riscv/screendump_frame.png
+/riscv/screendump_serial.log
+/riscv/menu_capture_serial.log
+/riscv/multishot_serial.log
+/riscv/capture_*.png
+/riscv/shots_walk
+/riscv/shots_survey360
+/riscv/shots_survey
+/riscv/shots_reception2
+/riscv/shots_reception
+/riscv/shots_lightunity
+/riscv/shots_hero2
+/riscv/shots_hero
+/riscv/shots_gamma
+/riscv/shots_cullfix
+/riscv/shots_hero_final

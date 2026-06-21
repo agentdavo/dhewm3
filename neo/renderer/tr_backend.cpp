@@ -31,6 +31,118 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/tr_local.h"
 
 static idCVar r_fillWindowAlphaChan( "r_fillWindowAlphaChan", "-1", CVAR_SYSTEM | CVAR_NOCHEAT | CVAR_ARCHIVE, "Make sure alpha channel of windows default framebuffer is completely opaque at the end of each frame. Needed at least when using Wayland with older drivers.\n 1: do this, 0: don't do it, -1: let dhewm3 decide (default)" );
+#ifdef D3_GLPROF
+static idCVar r_glprof( "r_glprof", "0", CVAR_RENDERER | CVAR_INTEGER, "Bare-metal GL profiler: 0 off, 1 frame footers, 2 ordered call stream + footers" );
+
+struct glprofFrameCounters_t {
+	int frame;
+	int seq;
+	int texbind;
+	int progbind;
+	int uni;
+	int statechg;
+	int bufops;
+	int activetex;
+	int drawcall;
+};
+
+static glprofFrameCounters_t glprofFrame;
+
+static int D3Glprof_Mode() {
+	return r_glprof.GetInteger();
+}
+
+static void D3Glprof_BeginBackendFrame() {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.frame++;
+	glprofFrame.seq = 0;
+	glprofFrame.texbind = 0;
+	glprofFrame.progbind = 0;
+	glprofFrame.uni = 0;
+	glprofFrame.statechg = 0;
+	glprofFrame.bufops = 0;
+	glprofFrame.activetex = 0;
+	glprofFrame.drawcall = 0;
+}
+
+static void D3Glprof_Trace( char cls, unsigned long long a, unsigned long long b, unsigned long long c ) {
+	if ( D3Glprof_Mode() < 2 ) {
+		return;
+	}
+	printf( "gt f=%d s=%d %c %llu,%llu,%llu\n", glprofFrame.frame, ++glprofFrame.seq, cls, a, b, c );
+}
+
+void D3Glprof_RecordTextureBind( GLenum target, GLuint texture ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.texbind++;
+	D3Glprof_Trace( 'T', target, texture, 0 );
+}
+
+void D3Glprof_RecordActiveTexture( GLenum texture ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.activetex++;
+	D3Glprof_Trace( 'A', texture, 0, 0 );
+}
+
+void D3Glprof_RecordProgramBind( GLenum target, GLuint program ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.progbind++;
+	D3Glprof_Trace( 'P', target, program, 0 );
+}
+
+void D3Glprof_RecordUniform( GLenum target, GLuint index, bool local ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.uni++;
+	D3Glprof_Trace( 'U', target, index, local ? 1 : 0 );
+}
+
+void D3Glprof_RecordState( char kind, GLenum a, GLenum b ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.statechg++;
+	D3Glprof_Trace( 'S', kind, a, b );
+}
+
+void D3Glprof_RecordBuffer( char kind, GLenum target, unsigned long long value ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.bufops++;
+	D3Glprof_Trace( 'B', kind, target, value );
+}
+
+void D3Glprof_RecordDraw( GLenum mode, GLsizei count ) {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	glprofFrame.drawcall++;
+	D3Glprof_Trace( 'D', mode, count, 0 );
+}
+
+static void D3Glprof_EndBackendFrame() {
+	if ( D3Glprof_Mode() <= 0 ) {
+		return;
+	}
+	int draws = backEnd.pc.c_drawElements + backEnd.pc.c_shadowElements;
+	int tris = ( backEnd.pc.c_drawIndexes + backEnd.pc.c_shadowIndexes ) / 3;
+	printf( "gd f=%d d=%d t=%d de=%d tx=%d pb=%d u=%d sc=%d bo=%d at=%d sp=%d dc=%d\n",
+		glprofFrame.frame, draws, tris, backEnd.pc.c_drawElements,
+		glprofFrame.texbind, glprofFrame.progbind, glprofFrame.uni,
+		glprofFrame.statechg, glprofFrame.bufops, glprofFrame.activetex,
+		glprofFrame.progbind, glprofFrame.drawcall );
+}
+#endif
 
 frameData_t		*frameData;
 backEndState_t	backEnd;
@@ -649,6 +761,10 @@ void RB_ExecuteBackEndCommands( const emptyCommand_t *cmds ) {
 		return;
 	}
 
+#ifdef D3_GLPROF
+	D3Glprof_BeginBackendFrame();
+#endif
+
 	backEndStartTime = Sys_Milliseconds();
 
 	// needed for editor rendering
@@ -691,6 +807,10 @@ void RB_ExecuteBackEndCommands( const emptyCommand_t *cmds ) {
 	// go back to the default texture so the editor doesn't mess up a bound image
 	qglBindTexture( GL_TEXTURE_2D, 0 );
 	backEnd.glState.tmu[0].current2DMap = -1;
+
+#ifdef D3_GLPROF
+	D3Glprof_EndBackendFrame();
+#endif
 
 	// stop rendering on this thread
 	backEndFinishTime = Sys_Milliseconds();

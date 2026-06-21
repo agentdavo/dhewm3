@@ -38,7 +38,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "sound/sound.h"
 #include "ui/UserInterface.h"
 
+#define D3_GLPROF_NO_WRAP
 #include "renderer/tr_local.h"
+#undef D3_GLPROF_NO_WRAP
 
 #include "framework/GameCallbacks_local.h"
 #include "framework/Game.h"
@@ -59,7 +61,13 @@ const char *r_rendererArgs[] = { "best", "arb2", NULL };
 idCVar r_inhibitFragmentProgram( "r_inhibitFragmentProgram", "0", CVAR_RENDERER | CVAR_BOOL, "ignore the fragment program extension" );
 idCVar r_useLightPortalFlow( "r_useLightPortalFlow", "1", CVAR_RENDERER | CVAR_BOOL, "use a more precise area reference determination" );
 idCVar r_multiSamples( "r_multiSamples", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "number of antialiasing samples" );
+#ifdef BAREMETAL
+// dОС default: 800x600 (mode 4) — matches the dos video driver's native size and
+// keeps the softgles2 software rasteriser's per-frame cost manageable under TCG.
+idCVar r_mode( "r_mode", "4", CVAR_ARCHIVE | CVAR_RENDERER | CVAR_INTEGER, "video mode number" );
+#else
 idCVar r_mode( "r_mode", "5", CVAR_ARCHIVE | CVAR_RENDERER | CVAR_INTEGER, "video mode number" );
+#endif
 idCVar r_displayRefresh( "r_displayRefresh", "0", CVAR_RENDERER | CVAR_INTEGER | CVAR_NOCHEAT, "optional display refresh rate option for vid mode", 0.0f, 200.0f );
 idCVar r_fullscreen( "r_fullscreen", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "0 = windowed, 1 = full screen" );
 idCVar r_fullscreenDesktop( "r_fullscreenDesktop", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "0: 'real' fullscreen mode 1: keep resolution 'desktop' fullscreen mode" );
