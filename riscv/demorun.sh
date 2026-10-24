@@ -15,6 +15,9 @@
 #          QUIET_ASSET_LOADS=1 (suppress high-volume per-asset load logs)
 #          SIMD_BENCH=1      (run small idSIMDProcessor microbench after engine init)
 #          AIA=aplic|aplic-imsic (forward QEMU virt AIA mode to riscv/run.sh)
+#          TCG_PROFILE=1     (RVV_VLEN=256, FB=512x288, RENDER_PROF=1, PIN_HARTS=1)
+#          RVV_VLEN=256|512|1024  FB_WIDTH=  FB_HEIGHT=  RENDER_PROF=0|1
+#          PIN_HARTS=1  TCG_TB_SIZE=256  SMP=N
 #
 set -uo pipefail
 
@@ -27,6 +30,23 @@ DEFER_PRECACHE="${DEFER_PRECACHE:-1}"
 IO_STATS="${IO_STATS:-1}"
 QUIET_ASSET_LOADS="${QUIET_ASSET_LOADS:-1}"
 SIMD_BENCH="${SIMD_BENCH:-0}"
+
+# TCG_PROFILE=1: faster QEMU iteration defaults (narrower vectors + smaller FB +
+# render prof). Real-HW / visual quality keeps BM_RVV_VLEN=1024 + 768x432.
+RVV_VLEN="${RVV_VLEN:-}"
+FB_WIDTH="${FB_WIDTH:-}"
+FB_HEIGHT="${FB_HEIGHT:-}"
+# RENDER_PROF: default 0, but TCG_PROFILE defaults it to 1 unless the caller
+# already set RENDER_PROF in the environment (including explicit 0).
+if [ "${TCG_PROFILE:-0}" = "1" ]; then
+    RVV_VLEN="${RVV_VLEN:-256}"
+    FB_WIDTH="${FB_WIDTH:-512}"
+    FB_HEIGHT="${FB_HEIGHT:-288}"
+    if [ -z "${RENDER_PROF+set}" ]; then RENDER_PROF=1; fi
+    PIN_HARTS="${PIN_HARTS:-1}"
+    echo "[demorun] TCG_PROFILE=1 -> RVV_VLEN=$RVV_VLEN FB=${FB_WIDTH}x${FB_HEIGHT} RENDER_PROF=${RENDER_PROF:-1} PIN_HARTS=${PIN_HARTS:-0}"
+fi
+RENDER_PROF="${RENDER_PROF:-0}"
 
 # 0. gl4es is a PREBUILT static archive (riscv/gl4es/lib/libGL-riscv.a) linked by
 #    the engine; the CMake engine build does NOT recompile its sources. So if any
@@ -46,12 +66,18 @@ fi
 
 # 1. build the engine (incremental CMake) unless NOBUILD=1
 if [ "${NOBUILD:-0}" != "1" ]; then
-    echo "[demorun] configuring: defer_precache=$DEFER_PRECACHE quiet_assets=$QUIET_ASSET_LOADS io_stats=$IO_STATS simd_bench=$SIMD_BENCH"
-    cmake -S "$PROJ/neo" -B "$PROJ/build-rv" \
-        -DBAREMETAL_DEFER_PRECACHE="$DEFER_PRECACHE" \
-        -DBAREMETAL_QUIET_ASSET_LOADS="$QUIET_ASSET_LOADS" \
-        -DBAREMETAL_IO_STATS="$IO_STATS" \
-        -DBAREMETAL_SIMD_BENCH="$SIMD_BENCH" >/dev/null || { echo "[demorun] configure FAILED"; exit 1; }
+    CMAKE_ARGS=(
+        -DBAREMETAL_DEFER_PRECACHE="$DEFER_PRECACHE"
+        -DBAREMETAL_QUIET_ASSET_LOADS="$QUIET_ASSET_LOADS"
+        -DBAREMETAL_IO_STATS="$IO_STATS"
+        -DBAREMETAL_SIMD_BENCH="$SIMD_BENCH"
+        -DBAREMETAL_RENDER_PROF="$RENDER_PROF"
+    )
+    [ -n "$RVV_VLEN" ] && CMAKE_ARGS+=( "-DBM_RVV_VLEN=$RVV_VLEN" )
+    [ -n "$FB_WIDTH" ] && CMAKE_ARGS+=( "-DBAREMETAL_FB_WIDTH=$FB_WIDTH" )
+    [ -n "$FB_HEIGHT" ] && CMAKE_ARGS+=( "-DBAREMETAL_FB_HEIGHT=$FB_HEIGHT" )
+    echo "[demorun] configuring: defer_precache=$DEFER_PRECACHE quiet_assets=$QUIET_ASSET_LOADS io_stats=$IO_STATS simd_bench=$SIMD_BENCH render_prof=$RENDER_PROF vlen=${RVV_VLEN:-cache} fb=${FB_WIDTH:-cache}x${FB_HEIGHT:-cache}"
+    cmake -S "$PROJ/neo" -B "$PROJ/build-rv" "${CMAKE_ARGS[@]}" >/dev/null || { echo "[demorun] configure FAILED"; exit 1; }
     echo "[demorun] building engine (build-rv/dhewm3) ..."
     make -C "$PROJ/build-rv" dhewm3 || { echo "[demorun] build FAILED"; exit 1; }
 else
@@ -70,17 +96,20 @@ if [ ! -f "$SCRATCH" ] || [ "$DISK" -nt "$SCRATCH" ]; then
     cp --reflink=auto -f "$DISK" "$SCRATCH" || { echo "[demorun] disk clone FAILED"; exit 1; }
 fi
 
-# Auto-scale guest harts to the host (softgles2 fans across up to 8 harts; QEMU
-# MTTCG maps each to a host thread, so clamp to nproc). Override with SMP=N.
-if [ -z "${SMP:-}" ]; then
-    HOST_CORES="$(nproc 2>/dev/null || echo 4)"
-    SMP=$(( HOST_CORES < 8 ? HOST_CORES : 8 ))
-    echo "[demorun] auto SMP=$SMP (host cores=$HOST_CORES, softgles2 cap=8); override with SMP=N"
-fi
+# Match the physical target independently of host CPU count.
+# SMP=N remains available for explicit scaling experiments.
+SMP="${SMP:-4}"
 
 # 3. boot + capture serial. Headless -nographic (no GPU device); for a visual
 #    frame use capture_screendump.sh (VIDEO=gpu + monitor screendump).
 RUN_ENV=( "DISK=$SCRATCH" "TIMEOUT=$TIMEOUT" "SMP=$SMP" )
+[ -n "$RVV_VLEN" ] && RUN_ENV+=( "RVV_VLEN=$RVV_VLEN" )
+[ -n "${PIN_HARTS:-}" ] && RUN_ENV+=( "PIN_HARTS=$PIN_HARTS" )
+[ -n "${TCG_TB_SIZE:-}" ] && RUN_ENV+=( "TCG_TB_SIZE=$TCG_TB_SIZE" )
+# run.sh can expose a QEMU monitor, but demorun never forwarded it -- so the one
+# tool that can diagnose a hung guest (`info registers -a` gives every hart's PC)
+# was unreachable from exactly the long runs that hang. Set MONITOR_SOCKET=<path>.
+[ -n "${MONITOR_SOCKET:-}" ] && RUN_ENV+=( "MONITOR_SOCKET=$MONITOR_SOCKET" )
 if [ -n "${AIA:-}" ]; then
     RUN_ENV+=( "AIA=$AIA" )
 fi
@@ -89,4 +118,4 @@ env "${RUN_ENV[@]}" "$PROJ/riscv/run.sh" "$ELF" 2>&1 | tee "$LOG"
 
 # 4. summarise reach
 echo "[demorun] ---- run summary ----"
-grep -aE '^\[(dos|frame|map|gl|demoflow)\]|dvgpu:|powering off|panic|trap|FATAL|hang' "$LOG" | tail -40
+grep -aE '^\[(dos|frame|map|gl|demoflow|rprof)\]|dvgpu:|powering off|panic|trap|FATAL|hang' "$LOG" | tail -60

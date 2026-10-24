@@ -101,6 +101,9 @@ void sgl_diag_draw_filter_set(int enabled, int frame_first, int frame_last,
 
 unsigned long sgl_diag_note_draw(void)
 {
+    if (!sgl_diag_enabled && !sgl_dbg_draw_filter_enabled) {
+        return 0;
+    }
     return ++sgl_dbg_draw_no;
 }
 

@@ -17,6 +17,7 @@
 #include <sys/types.h>      /* off_t (== _off_t == long, 64-bit on rv64) */
 #include <fcntl.h>          /* O_ACCMODE / O_RDONLY                      */
 #include <errno.h>
+#include "boot/bm_pause.h"
 #include <string.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -28,6 +29,7 @@
 #include "engine/dos_virtio_blk.h"
 
 extern char __heap_start[], __heap_end[];
+extern char __stack_bottom[], __stack_top[];
 
 /* ---- fd table (file I/O over read-only dosfs + writable ramfs) ---- *
  * fds 0/1/2 are reserved for the SBI console; engine files use fd >= 3. */
@@ -111,12 +113,12 @@ void bm_io_stats_print(void)
 	printf("[io] vblk read_calls=%llu sectors=%llu ms=%llu write_calls=%llu write_sectors=%llu write_ms=%llu flush_calls=%llu flush_ms=%llu\n",
 		(unsigned long long)vs.read_calls,
 		(unsigned long long)vs.read_sectors,
-		(unsigned long long)(vs.read_ticks * 1000ULL / TIMEBASE_HZ),
+		(unsigned long long)(timer_ns_from_ticks(vs.read_ticks) / 1000000ULL),
 		(unsigned long long)vs.write_calls,
 		(unsigned long long)vs.write_sectors,
-		(unsigned long long)(vs.write_ticks * 1000ULL / TIMEBASE_HZ),
+		(unsigned long long)(timer_ns_from_ticks(vs.write_ticks) / 1000000ULL),
 		(unsigned long long)vs.flush_calls,
-		(unsigned long long)(vs.flush_ticks * 1000ULL / TIMEBASE_HZ));
+		(unsigned long long)(timer_ns_from_ticks(vs.flush_ticks) / 1000000ULL));
 	printf("[io] dosfs pread=%llu requested=%llu served=%llu head_bounce=%llu tail_bounce=%llu direct_reads=%llu direct_sectors=%llu cache_hits=%llu cache_misses=%llu\n",
 		(unsigned long long)ds.pread_calls,
 		(unsigned long long)ds.requested_bytes,
@@ -135,7 +137,7 @@ void bm_io_stats_print(void)
 			(unsigned long long)s->opens,
 			(unsigned long long)s->reads,
 			(unsigned long long)s->bytes,
-			(unsigned long long)(s->ticks * 1000ULL / TIMEBASE_HZ));
+			(unsigned long long)(timer_ns_from_ticks(s->ticks) / 1000000ULL));
 	}
 }
 
@@ -169,7 +171,7 @@ static inline unsigned long heap_hartid(void)
 
 static inline void heap_pause(void)
 {
-	__asm__ __volatile__(".insn i 0x0F, 0, x0, x0, 0x010"); /* Zihintpause */
+	bm_pause();
 }
 
 static volatile long heap_lock_owner = -1; /* hartid holding the lock, -1 = free */
@@ -201,22 +203,129 @@ void __malloc_unlock(struct _reent *reent)
 	__atomic_store_n(&heap_lock_owner, -1, __ATOMIC_RELEASE);
 }
 
+static char *volatile g_heap_cur;
+
+/* Top of the heap arena.
+ *
+ * The linker script stops the RAM window at 1920 MiB so that every SYMBOL stays
+ * within medany's +/-2 GiB AUIPC reach. That constraint is real, but it applies
+ * to symbol addressing -- not to an arena discovered at run time and handed out
+ * as ordinary pointers. With -m 4G, RAM runs to 0x180000000 while __heap_end
+ * sits at 0xF8200000, so honouring the link-time limit threw away 2176 MiB of
+ * real memory on a machine whose map loads are memory-hungry.
+ *
+ * The DTB can only ever move this limit DOWN. That is the whole rule, and both
+ * halves of it were wrong before:
+ *
+ *  1. It never clamped. On a machine with less DRAM than the 1920 MiB link
+ *     window, ram_end() < __heap_end, the old code returned __heap_end
+ *     unchanged, and _sbrk handed out hundreds of MiB past the end of physical
+ *     memory -- faulting far from the cause, or silently aliasing on a part
+ *     that wraps. Clamping turns that into an honest ENOMEM at the overrun.
+ *
+ *  2. It DID extend, and extending is unsound. __heap_end is not an arbitrary
+ *     cap, it IS __stack_bottom: the 8 MiB boot stack lives immediately above
+ *     it, and on a part with a framebuffer carved from the top of DRAM that
+ *     aperture is up there too. _sbrk bounds the break by [__heap_start, limit]
+ *     and nothing else -- sbrk cannot express a hole -- so any limit above
+ *     __heap_end puts the stack inside the heap arena. That was true on every
+ *     path, including QEMU; it merely had 2.44x of margin instead of 1.24x and
+ *     so never fired. "Reclaim the RAM past the link window" was the stated
+ *     reason, but it was never a measured need: peak demand is 750 MiB against
+ *     a 1832 MiB linked heap (riscv/docs/scalar-rv64imafdc.md).
+ *
+ * So: extend never, clamp when the DTB says DRAM stops sooner. If a workload
+ * ever genuinely needs more than the linked window, the honest knob is
+ * LENGTH(RAM) in engine.ld -- a deliberate act, bounded by medany's +/-2 GiB
+ * reach -- not an accident of where firmware happened to leave the DTB.
+ *
+ * NOTE: this cannot rescue the STACK. If DRAM ends below __stack_top the stack
+ * is outside physical memory and no heap policy can fix it -- the image has to
+ * be relinked for that machine. bm_report_ram_window() says so out loud. */
+static char *dos_heap_limit(void)
+{
+	static char *cached;
+	char *lim = __atomic_load_n(&cached, __ATOMIC_RELAXED);
+
+	if (!lim) {
+		uint64_t rend = ram_end();
+		lim = __heap_end;
+		/* rend > __heap_start: a DTB window exists (both accessors are 0
+		 * without one) and leaves at least some room to allocate in.
+		 * ram_base() <= __heap_start: that window really is the bank the
+		 * image was loaded into. Given both, DRAM's end is the truth --
+		 * but only DOWNWARD. See the note above on why it never wins
+		 * upward. */
+		if (rend > (uint64_t)(uintptr_t)__heap_start &&
+		    ram_base() <= (uint64_t)(uintptr_t)__heap_start &&
+		    rend < (uint64_t)(uintptr_t)__heap_end)
+			lim = (char *)(uintptr_t)rend;
+		__atomic_store_n(&cached, lim, __ATOMIC_RELAXED);
+	}
+	return lim;
+}
+
+/* Boot report: the physical RAM window the DTB describes, against the one this
+ * image was linked for. Silence here used to be the whole problem -- a machine
+ * smaller than the link window looked identical to a matching one until
+ * something faulted deep inside an allocation. */
+void bm_report_ram_window(void)
+{
+	uint64_t rbase = ram_base(), rend = ram_end();
+	unsigned long heap_mb = (unsigned long)(dos_heap_limit() - __heap_start) >> 20;
+
+	if (!rend) {
+		printf("[doomos-mem] no usable DTB memory node; using the linked window "
+		       "(heap %luMB, stack top %p)\n", heap_mb, (void *)__stack_top);
+		return;
+	}
+	/* "usable", not "dram": ram_end() is already clamped below the DTB blob, so
+	 * this is the window the allocator may use, NOT the part's physical extent.
+	 * Printing the blob address next to it makes a heap lost to a low DTB
+	 * diagnosable from one line instead of inferred. */
+	printf("[doomos-mem] usable=%#llx..%#llx (%lluMB)  dtb=%#llx  linked stack_top=%p  heap=%luMB%s\n",
+	       (unsigned long long)rbase, (unsigned long long)rend,
+	       (unsigned long long)((rend - rbase) >> 20), (unsigned long long)boot_dtb,
+	       (void *)__stack_top, heap_mb,
+	       (rend < (uint64_t)(uintptr_t)__heap_end) ? "  (heap CLAMPED below DTB/DRAM end)" : "");
+
+	/* The heap now follows DRAM, but the stack is linked above the heap and
+	 * cannot be moved at run time. If it lands outside DRAM the image is simply
+	 * built for a bigger machine -- fail loudly rather than at a random depth. */
+	if ((uint64_t)(uintptr_t)__stack_top > rend)
+		printf("*** WARNING: linked stack top %p is ABOVE DRAM end %#llx by %lluMB.\n"
+		       "    This image is linked for a larger machine and WILL fault in the\n"
+		       "    stack. Relink engine.ld's RAM LENGTH to fit this part.\n",
+		       (void *)__stack_top, (unsigned long long)rend,
+		       (unsigned long long)(((uint64_t)(uintptr_t)__stack_top - rend) >> 20));
+}
+
+unsigned long dos_heap_committed_bytes(void)
+{
+	char *p = __atomic_load_n(&g_heap_cur, __ATOMIC_RELAXED);
+	return p ? (unsigned long)(p - __heap_start) : 0;
+}
+
+unsigned long dos_heap_capacity_bytes(void)
+{
+	return (unsigned long)(dos_heap_limit() - __heap_start);
+}
+
 void *_sbrk(int incr)
 {
-	static char *volatile cur = 0;
 
 	for (;;) {
-		char *old = __atomic_load_n(&cur, __ATOMIC_RELAXED);
+		char *old = __atomic_load_n(&g_heap_cur, __ATOMIC_RELAXED);
 		if (old == 0) {
 			char *init = 0;
-			if (!__atomic_compare_exchange_n(&cur, &init, __heap_start,
+			if (!__atomic_compare_exchange_n(&g_heap_cur, &init, __heap_start,
 			                                 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED))
 				continue;           /* another hart initialised cur; reload */
 			old = __heap_start;
 		}
 		char *neu = old + incr;     /* incr may be negative (newlib heap shrink) */
-		if (neu < __heap_start || neu > __heap_end) { errno = ENOMEM; return (void *)-1; }
-		if (__atomic_compare_exchange_n(&cur, &old, neu,
+		if (neu < __heap_start || neu > dos_heap_limit()) { errno = ENOMEM; return (void *)-1; }
+		if (__atomic_compare_exchange_n(&g_heap_cur, &old, neu,
 		                                0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED))
 			return old;
 		/* lost the CAS to a concurrent hart; retry with reloaded old */
@@ -447,7 +556,7 @@ void _exit(int code)                      { (void)code; sbi_shutdown(); for (;;)
 clock_t _times(struct tms *buf)
 {
 	uint64_t t = timer_ticks();
-	clock_t c = (clock_t)(t / (TIMEBASE_HZ / 100UL)); /* 100 Hz CLK_TCK-ish */
+	clock_t c = (clock_t)(t / (timer_hz() / 100UL)); /* 100 Hz CLK_TCK-ish */
 	if (buf) { buf->tms_utime = c; buf->tms_stime = 0; buf->tms_cutime = 0; buf->tms_cstime = 0; }
 	return c;
 }
@@ -457,8 +566,9 @@ int _gettimeofday(struct timeval *tv, void *tz)
 	(void)tz;
 	if (tv) {
 		uint64_t t = timer_ticks();
-		tv->tv_sec  = (long)(t / TIMEBASE_HZ);
-		tv->tv_usec = (long)((t % TIMEBASE_HZ) / (TIMEBASE_HZ / 1000000UL));
+		unsigned long hz = timer_hz();
+		tv->tv_sec  = (long)(t / hz);
+		tv->tv_usec = (long)(((t % hz) * 1000000UL) / hz);
 	}
 	return 0;
 }
@@ -470,7 +580,7 @@ int _gettimeofday(struct timeval *tv, void *tz)
  * Sys_Sleep during session init). Busy-poll rdtime instead. */
 static inline void bm_cpu_pause(void)
 {
-	__asm__ __volatile__(".insn i 0x0F, 0, x0, x0, 0x010"); /* pause */
+	bm_pause();
 }
 
 /* SDL's unix timer uses select(0,...,timeout) as its sleep: bounded busy-wait on
@@ -480,7 +590,7 @@ int select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *to)
 	(void)nfds; (void)r; (void)w; (void)e;
 	if (to) {
 		uint64_t usec  = (uint64_t)to->tv_sec * 1000000UL + (uint64_t)to->tv_usec;
-		uint64_t ticks = usec * (TIMEBASE_HZ / 1000000UL);
+		uint64_t ticks = timer_ticks_from_us(usec);
 		uint64_t end   = timer_ticks() + ticks;
 		while (timer_ticks() < end) bm_cpu_pause();
 	}
@@ -494,6 +604,7 @@ char *getenv(const char *name)
 	if (!strcmp(name, "LIBGL_NOPSA"))    return "1";  /* no shader-binary cache (no file I/O) */
 	if (!strcmp(name, "LIBGL_NOBANNER")) return "1";  /* quieter boot log */
 	if (!strcmp(name, "LIBGL_ES"))       return "2";  /* GLES2 backend */
+	if (!strcmp(name, "LIBGL_AVOID16BITS")) return "1"; /* preserve RGB8/RGBA8 uploads */
 	return 0;
 }
 char *getcwd(char *buf, size_t size) { if (buf && size >= 2) { buf[0] = '/'; buf[1] = 0; return buf; } return 0; }
@@ -509,7 +620,7 @@ int  fsync(int fd)                 { (void)fd; return 0; }
 unsigned int sleep(unsigned int s) { (void)s; return 0; }
 int  usleep(unsigned int us)
 {
-	uint64_t end = timer_ticks() + (uint64_t)us * (TIMEBASE_HZ / 1000000UL);
+	uint64_t end = timer_ticks() + timer_ticks_from_us((uint64_t)us);
 	while (timer_ticks() < end) bm_cpu_pause();
 	return 0;
 }

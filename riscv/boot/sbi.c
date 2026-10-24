@@ -56,6 +56,31 @@ void sbi_set_timer(uint64_t stime_value)
     sbi_ecall(0x54494D45, 0, (long)stime_value, 0, 0, 0, 0, 0);
 }
 
+/* SBI base extension ("BASE" = 0x10), probe_extension (fid 3). Non-zero means
+ * the firmware implements `eid`. Everything below assumed HSM/TIME/SRST/IPI were
+ * present; firmware without HSM used to degrade to single-hart with no
+ * diagnostic at all. */
+long sbi_probe_extension(long eid)
+{
+    struct sbiret r = sbi_ecall(0x10, 3, eid, 0, 0, 0, 0, 0);
+    return r.error ? 0 : r.value;
+}
+
+/* IPI extension ("sPI" = 0x735049), send_ipi (fid 0). hart_mask is relative to
+ * hart_mask_base, so a single target is (1, hartid). Raises sip.SSIP on the
+ * target, which is what pulls a `wfi`-parked hart out. */
+long sbi_send_ipi(unsigned long hart_mask, unsigned long hart_mask_base)
+{
+    struct sbiret r = sbi_ecall(0x735049, 0, (long)hart_mask,
+                                (long)hart_mask_base, 0, 0, 0, 0);
+    return r.error;
+}
+
+long sbi_send_ipi_hart(unsigned long hartid)
+{
+    return sbi_send_ipi(1UL, hartid);
+}
+
 /* Hart State Management ("HSM" = 0x48534D), SBI v0.2+. */
 long sbi_hart_start(unsigned long hartid, unsigned long start_addr, unsigned long opaque)
 {

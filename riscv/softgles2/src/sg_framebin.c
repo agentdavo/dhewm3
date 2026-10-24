@@ -13,6 +13,7 @@
 #include "sg_mt_internal.h"
 #include "sg_mt_prim.h"
 #include "sg_mt_sched.h"
+#include "sg_prof.h"
 
 #if defined(__riscv_v_intrinsic) && __riscv_v_intrinsic >= 1000000
 #  include <riscv_vector.h>
@@ -21,7 +22,24 @@
 #  define SG_FRAMEBIN_RVV 0
 #endif
 
-int sgl_framebin_enabled = 0;
+/* Deferred frame replay was previously unsafe for Doom's interaction pipeline
+ * because mid-frame texture mutation and framebuffer reads are order-sensitive
+ * and the snapshot only deep-copies uniforms, not texture contents. Those are
+ * now handled by sg_framebin_barrier(), which the texture-mutating and
+ * framebuffer-reading GL entry points call before doing anything observable, so
+ * the record is drained rather than silently replayed against changed state.
+ *
+ * This matters a lot: with per-draw dispatch, a measured lit frame had 765 of
+ * 795 draws fall below the MT admission thresholds and rasterise on ONE hart
+ * (~10% hart utilisation, ~87% of frame time serial). Doom 3 averages ~122
+ * verts/draw, so that is structural, not a tuning miss -- frame-level binning is
+ * the only way a many-small-draws workload fans out.
+ *
+ * Set SGL_FRAMEBIN_DEFAULT=0 at build time to fall back to immediate mode. */
+#ifndef SGL_FRAMEBIN_DEFAULT
+#define SGL_FRAMEBIN_DEFAULT 1
+#endif
+int sgl_framebin_enabled = SGL_FRAMEBIN_DEFAULT;
 
 #if defined(SGL_BAREMETAL)
 
@@ -240,17 +258,25 @@ static void fb_tile_emit(const fb_job *j, int tile)
 
 static void fb_work(void *vctx, int worker, int nworkers)
 {
-    (void)worker; (void)nworkers;
+    (void)nworkers;
     fb_sched_ctx *sc = (fb_sched_ctx *)vctx;
     const fb_job *j = sc->job;
+    uint64_t busy0 = sgl_prof_now();
+    int mytiles = 0;
     /* batch-grab the tile cursor (see sg_mt_sched.c): RELAXED block claims cut
      * the cursor cache-line bounce. Disjoint tiles -> order-independent. */
     for (;;) {
         int base = __atomic_fetch_add(&sc->tile_next, SG_MT_GRAB, __ATOMIC_RELAXED);
         if (base >= j->active_count) break;
         int end = base + SG_MT_GRAB; if (end > j->active_count) end = j->active_count;
-        for (int t = base; t < end; ++t)
+        for (int t = base; t < end; ++t) {
             fb_tile_emit(j, j->active[t]);
+            ++mytiles;
+        }
+    }
+    if (sgl_prof_enabled && worker >= 0 && worker < SGL_PROF_MAXHARTS) {
+        sgl_prof_hart_busy[worker] += sgl_prof_now() - busy0;
+        sgl_prof_hart_tiles[worker] += (uint64_t)mytiles;
     }
 }
 
@@ -274,6 +300,12 @@ static void fb_replay_inorder(void)
     }
 }
 
+void sg_framebin_barrier(void)
+{
+    if (!sgl_framebin_enabled) return;
+    sg_framebin_flush();     /* itself a no-op when nothing is recorded */
+}
+
 void sg_framebin_flush(void)
 {
     if (g_nitem <= 0) { fb_record_reset(); return; }
@@ -295,6 +327,7 @@ void sg_framebin_flush(void)
     if (tiles_x < 1) tiles_x = 1;
     if (tiles_y < 1) tiles_y = 1;
     int ntiles = tiles_x * tiles_y;
+    int cover_admit = 0;
 
     /* Per-item tile range (clears cover the whole grid). */
     for (int i = 0; i < g_nitem; ++i) {
@@ -305,6 +338,10 @@ void sg_framebin_flush(void)
         it->range = sg_mt_prim_tiles(c->pv, &desc, &c->state, fbw, fbh,
                                      tiles_x, tiles_y, &layout,
                                      c->cull_face, c->cull_mode, c->front_ccw);
+        if (it->range.tx0 <= it->range.tx1) {
+            long nt=(long)(it->range.tx1-it->range.tx0+1)*(long)(it->range.ty1-it->range.ty0+1);
+            if (nt*(long)layout.w*(long)layout.h >= SGL_MT_MIN_COVER_PX) cover_admit=1;
+        }
     }
 
     int *counts  = (int *)sg_frame_alloc(sizeof(int) * (size_t)ntiles);
@@ -340,9 +377,21 @@ void sg_framebin_flush(void)
     for (int t = 0; t < ntiles; ++t)
         if (offsets[t] < offsets[t + 1] && active) active[active_count++] = t;
 
+    /* A forced glFlush may contain only a tiny UI primitive. Do not wake every
+     * hart for less work than the established per-draw MT thresholds; normal
+     * Doom frames easily exceed both limits and still dispatch once per frame. */
+    if (active_count < SGL_MT_MIN_ACTIVE_TILES || total < SGL_MT_MIN_BIN_REFS) {
+        fb_replay_inorder();
+        fb_record_reset();
+        return;
+    }
+
     fb_job job = { g_cmds, g_items, offsets, refs, active, active_count,
                    tiles_x, tiles_y, fbw, fbh, layout };
     fb_sched_ctx ctx = { &job, 0 };
+    extern volatile unsigned long sgl_dbg_mt_engaged, sgl_dbg_mt_cover_admit;
+    ++sgl_dbg_mt_engaged;
+    if (cover_admit) ++sgl_dbg_mt_cover_admit;
     sg_mt_sched_run(fb_work, &ctx);
 
     fb_record_reset();
@@ -356,4 +405,5 @@ void sg_framebin_record_clear(sgl_framebuffer *fb, GLbitfield mask,
                               uint32_t color, float depth, unsigned char stencil)
 { (void)fb;(void)mask;(void)color;(void)depth;(void)stencil; }
 void sg_framebin_flush(void) {}
+void sg_framebin_barrier(void) {}
 #endif

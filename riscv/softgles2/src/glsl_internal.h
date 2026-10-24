@@ -1,3 +1,4 @@
+#include "sg_kernel_bindings.h"
 #ifndef SOFTGLES2_GLSL_INTERNAL_H
 #define SOFTGLES2_GLSL_INTERNAL_H
 
@@ -52,10 +53,12 @@ typedef struct {
 } shader;
 
 /* ---------------- flat bytecode IR (A2) ---------------- */
-enum { IR_LOADK, IR_LOADV, IR_LOADU, IR_LOADS, IR_LOADZ, IR_MOV,
+enum { IR_LOADK, IR_LOADV, IR_LOADU, IR_LOADS, IR_LOADZ, IR_LOADFC, IR_MOV,
        IR_SWZ, IR_NEG, IR_NOT, IR_INDEX, IR_BIN, IR_CMP, IR_TERN,
        IR_CONSTRUCT, IR_BUILTIN, IR_STOREL, IR_STOREF, IR_DISCARD,
        IR_LOADA, IR_STORECLIP, IR_STOREV };
+/* IR_LOADFC: gl_FragCoord.xyzw (pixel centre). SIMT fills x/y from the raster
+ * lane map (sgl_simt_frag_x/y); z=0, w=1. */
 #define IR_MAXREG  96
 #define IR_MAXINST 1024
 typedef struct {
@@ -79,6 +82,8 @@ struct glsl_program;
 typedef int (*glsl_fs_kernel_fn)(struct glsl_program *p, const float *varys, int vl,
                                  const sgl_tex *const samplers[GLSL_MAX_SAMPLERS],
                                  const float *ustore, float *out);
+typedef int (*glsl_vs_kernel_fn)(struct glsl_program *p, const float *attrs,
+                                 const int *attr_map, int vl, float *clip, float *vary);
 
 struct glsl_program {
     shader vs, fs;
@@ -90,7 +95,16 @@ struct glsl_program {
     ir_prog fs_ir;
     ir_prog vs_ir;
     glsl_fs_kernel_fn fs_kernel;   /* 0 = use the VM */
+    glsl_vs_kernel_fn vs_kernel;   /* 0 = use the vertex VM */
+    /* Which varying floats fs_kernel actually reads (bit k = float k). Lets the
+     * rasteriser skip interpolating the rest -- the gl4es interaction shader
+     * declares 32 and reads 18. Only ever set beside an fs_kernel: the VM
+     * addresses varyings by offset and must see all of them. 0 = interpolate
+     * everything. See the warning where kernels set it in sg_kernels.c. */
+    unsigned int vary_live_mask;
     int   fs_has_discard;          /* FS uses discard -> SIMT must emit a per-lane kill mask */
+    /* Immutable after successful link; values/sampler units are read live. */
+    int kernel_binding[SGL_KERNEL_BINDING_COUNT];
     /* Set by glsl_fs_classify when the FS output alpha is provably 0 wherever the
      * incoming vertex-colour alpha (vary[3]) is 0 — i.e. gl_FragColor.a is a product
      * that includes Color.a (the gl4es 2D modulate/overlay archetype). Lets the draw
@@ -123,7 +137,12 @@ typedef struct { token t[MAX_TOK]; int n, pos; } toklist;
 enum { BI_TEXTURE2D, BI_DOT, BI_LENGTH, BI_DISTANCE, BI_NORMALIZE, BI_CROSS, BI_MIX,
        BI_CLAMP, BI_MIN, BI_MAX, BI_ABS, BI_FLOOR, BI_CEIL, BI_FRACT, BI_SIGN, BI_SQRT,
        BI_INVERSESQRT, BI_MOD, BI_STEP, BI_SMOOTHSTEP, BI_REFLECT, BI_POW,
-       BI_TEXTURE2DPROJ, BI_TEXTURECUBE, BI_COUNT };
+       BI_TEXTURE2DPROJ, BI_TEXTURECUBE,
+       /* transcendentals: gl4es emits sin/cos/exp2/log2 for Doom's ARB
+        * SIN/COS/SCS/EX2/LG2; exp/log/tan/radians/degrees round out the set.
+        * enum and glsl_ir.c nm[] MUST stay index-parallel. */
+       BI_SIN, BI_COS, BI_TAN, BI_EXP, BI_LOG, BI_EXP2, BI_LOG2, BI_RADIANS, BI_DEGREES,
+       BI_COUNT };
 
 /* ---- cross-file function declarations ---- */
 int   lex(const char *s, toklist *tl);

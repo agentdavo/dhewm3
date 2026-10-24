@@ -31,6 +31,12 @@ If you have questions concerning this license or the applicable additional terms
 #define STBI_NO_LINEAR
 #define STBI_ONLY_JPEG // at least for now, only use it for JPEG
 #define STBI_NO_STDIO  // images are passed as buffers
+#ifdef BAREMETAL
+#include "../../riscv/engine/texture_profile.h"
+#define BM_TEX_SCOPE(phase) BMTextureScope bmTextureScope(phase)
+#else
+#define BM_TEX_SCOPE(phase) ((void)0)
+#endif
 #include "stb_image.h"
 
 #include "sys/platform.h"
@@ -524,6 +530,7 @@ LoadTGA
 =============
 */
 static void LoadTGA( const char *name, byte **pic, int *width, int *height, ID_TIME_T *timestamp ) {
+	BM_TEX_SCOPE(BM_TEX_TGA);
 	int		columns, rows, numPixels, fileSize, numBytes;
 	byte	*pixbuf;
 	int		row, column;
@@ -542,7 +549,7 @@ static void LoadTGA( const char *name, byte **pic, int *width, int *height, ID_T
 	//
 	// load the file
 	//
-	fileSize = fileSystem->ReadFile( name, (void **)&buffer, timestamp );
+	{ BM_TEX_SCOPE(BM_TEX_FILE); fileSize = fileSystem->ReadFile( name, (void **)&buffer, timestamp ); }
 	if ( !buffer ) {
 		return;
 	}

@@ -524,6 +524,15 @@ void idDict::Delete( const char *key ) {
 idDict::MatchPrefix
 ================
 */
+// Attribution counters for MatchPrefix. The map-load profile showed 40.7 s
+// unattributed inside media-cache (its sub-timers accounted for only 0.9 s of
+// 41.6 s), and MatchPrefix was the suspect. Nothing measured it, so nothing
+// could confirm that. `scanned` counts elements actually compared, which is the
+// quantity the O(n^2) continuation used to inflate -- watch its ratio to
+// `calls`, not wall time, since the ratio is immune to host contention.
+int	idDict::matchPrefixCalls = 0;
+int	idDict::matchPrefixScanned = 0;
+
 const idKeyValue *idDict::MatchPrefix( const char *prefix, const idKeyValue *lastMatch ) const {
 	int	i;
 	int len;
@@ -531,10 +540,26 @@ const idKeyValue *idDict::MatchPrefix( const char *prefix, const idKeyValue *las
 
 	assert( prefix );
 	len = strlen( prefix );
+	matchPrefixCalls++;
 
 	start = -1;
 	if ( lastMatch ) {
-		start = args.FindIndex( *lastMatch );
+		// lastMatch is always a pointer this function itself returned, i.e. it
+		// points *into* args -- so its index is pointer arithmetic, O(1).
+		//
+		// This used to call args.FindIndex( *lastMatch ), which linear-scans the
+		// list comparing idKeyValue BY VALUE (two string compares per element) to
+		// re-find a position it was just handed. Walking all matches of a prefix
+		// was therefore O(n^2) in string compares, and MatchPrefix is called in a
+		// loop all over entity spawning and media caching.
+		const idKeyValue *base = args.Num() ? &args[0] : NULL;
+		if ( base && lastMatch >= base && lastMatch < base + args.Num() ) {
+			start = (int)( lastMatch - base );
+		} else {
+			// Not one of ours (or the list was rebuilt underneath the caller):
+			// fall back to the search rather than trusting the arithmetic.
+			start = args.FindIndex( *lastMatch );
+		}
 		assert( start >= 0 );
 		if ( start < 1 ) {
 			start = 0;
@@ -542,6 +567,7 @@ const idKeyValue *idDict::MatchPrefix( const char *prefix, const idKeyValue *las
 	}
 
 	for( i = start + 1; i < args.Num(); i++ ) {
+		matchPrefixScanned++;
 		if ( !args[i].GetKey().Icmpn( prefix, len ) ) {
 			return &args[i];
 		}

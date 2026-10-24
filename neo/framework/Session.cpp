@@ -36,6 +36,17 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/ModelManager.h"
 
 #include "framework/Session_local.h"
+#ifdef BAREMETAL
+extern "C" void BM_BootMark(const char *stage);
+#define BM_BOOT_MARK(stage) BM_BootMark(stage)
+#else
+#define BM_BOOT_MARK(stage) ((void)0)
+#endif
+
+
+#ifndef BM_DEMOFLOW
+#define BM_DEMOFLOW 0
+#endif
 
 #if defined(BAREMETAL)
 extern "C" void bm_io_stats_print(void);
@@ -65,11 +76,9 @@ idCVar	idSessionLocal::com_showAngles( "com_showAngles", "0", CVAR_SYSTEM | CVAR
 idCVar	idSessionLocal::com_minTics( "com_minTics", "1", CVAR_SYSTEM, "" );
 idCVar	idSessionLocal::com_showTics( "com_showTics", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_fixedTic( "com_fixedTic", "0", CVAR_SYSTEM | CVAR_INTEGER | CVAR_ARCHIVE, "", -1, 10 );
-// Max game tics caught up per frame after a render "hitch". Stock is a hardcoded 10, which
-// on bare metal under TCG (every render is a ~15s hitch) throttles game/cinematic time to
-// ~167ms per render frame. Raise it to let slow renders advance more game time per frame so
-// long cinematics are reachable in a sane number of captured frames. Game logic is cheap
-// next to the software render, so a higher cap costs almost nothing per frame.
+// Max game tics caught up per frame after a render hitch. Stock Doom 3 used a
+// hardcoded 10; keep that as the default so slow TCG renders do not trigger large
+// game-logic bursts each displayed frame.
 idCVar	com_maxCatchupTics( "com_maxCatchupTics", "10", CVAR_SYSTEM | CVAR_INTEGER, "max game tics to catch up per frame after a slow render", 1, 1000 );
 idCVar	idSessionLocal::com_showDemo( "com_showDemo", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_skipGameDraw( "com_skipGameDraw", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
@@ -1579,6 +1588,7 @@ Exits with mapSpawned = true
 ===============
 */
 void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
+	BM_BOOT_MARK("map-load-start");
 	int		i;
 	bool	reloadingSameMap;
 
@@ -1683,10 +1693,12 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	// let the renderSystem load all the geometry
 	common->Printf( "[demoflow] +%dms START rw->InitFromMap (proc/BSP + materials)\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("world-load-start");
 	if ( !rw->InitFromMap( fullMapName ) ) {
 		common->Error( "couldn't load %s", fullMapName.c_str() );
 	}
 	common->Printf( "[demoflow] +%dms DONE rw->InitFromMap (proc/BSP + materials)\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("world-load-ready");
 	BM_PrintIOStatsPhase( "rw.InitFromMap" );
 
 	// for the synchronous networking we needed to roll the angles over from
@@ -1703,6 +1715,7 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	// load and spawn all other entities ( from a savegame possibly )
 	if ( loadingSaveGame && savegameFile ) {
 		common->Printf( "[demoflow] +%dms START game->InitFromSaveGame\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("game-load-start");
 		if ( game->InitFromSaveGame( fullMapName + ".map", rw, sw, savegameFile ) == false ) {
 			// If the loadgame failed, restart the map with the player persistent data
 			loadingSaveGame = false;
@@ -1715,12 +1728,15 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 			game->InitFromNewMap( fullMapName + ".map", rw, sw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() );
 		}
 		common->Printf( "[demoflow] +%dms DONE game->InitFromSaveGame\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("game-load-ready");
 		BM_PrintIOStatsPhase( "game.InitFromSaveGame" );
 	} else {
 		game->SetServerInfo( mapSpawnData.serverInfo );
 		common->Printf( "[demoflow] +%dms START game->InitFromNewMap\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("game-load-start");
 		game->InitFromNewMap( fullMapName + ".map", rw, sw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() );
 		common->Printf( "[demoflow] +%dms DONE game->InitFromNewMap\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("game-load-ready");
 		BM_PrintIOStatsPhase( "game.InitFromNewMap" );
 	}
 
@@ -1734,11 +1750,13 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	// actually purge/load the media
 	if ( !reloadingSameMap ) {
 		common->Printf( "[demoflow] +%dms START EndLevelLoad: gl4es texture uploads (software)\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("textures-upload-start");
 		renderSystem->EndLevelLoad();
 		soundSystem->EndLevelLoad( mapString.c_str() );
 		declManager->EndLevelLoad();
 		SetBytesNeededForMapLoad( mapString.c_str(), fileSystem->GetReadCount() );
 		common->Printf( "[demoflow] +%dms DONE EndLevelLoad\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("textures-upload-ready");
 		BM_PrintIOStatsPhase( "EndLevelLoad" );
 	}
 	uiManager->EndLevelLoad();
@@ -1753,10 +1771,17 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	int	msec = Sys_Milliseconds() - start;
 	common->Printf( "%6d msec to load %s\n", msec, mapString.c_str() );
 
-	// let the renderSystem generate interactions now that everything is spawned
+	// Let desktop builds precompute the full light/surface table. On bare metal
+	// under QEMU TCG this is a huge startup wall, and the renderer's lazy path is
+	// explicitly designed to create visible interactions on demand.
+	// On bare metal GenerateAllInteractions() internally skips only the eager
+	// interaction-creation pass; it still allocates the lookup table. Calling it
+	// unconditionally keeps that decision in the renderer, where it belongs.
 	common->Printf( "[demoflow] +%dms START GenerateAllInteractions (light/surface table)\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("interactions-start");
 	rw->GenerateAllInteractions();
 	common->Printf( "[demoflow] +%dms DONE GenerateAllInteractions\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("interactions-ready");
 
 	common->PrintWarnings();
 
@@ -1809,7 +1834,13 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	// we are valid for game draws now
 	common->Printf( "[demoflow] +%dms map-change COMPLETE -> mapSpawned (ready to render)\n", Sys_Milliseconds() - start );
+	BM_BOOT_MARK("map-ready");
 	mapSpawned = true;
+	// Bare-metal bench/vantage hook: signal that a map finished spawning so the
+	// bare-metal frame loop can pin the vantage / freeze the world a few RENDERED
+	// frames later (the loading screen renders ~48 frames before this point, so a
+	// raw loop-frame trigger fires uselessly mid-load). Harmless on hosted builds.
+	{ extern volatile int bm_map_spawn_seq; ++bm_map_spawn_seq; }
 	Sys_ClearEvents();
 }
 
@@ -2685,7 +2716,9 @@ void idSessionLocal::UpdateScreen( bool outOfSequence ) {
 	}
 
 	int demoflow_frame_t0 = Sys_Milliseconds();
+#if BM_DEMOFLOW
 	common->Printf( "[demoflow] frame: render START (%dx%d)\n", renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
+#endif
 	D3P_BeginCPUSample(Render_BeginFrame);
 	renderSystem->BeginFrame( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
 	D3P_EndCPUSample(Render_BeginFrame);
@@ -2700,7 +2733,9 @@ void idSessionLocal::UpdateScreen( bool outOfSequence ) {
 		renderSystem->EndFrame( NULL, NULL );
 	}
 	D3P_EndCPUSample(Render_EndFrame);
+#if BM_DEMOFLOW
 	common->Printf( "[demoflow] frame: render END (+%dms)\n", Sys_Milliseconds() - demoflow_frame_t0 );
+#endif
 
 	// com_speeds for the bare-metal render loop. The stock per-frame readout
 	// lives in idCommonLocal::Frame (Common.cpp:2564), but this port drives
@@ -2984,9 +3019,13 @@ void idSessionLocal::RunGameTic() {
 
 	// run the game logic every player move
 	int	start = Sys_Milliseconds();
-	Sys_Printf( "[demoflow] RunGameTic -> game->RunFrame() ENTER\n" );
+	if ( BM_DEMOFLOW ) {
+		Sys_Printf( "[demoflow] RunGameTic -> game->RunFrame() ENTER\n" );
+	}
 	gameReturn_t	ret = game->RunFrame( &cmd );
-	Sys_Printf( "[demoflow] RunGameTic <- game->RunFrame() returned (+%dms)\n", Sys_Milliseconds() - start );
+	if ( BM_DEMOFLOW ) {
+		Sys_Printf( "[demoflow] RunGameTic <- game->RunFrame() returned (+%dms)\n", Sys_Milliseconds() - start );
+	}
 
 	int end = Sys_Milliseconds();
 	time_gameFrame += end - start;	// note time used for com_speeds

@@ -130,9 +130,19 @@ void sglMakeCurrent(sgl_framebuffer *fb)
     C.error = GL_NO_ERROR;
 }
 
-void glViewport(GLint x, GLint y, GLsizei w, GLsizei h) { C.vp_x = x; C.vp_y = y; C.vp_w = w; C.vp_h = h; }
-void glClearColor(GLclampf r, GLclampf g, GLclampf b, GLclampf a) { C.clear_r = r; C.clear_g = g; C.clear_b = b; C.clear_a = a; }
-void glClearDepthf(GLclampf d) { C.clear_depth = d; }
+static GLfloat clamp01(GLfloat v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); }
+
+void glViewport(GLint x, GLint y, GLsizei w, GLsizei h)
+{
+    if (w < 0 || h < 0) { set_err(GL_INVALID_VALUE); return; }
+    C.vp_x = x; C.vp_y = y; C.vp_w = w; C.vp_h = h;
+}
+void glClearColor(GLclampf r, GLclampf g, GLclampf b, GLclampf a)
+{
+    C.clear_r = clamp01(r); C.clear_g = clamp01(g);
+    C.clear_b = clamp01(b); C.clear_a = clamp01(a);
+}
+void glClearDepthf(GLclampf d) { C.clear_depth = clamp01(d); }
 void glClearStencil(GLint s) { C.clear_stencil = s & 0xFF; }
 
 void glDepthFunc(GLenum func)
@@ -141,17 +151,18 @@ void glDepthFunc(GLenum func)
     case GL_NEVER: case GL_LESS: case GL_EQUAL: case GL_LEQUAL:
     case GL_GREATER: case GL_NOTEQUAL: case GL_GEQUAL: case GL_ALWAYS:
         C.depth_func = (int)func; break;
-    default: C.depth_func = SGL_DEPTH_LESS; break;
+    default: set_err(GL_INVALID_ENUM); break;
     }
 }
 void glDepthMask(GLboolean flag) { C.depth_write = flag ? 1 : 0; }
-void glDepthRangef(GLclampf n, GLclampf f) { C.depth_near = n; C.depth_far = f; }
+void glDepthRangef(GLclampf n, GLclampf f) { C.depth_near = clamp01(n); C.depth_far = clamp01(f); }
 void glColorMask(GLboolean r, GLboolean g, GLboolean b, GLboolean a)
 {
     C.color_mask = (r ? 1 : 0) | (g ? 2 : 0) | (b ? 4 : 0) | (a ? 8 : 0);
 }
 void glScissor(GLint x, GLint y, GLsizei w, GLsizei h)
 {
+    if (w < 0 || h < 0) { set_err(GL_INVALID_VALUE); return; }
     C.scissor_x = x; C.scissor_y = y; C.scissor_w = w; C.scissor_h = h;
 }
 void glPolygonOffset(GLfloat factor, GLfloat units) { C.poly_off_factor = factor; C.poly_off_units = units; }
@@ -164,8 +175,18 @@ void glDepthBoundsEXT(GLclampf zmin, GLclampf zmax)
     if (zmax < 0.f) zmax = 0.f; else if (zmax > 1.f) zmax = 1.f;
     C.depth_bounds_min = zmin; C.depth_bounds_max = zmax;
 }
-void glCullFace(GLenum mode)  { C.cull_mode = mode; }
-void glFrontFace(GLenum mode) { C.front_ccw = (mode == GL_CCW); }
+void glCullFace(GLenum mode)
+{
+    if (mode != GL_FRONT && mode != GL_BACK && mode != GL_FRONT_AND_BACK) {
+        set_err(GL_INVALID_ENUM); return;
+    }
+    C.cull_mode = mode;
+}
+void glFrontFace(GLenum mode)
+{
+    if (mode != GL_CW && mode != GL_CCW) { set_err(GL_INVALID_ENUM); return; }
+    C.front_ccw = (mode == GL_CCW);
+}
 
 void glEnable(GLenum cap)
 {
@@ -176,6 +197,7 @@ void glEnable(GLenum cap)
     else if (cap == GL_SCISSOR_TEST) C.scissor_on = 1;
     else if (cap == GL_POLYGON_OFFSET_FILL) C.poly_off_on = 1;
     else if (cap == GL_DEPTH_BOUNDS_TEST_EXT) C.depth_bounds_on = 1;
+    else set_err(GL_INVALID_ENUM);
 }
 void glDisable(GLenum cap)
 {
@@ -186,6 +208,7 @@ void glDisable(GLenum cap)
     else if (cap == GL_SCISSOR_TEST) C.scissor_on = 0;
     else if (cap == GL_POLYGON_OFFSET_FILL) C.poly_off_on = 0;
     else if (cap == GL_DEPTH_BOUNDS_TEST_EXT) C.depth_bounds_on = 0;
+    else set_err(GL_INVALID_ENUM);
 }
 
 GLboolean glIsEnabled(GLenum cap)
@@ -197,6 +220,7 @@ GLboolean glIsEnabled(GLenum cap)
     if (cap == GL_SCISSOR_TEST) return C.scissor_on ? GL_TRUE : GL_FALSE;
     if (cap == GL_POLYGON_OFFSET_FILL) return C.poly_off_on ? GL_TRUE : GL_FALSE;
     if (cap == GL_DEPTH_BOUNDS_TEST_EXT) return C.depth_bounds_on ? GL_TRUE : GL_FALSE;
+    set_err(GL_INVALID_ENUM);
     return GL_FALSE;
 }
 
@@ -298,15 +322,11 @@ const GLubyte *glGetString(GLenum name)
      * features: NPOT textures (no POT check in glTexImage2D), 8-bit + 24-bit + packed
      * depth/stencil renderbuffer formats. Each gates a gl4es hardext.* flag at probe time.
      *
-     * NOTE: GL_OES_element_index_uint is intentionally NOT advertised. softgles2 decodes
-     * 32-bit indices correctly, but enabling it flips gl4es from deep-copying indices into
-     * a fresh USHORT buffer (and resetting the element-array binding) to passing Doom3's
-     * raw absolute client index pointer straight through WITHOUT resetting the binding —
-     * which, against a stale softgles2 element_buffer, forms a wild rebase (garbage vertex
-     * index, ~4GB-past-RAM read). Doom3 md5/world meshes are <65535 verts so 16-bit indices
-     * are lossless. Re-enable only once gl4es resets the index binding on the raw path. */
-    case GL_EXTENSIONS: return (const GLubyte *)"GL_EXT_texture_compression_s3tc GL_OES_texture_compression_S3TC GL_EXT_depth_bounds_test GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_OES_depth24 GL_OES_packed_depth_stencil";
-    default: return (const GLubyte *)"";
+     * Native uint advertisement remains disabled pending a reproducible
+     * explanation of a heat-haze A/B mismatch. gl4es reuses its conversion
+     * buffer, removing per-draw allocation while preserving the validated path. */
+    case GL_EXTENSIONS: return (const GLubyte *)"GL_EXT_texture_compression_s3tc GL_OES_texture_compression_S3TC GL_EXT_depth_bounds_test GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_OES_depth24 GL_OES_packed_depth_stencil GL_OES_depth_texture ";
+    default: set_err(GL_INVALID_ENUM); return NULL;
     }
 }
 
@@ -402,6 +422,10 @@ void glGetBooleanv(GLenum pname, GLboolean *data)
 
 void glClear(GLbitfield mask)
 {
+    if (mask & ~(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) {
+        set_err(GL_INVALID_VALUE);
+        return;
+    }
     if (!C.fb) return;
     uint32_t R = (uint32_t)(C.clear_r * 255.f + 0.5f);
     uint32_t G = (uint32_t)(C.clear_g * 255.f + 0.5f);
@@ -443,12 +467,12 @@ void glClear(GLbitfield mask)
         sgl_hiz_clear(C.fb, cd);
 }
 
-void glEnableVertexAttribArray(GLuint i)  { GLTRACE("[ena] %u\n", i); if (i < SGL_MAX_VERTEX_ATTRIBS) C.attribs[i].enabled = 1; }
-void glDisableVertexAttribArray(GLuint i) { GLTRACE("[dis] %u\n", i); if (i < SGL_MAX_VERTEX_ATTRIBS) C.attribs[i].enabled = 0; }
+void glEnableVertexAttribArray(GLuint i)  { GLTRACE("[ena] %u\n", i); if (i < SGL_MAX_VERTEX_ATTRIBS) C.attribs[i].enabled = 1; else set_err(GL_INVALID_VALUE); }
+void glDisableVertexAttribArray(GLuint i) { GLTRACE("[dis] %u\n", i); if (i < SGL_MAX_VERTEX_ATTRIBS) C.attribs[i].enabled = 0; else set_err(GL_INVALID_VALUE); }
 
 static void set_attrib_cur(GLuint i, float x, float y, float z, float w)
 {
-    if (i >= SGL_MAX_VERTEX_ATTRIBS) return;
+    if (i >= SGL_MAX_VERTEX_ATTRIBS) { set_err(GL_INVALID_VALUE); return; }
     C.attribs[i].cur[0]=x; C.attribs[i].cur[1]=y; C.attribs[i].cur[2]=z; C.attribs[i].cur[3]=w;
     C.attribs[i].has_cur = 1;
 }
@@ -465,6 +489,9 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
 {
     GLTRACE("[vap] idx=%u size=%d type=0x%x stride=%d ptr=%p buf=%u\n", index, size, type, stride, ptr, C.array_buffer);
     if (index >= SGL_MAX_VERTEX_ATTRIBS) { set_err(GL_INVALID_VALUE); return; }
+    if (size < 1 || size > 4 || stride < 0) { set_err(GL_INVALID_VALUE); return; }
+    if (type != GL_BYTE && type != GL_UNSIGNED_BYTE && type != GL_SHORT &&
+        type != GL_UNSIGNED_SHORT && type != GL_FLOAT) { set_err(GL_INVALID_ENUM); return; }
     attrib_t *a = &C.attribs[index];
     a->size = size; a->type = type; a->normalized = normalized; a->stride = stride; a->ptr = ptr; a->buffer = C.array_buffer;
 }

@@ -1,0 +1,183 @@
+diff --git a/src/gl/fpe_cache.c b/src/gl/fpe_cache.c
+--- a/src/gl/fpe_cache.c
++++ b/src/gl/fpe_cache.c
+@@ -48,43 +48,52 @@
+ #define KHASH_MAP_INIT_FPE(name, khval_t)                                \
+     KHASH_INIT(name, kh_fpe_t, khval_t, 1, kh_fpe_hash_func, kh_fpe_hash_equal)
+ 
+-#define kh_fpecachelist_t kh_fpecachelist_s
+-KHASH_MAP_INIT_FPE(fpecachelist, fpe_fpe_t *);
+-#undef kh_fpecachelist_t
++KHASH_MAP_INIT_FPE(fpecacheentries, fpe_fpe_t *);
++struct kh_fpecachelist_s {
++    khash_t(fpecacheentries) *entries;
++    fpe_fpe_t *last;
++};
++
++/* Diagnostic A/B switch; cache ownership and lifetime remain per context/cache. */
++int gl4es_cache_mru = 1;
+ 
+ // ********* Cache handling *********
+ 
+ fpe_cache_t* fpe_NewCache() {
+-    khash_t(fpecachelist) *cache = kh_init(fpecachelist);
++    fpe_cache_t *cache = calloc(1, sizeof(*cache));
++    cache->entries = kh_init(fpecacheentries);
+     return cache;
+ }
+ 
+ void fpe_disposeCache(fpe_cache_t* cache, int freeprog) {
+     if(!cache) return;
+     fpe_fpe_t *m;
+-    kh_foreach_value(cache, m, 
++    kh_foreach_value(cache->entries, m,
+         if(freeprog) {
+             if(m->glprogram)
+                 gl4es_glDeleteProgram(m->glprogram->id);
+         }
+         free(m);
+     )
+-    kh_destroy(fpecachelist, cache);
++    kh_destroy(fpecacheentries, cache->entries);
++    free(cache);
+ }
+ 
+ fpe_fpe_t *fpe_GetCache(fpe_cache_t *cur, fpe_state_t *state, int fixed) {
+     khint_t k;
+     int r;
+ 
+-    k = kh_get(fpecachelist, cur, state);
+-    if(k != kh_end(cur)) {
+-        return kh_value(cur, k);
++    if(gl4es_cache_mru && cur->last && !memcmp(&cur->last->state, state, sizeof(*state)))
++        return cur->last;
++    k = kh_get(fpecacheentries, cur->entries, state);
++    if(k != kh_end(cur->entries)) {
++        return cur->last = kh_value(cur->entries, k);
+     } else {
+         fpe_fpe_t *n = (fpe_fpe_t*)calloc(1, sizeof(fpe_fpe_t));
+         memcpy(&n->state, state, sizeof(fpe_state_t));
+-        k = kh_put(fpecachelist, cur, &n->state, &r);
+-        kh_value(cur, k) = n;
+-        return n;
++        k = kh_put(fpecacheentries, cur->entries, &n->state, &r);
++        kh_value(cur->entries, k) = n;
++        return cur->last = n;
+     }
+ }
+ 
+diff --git a/src/gl/drawing.c b/src/gl/drawing.c
+--- a/src/gl/drawing.c
++++ b/src/gl/drawing.c
+@@ -16,6 +16,8 @@
+ #else
+ #define DBG(a)
+ #endif
++
++int gl4es_index_reuse = 1; /* Diagnostic A/B; retain the existing index format. */
+ 
+ static GLboolean is_cache_compatible(GLsizei count) {
+     #define T2(AA, A, B) \
+@@ -590,13 +592,29 @@
+     GLushort *sindices = NULL;
+     GLuint *iindices = NULL;
+     GLuint old_index = 0;
++    bool borrowed_indices = false;
+     bool need_free = !(
+         (type==GL_UNSIGNED_SHORT) || 
+         (!compiling && !intercept && type==GL_UNSIGNED_INT && hardext.elementuint)
+         );
+     if(need_free) {
++        /* Only immediate draws may borrow storage: lists retain their indices.
++         * A separate buffer avoids aliasing the QUADS expansion scratch, and
++         * the busy guard permits a nested draw to fall back to owned storage. */
++        void *reuse = NULL;
++        if(gl4es_index_reuse && !compiling && !intercept && !glstate->draw_index_busy) {
++            size_t bytes=(size_t)count*sizeof(GLushort);
++            if(bytes>glstate->draw_index_capacity) {
++                void *next=realloc(glstate->draw_index_scratch,bytes);
++                if(next) { glstate->draw_index_scratch=next; glstate->draw_index_capacity=bytes; }
++            }
++            if(bytes<=glstate->draw_index_capacity) {
++                reuse=glstate->draw_index_scratch;
++                glstate->draw_index_busy=1; borrowed_indices=true;
++            }
++        }
+         sindices = copy_gl_array((glstate->vao->elements)?(void*)((char*)glstate->vao->elements->data + (uintptr_t)indices):indices,
+-            type, 1, 0, GL_UNSIGNED_SHORT, 1, 0, count, NULL);
++            type, 1, 0, GL_UNSIGNED_SHORT, 1, 0, count, reuse);
+         old_index = wantBufferIndex(0);
+     } else {
+         if(type==GL_UNSIGNED_INT)
+@@ -659,7 +677,8 @@
+     } else {
+         glDrawElementsCommon(mode, 0, count, 0, sindices, iindices, 1);
+         if(need_free) {
+-            free(sindices);
++            if(borrowed_indices) glstate->draw_index_busy=0;
++            else free(sindices);
+             wantBufferIndex(old_index);
+         }
+     }
+diff --git a/src/gl/glstate.c b/src/gl/glstate.c
+--- a/src/gl/glstate.c
++++ b/src/gl/glstate.c
+@@ -544,6 +544,7 @@
+     // scratch buffer
+     if(state->scratch)
+         free(state->scratch);
++    free(state->draw_index_scratch);
+     // merger buffers
+     if(state->merger_master)
+         free(state->merger_master);
+diff --git a/src/gl/glstate.h b/src/gl/glstate.h
+--- a/src/gl/glstate.h
++++ b/src/gl/glstate.h
+@@ -93,6 +93,9 @@
+     // scratch array
+     int                 scratch_alloc;
+     void*               scratch;
++    void*               draw_index_scratch;
++    size_t              draw_index_capacity;
++    int                 draw_index_busy;
+     // glBegin/glEnd merger
+     int                 merger_cap;
+     GLfloat*            merger_master;
+diff --git a/src/gl/fpe.c b/src/gl/fpe.c
+--- a/src/gl/fpe.c
++++ b/src/gl/fpe.c
+@@ -826,6 +826,10 @@
+         bindBuffer(GL_ELEMENT_ARRAY_BUFFER, glstate->vao->elements->real_buffer);
+         indices = (GLvoid*)((uintptr_t)indices - (uintptr_t)(glstate->vao->elements->data));
+         DBG(printf("Using VBO %d for indices\n", glstate->vao->elements->real_buffer);)
++    } else {
++        /* A client pointer (including converted indices) is never an EBO
++         * offset. Clear any binding left by the previous draw. */
++        bindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+     }
+     realize_bufferIndex();
+     gles_glDrawElements(mode, count, type, indices);
+diff --git a/src/gl/texture_read.c b/src/gl/texture_read.c
+--- a/src/gl/texture_read.c
++++ b/src/gl/texture_read.c
+@@ -30,6 +30,8 @@
+     }
+     return size;
+ }
++
++int gl4es_copy_rgb = 1; /* Diagnostic A/B: preserve the conversion fallback at 0. */
+ 
+ void APIENTRY_GL4ES gl4es_glCopyTexImage2D(GLenum target,  GLint level,  GLenum internalformat,  GLint x,  GLint y,  
+                                 GLsizei width,  GLsizei height,  GLint border) {
+@@ -147,7 +149,10 @@
+             gles_glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT_OES, (GLint *) &glstate->fbo.current_fb->read_format);
+             gles_glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE_OES, (GLint *) &glstate->fbo.current_fb->read_type);
+         }
+-        copytex = ((bound->format==GL_RGBA && bound->type==GL_UNSIGNED_BYTE) 
++        int rgb_direct = gl4es_copy_rgb && level==0 && bound->format==GL_RGB
++            && bound->inter_format==GL_RGB && bound->inter_type==GL_UNSIGNED_BYTE
++            && !bound->shrink && !bound->useratio && !globals4es.texcopydata;
++        copytex = (((bound->format==GL_RGBA || rgb_direct) && bound->type==GL_UNSIGNED_BYTE)
+             || (bound->format==GL_DEPTH_COMPONENT) || (bound->format==GL_DEPTH_STENCIL)
+             || (bound->format==glstate->fbo.current_fb->read_format && bound->type==glstate->fbo.current_fb->read_type));
+         if (copytex || !glstate->colormask[0] || !glstate->colormask[1] || !glstate->colormask[2] || !glstate->colormask[3]) {

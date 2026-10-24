@@ -1,0 +1,27 @@
+=== FrameBin on (candidate) vs off (reference)
+  reference /home/djs/dhewm3/riscv/docs/perf/framebin-off.log: 212 frames
+  candidate /home/djs/dhewm3/riscv/docs/perf/framebin-on.log: 377 frames
+  frames present in both: 212
+  FAIL: 178 of 212 common frames differ
+    frame 34: ref=8f384183a59d128b cand=ad9180b3f21431e6
+    frame 35: ref=25e6da7857adfd23 cand=2dfbecc8600b9f50
+    frame 36: ref=60322de0e4dd19cd cand=ab65c464b10154da
+    frame 37: ref=141c2d9f24aabf33 cand=71b5dca99a176623
+    frame 38: ref=79dd846debb7c987 cand=bbfc30742e46fd3e
+    frame 39: ref=2f089d25becb8593 cand=453d9888ab508d05
+    frame 40: ref=dbd0c5b5ae1cbd1d cand=3598cbd921ef97b5
+    frame 41: ref=b291b4eca51eb5d8 cand=ac9a0a2a22b6ccfa
+    frame 42: ref=c2f801bfa458842b cand=f7edea729e89d45c
+    frame 43: ref=0f47ff545bff596b cand=03c74e8a73075353
+    frame 44: ref=8783545e675d5f23 cand=c0dd2480d9ef1cb1
+    frame 45: ref=7d47df5d04a0b91e cand=54b3aa1d2514ad43
+    frame 46: ref=1fcc7dc46c0653d4 cand=83554be82f67430e
+    frame 47: ref=ceff658091a143f5 cand=62815bb4127c29eb
+    frame 48: ref=50f62f5f9a8d8312 cand=02a543fd4d8d33e4
+    frame 49: ref=552ec385e820701b cand=1ef9f48831f7c3ed
+    frame 50: ref=dba517d60b93c927 cand=f9153610acafe560
+    frame 51: ref=42180460cf395d39 cand=ddbe209b889f7748
+    frame 52: ref=8d883707c401ae62 cand=4f2dbf975309dde8
+    frame 53: ref=ff79de5d6a76d0b0 cand=9724ceaaaeeba326
+    ... and 158 more
+  first divergence at frame 34

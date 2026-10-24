@@ -11,9 +11,23 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define MAX_TEXTURES 256
+/* Doom 3 keeps roughly 2,100 image objects resident in Mars City alone.  The
+ * old 256-entry table made glGenTextures silently return name 0 after 255,
+ * leaving most interaction-light sampler units unbound and the world black.
+ * The descriptors contain pointers, not texel storage, so 4096 is inexpensive
+ * relative to the uploaded image data and still keeps constant-time lookup. */
+#define MAX_TEXTURES 4096
 
-typedef struct { sgl_tex tex; sgl_tex cube[6]; uint8_t cube_mask; GLenum target; int used; } tex_obj;
+typedef struct {
+    sgl_tex tex;
+    sgl_tex cube[6];
+    uint8_t cube_mask;
+    /* 0 = uncompressed, 1..4 = S3TC enum offset. Keep format metadata out of
+     * the hot sampler view, which is copied for mip selection. */
+    uint8_t compressed_format[7][SGL_MAX_MIP];
+    GLenum target;
+    int used;
+} tex_obj;
 
 extern tex_obj g_textures[MAX_TEXTURES];
 

@@ -26,7 +26,9 @@
 #include <stdlib.h>
 #endif
 
-#include "sgl.h"        /* sgl_framebuffer, sgl_fb_create */
+#include "sgl.h"
+#include "sg_fb.h"        /* sgl_framebuffer, sgl_fb_create */
+#include "sgl_overlay.h" /* sgl_overlay_draw (on-screen stats HUD) */
 #include "bridge.h"     /* sgl_bridge_init */
 #include "dos_virtio_gpu.h"
 #include "video-dos/dos_gl.h"
@@ -34,6 +36,40 @@
 /* The single GL surface for the dOS window (dhewm3 only ever has one). */
 static sgl_framebuffer *g_fb;
 static sgl_framebuffer *g_sw_fb;   /* separate backing for the software blit path */
+
+/* ---- supersampled anti-aliasing (SSAA) -----------------------------------
+ * The engine renders at render-res = output-res * ssaa (set at build time via
+ * BAREMETAL_SSAA -> BM_FB_WIDTH/HEIGHT already carry the supersampled size, and
+ * BM_SSAA carries the factor). g_fb is the supersampled render target; at
+ * present we box-downsample it (ssaa x ssaa average) into g_scanout, which is
+ * the virtio-gpu scanout at the real display resolution. With ssaa==1 the old
+ * behaviour is kept exactly: g_fb's colour buffer IS the scanout (external
+ * bind), and present is copy-free.
+ *
+ * There is no MSAA in this rasteriser, so SSAA is the only way to resolve the
+ * high-contrast texture aliasing (e.g. the stratified rock) at native 1:1. */
+static int       g_ssaa = 0;        /* 0 = not yet set; resolved in create_context */
+static uint32_t *g_scanout;         /* display-res scanout (ssaa>1 only) */
+static int       g_ow, g_oh;        /* output (display) resolution */
+
+/* Runtime override of the SSAA factor (bm_ssaa cvar). Must be called before
+ * dos_gl_create_context to take effect; clamped to [1,4]. */
+void dos_gl_set_ssaa(int s)
+{
+    if (s < 1) s = 1;
+    if (s > 4) s = 4;
+    g_ssaa = s;
+}
+
+static int dos_ssaa_factor(void)
+{
+    if (g_ssaa > 0) return g_ssaa;      /* explicit runtime override wins */
+#if defined(BM_SSAA)
+    return (BM_SSAA) >= 1 ? (BM_SSAA) : 1;
+#else
+    return 1;
+#endif
+}
 
 #if !defined(SGL_BAREMETAL)
 #define DOS_PRESENT_TRACE(...) do { if (getenv("DOS_TRACE")) fprintf(stderr, __VA_ARGS__); } while (0)
@@ -43,12 +79,30 @@ static sgl_framebuffer *g_sw_fb;   /* separate backing for the software blit pat
 
 void *dos_gl_create_context(int w, int h)
 {
+    int ssaa = dos_ssaa_factor();
+    g_ssaa = ssaa;                 /* resolve compile default into the runtime flag */
     if (w <= 0) w = 800;
     if (h <= 0) h = 600;
     if (!g_fb) {
-        g_fb = sgl_fb_create(w, h);
+        g_fb = sgl_fb_create(w, h);   /* (w,h) = supersampled render resolution */
         if (!g_fb) {
             return NULL;
+        }
+        if (ssaa > 1) {
+            /* Decoupled: the render fb keeps its own colour buffer; the scanout
+             * is a separate display-res surface we downsample into at present. */
+            g_ow = w / ssaa;
+            g_oh = h / ssaa;
+            g_scanout = dvgpu_scanout_rgba(g_ow, g_oh);
+            DOS_PRESENT_TRACE("dos-present: SSAA %dx render %dx%d -> scanout %dx%d\n",
+                              ssaa, w, h, g_ow, g_oh);
+        } else {
+            /* ssaa==1: bind the scanout directly as the fb colour (copy-free). */
+            uint32_t *scanout = dvgpu_scanout_rgba(w, h);
+            if (scanout) {
+                sgl_fb_bind_external_color(g_fb, scanout);
+            }
+            g_ow = w; g_oh = h;
         }
         DOS_PRESENT_TRACE("dos-present: created GL fb %dx%d -> %p\n", w, h, (void *)g_fb);
     } else {
@@ -73,22 +127,20 @@ void dos_gl_destroy_context(void *ctx)
 }
 
 extern void sg_framebin_flush(void);   /* drain deferred (FrameBin) draws; no-op if disabled */
+extern void sg_frame_reset(void);      /* rewind the per-frame scratch arena */
 extern int sgl_prof_enabled;
 extern uint64_t sgl_prof_present;
 extern uint64_t sgl_prof_now(void);
 extern void sgl_prof_frame_report(void);
 
 /* ---- present-time gamma / brightness --------------------------------------
- * Bare metal has no hardware gamma ramp (GLimp_SetGamma is a no-op) and softgles2
- * does not honor r_gammaInShader, so the Doom 3 world — authored for a ~2.2-gamma
- * display — scans out far too dark (raw mean ~10/255 in dim interiors). Emulate the
- * display gamma ramp here, at the single scanout choke point, so every frame is
- * presented correctly bright. A pre-gamma brightness lifts shadows; the gamma-2.0
- * curve (fsqrt, no libm) compresses highlights so the HUD/GUI don't blow out.
- * dos_present_gamma_enable / _brightness are plain globals so a debugger or a future
- * cvar bridge can retune them; default on. */
-int   dos_present_gamma_enable = 1;
-float dos_present_gamma_brightness = 2.00f;   /* pre-gamma multiply (lifted for the dark Mars City interiors) */
+ * Doom 3's bare-metal GL path uses r_gammaInShader: dhewm3 injects brightness +
+ * POW into ARB fragment programs, gl4es uploads program.env[21], and softgles2
+ * executes it. A second full-frame gamma pass at scanout is therefore redundant
+ * for the lit world and costs several ms/frame under QEMU TCG. Keep this as an
+ * off-by-default fallback for fixed-function/UI comparisons via bm_presentGamma. */
+int   dos_present_gamma_enable = 0;
+float dos_present_gamma_brightness = 2.00f;   /* fallback pre-gamma multiply */
 static uint8_t s_gamma_lut[256];
 static int     s_gamma_lut_ready = 0;
 static float   s_gamma_lut_bri = 0.0f;
@@ -108,26 +160,58 @@ static void dos_present_build_gamma_lut(void)
     s_gamma_lut_ready = 1;
 }
 
-/* In-place RGB gamma over the frame just rendered (alpha preserved). Safe in place:
- * Doom 3 clears + fully redraws the framebuffer every frame, and dos_gl_present runs
- * exactly once per SwapBuffers, so gamma'd pixels are discarded on the next clear. */
-static void dos_present_apply_gamma(uint32_t *px, int n)
+static const uint8_t *dos_present_gamma_lut(void)
 {
-    const uint8_t *lut;
-    int i;
-    if (!dos_present_gamma_enable) return;
+    if (!dos_present_gamma_enable) return NULL;
     if (!s_gamma_lut_ready || s_gamma_lut_bri != dos_present_gamma_brightness) {
         dos_present_build_gamma_lut();
     }
-    lut = s_gamma_lut;
-    for (i = 0; i < n; ++i) {
-        uint32_t c = px[i];
-        px[i] = (c & 0xFF000000u)
-              | ((uint32_t)lut[(c >> 16) & 0xFF] << 16)   /* B */
-              | ((uint32_t)lut[(c >>  8) & 0xFF] <<  8)   /* G */
-              |  (uint32_t)lut[ c        & 0xFF];         /* R */
-    }
+    return s_gamma_lut;
 }
+
+/* Per-frame framebuffer digest, printed when BM_FB_HASH=1.
+ *
+ * This is the FrameBin regression gate. FrameBin replays per-tile draw refs in
+ * submission order specifically so that deferred rendering is PIXEL-IDENTICAL to
+ * immediate mode -- so any difference is a bug, not a tradeoff, and the way to
+ * find one is to render the same frame both ways and compare. Screendump-based
+ * comparison needs a GPU-enabled run and host-side PPM diffing; a digest printed
+ * on the serial log works in the ordinary headless profiling run and diffs with
+ * `diff`.
+ *
+ * FNV-1a over the whole colour buffer. Not cryptographic -- it only has to make
+ * an accidental collision between two genuinely different frames implausible. */
+static int dos_fb_hash_enabled(void)
+{
+#if defined(BM_FB_HASH)
+    return BM_FB_HASH;
+#else
+    return 0;
+#endif
+}
+
+static void dos_fb_hash_report(const sgl_framebuffer *fb)
+{
+    static unsigned long frame_no;
+    const uint32_t *px = fb->color;
+    size_t n = (size_t)fb->w * (size_t)fb->h;
+    uint64_t h = 1469598103934665603ull;   /* FNV-1a offset basis */
+    size_t i;
+
+    if (!px) return;
+    for (i = 0; i < n; ++i) {
+        h ^= (uint64_t)px[i];
+        h *= 1099511628211ull;
+    }
+    printf("[fbhash] frame=%lu %dx%d h=%016llx\n",
+           frame_no++, fb->w, fb->h, (unsigned long long)h);
+}
+
+/* Deterministic virtual clock: advance one frame length per present. Weak so
+ * the softgles2 standalone tests, which have no engine, still link. See
+ * BM_DETERMINISTIC_CLOCK in riscv/engine/sys_baremetal.cpp. */
+extern void BM_VClockTick(void) __attribute__((weak));
+extern void BM_BootPresented(void) __attribute__((weak));
 
 int dos_gl_present(void *ctx)
 {
@@ -135,20 +219,50 @@ int dos_gl_present(void *ctx)
     if (!fb) {
         return -1;
     }
+    if (BM_VClockTick) BM_VClockTick();
     /* Frame boundary: ensure any deferred draws have rasterised into fb before
      * we read its pixels for display. */
     unsigned long long pf_t0 = sgl_prof_now();
     sg_framebin_flush();
+    /* After the flush, before the scanout copy: this must digest exactly what
+     * FrameBin produced. */
+    if (dos_fb_hash_enabled()) dos_fb_hash_report(fb);
     (void)sgl_diag_present_report(fb, 0);   /* optional per-frame diagnostics (off by default) */
-    /* Emulate the display gamma ramp (bare metal has none) so the frame is not too
-     * dark, then scan it out to the virtio-gpu device. Capture is host-side via the
-     * QEMU monitor `screendump` (riscv/scripts/capture_screendump.sh). */
-    dos_present_apply_gamma(fb->color, fb->w * fb->h);
-    (void)dvgpu_present_rgba(fb->color, fb->w, fb->h);
+    /* Stats HUD. Strictly AFTER the digest above: it writes pixels, so drawing
+     * it first would change every [fbhash] and silently invalidate the FrameBin
+     * / VS-dedup pixel-identity gates. Before the scanout copy, so it reaches
+     * the display. Reads the sg_prof counters, which sgl_prof_frame_report()
+     * resets below -- hence also before that. No-op unless enabled. */
+    sgl_overlay_draw(fb);
+    /* Resolve SSAA (if any) then hand the display-res buffer to the scanout.
+     * Optional fallback gamma is fused into the virtio copy. With ssaa==1 and
+     * the direct scanout framebuffer and fallback disabled, this is copy-free. */
+    int present_result;
+    if (g_ssaa > 1 && g_scanout) {
+        int ssaa = g_ssaa;
+        sgl_downsample_rgba_box(fb->color, fb->w, fb->h, g_scanout, g_ow, g_oh, ssaa);
+        present_result = dvgpu_present_rgba_gamma(g_scanout, g_ow, g_oh, dos_present_gamma_lut());
+    } else {
+        present_result = dvgpu_present_rgba_gamma(fb->color, fb->w, fb->h, dos_present_gamma_lut());
+    }
+    if (present_result == 0 && BM_BootPresented) BM_BootPresented();
     if (sgl_prof_enabled) {
         sgl_prof_present += sgl_prof_now() - pf_t0;   /* flush + blit time */
         sgl_prof_frame_report();
+#if BM_SHIM_PROFILE
+        { extern void shim_profile_report(void); shim_profile_report(); }
+#endif
     }
+    { extern void sgl_pareto_report(void); sgl_pareto_report(); }
+    /* Rewind the per-frame bump arena. sg_draw.c allocates every draw's
+     * projected verts / varyings from it and documents them as "reclaimed at
+     * present", but the only caller of sg_frame_reset() was sgl_present(), which
+     * this engine path never uses -- so the arena only ever grew. It shows up in
+     * [rprof-heap] as committed climbing 191MB -> 670MB over 66 frames (~7MB per
+     * frame); past the 128MiB reserve every frame then mallocs a fresh >=16MiB
+     * overflow chunk that is never freed. Must run after sg_framebin_flush()
+     * above, which still reads the arena. */
+    sg_frame_reset();
     return 0;
 }
 

@@ -27,7 +27,7 @@
  */
 #include <stdint.h>
 #include "libc/libc.h"
-#include "boot/runtime.h"
+#include "smp_timer.h"   /* NOT boot/runtime.h -- see that header */
 #include "smp_sbi.h"
 #include "sched.h"     /* job kinds / SMP sizing (shared header) */
 #include "vcon.h"

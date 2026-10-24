@@ -58,7 +58,11 @@ riscv/scripts/walk_capture.sh          # -> riscv/shots_walk/shot_NN_fr<f>_re<r>
 > **Perf note (TCG):** the world-media *load* (`EndLevelLoad` gl4es texture uploads)
 > and the ~5M-frag/frame software shading are CPU-bound under QEMU TCG — a full map
 > load is ~8–25 min and in-world frames are seconds each. This is the software
-> renderer under emulation, not I/O (see `riscv/docs`).
+> renderer under emulation, not I/O (see `riscv/docs/perf/`).
+>
+> **TCG iteration profile:** `TCG_PROFILE=1 riscv/demorun.sh` builds with
+> `RVV_VLEN=256`, `512×288`, `bm_renderProf=1`, `PIN_HARTS=1`. VLEN A/B microbench:
+> `riscv/scripts/tcg_vlen_bench.sh`. Shipping default remains VLEN=1024 / 768×432.
 
 ## Quick start (stage 1)
 
@@ -79,6 +83,45 @@ Expected output ends with the RVV self-test and a clean SBI power-off:
 [ok] stage-1 runtime healthy; powering off via SBI.
 ```
 
+## Physical hardware target
+
+Treat QEMU as a prototype for a physical implementation. Direct `-kernel`
+loading and virtio-blk do not validate physical boot-ROM, SD-controller, DDR
+initialization or flash/XIP behavior. Select boot media and device drivers to
+match the intended hardware; SD boot into RAM is an option alongside XIP.
+The physical target follows the QEMU `virt` DTB/DTS hardware contract, with
+four harts and the RVA23S64 ISA profile. Default game launches use four harts;
+retain larger software capacity for explicit scaling tests. The current build
+also requires VLEN=1024 and the optional extensions in the build/launcher ISA
+strings. Default memory remains 4 GiB. Use the generated tree for peripheral
+addresses and interrupts. Storage currently uses virtio-blk; the SD controller
+and physical boot firmware remain to be specified if SD boot/assets are used.
+
+## Local build outputs
+
+Firmware-backed disk boot is documented in [docs/sdcard-boot.md](docs/sdcard-boot.md).
+`image/mksdcard.py` builds `build-rv/sdcard/doomos-sdcard.img` with the executable,
+assets and save journal. `scripts/sdcard_boot.py` launches it with a separate
+OpenSBI/U-Boot firmware bundle and no host-loaded game ELF. This validates
+QEMU virtio-blk disk boot, not a physical SD controller or board boot ROM.
+
+A second, **scalar** target builds the same image for baseline `rv64imafdc`
+(== `rv64gc`: no V, no Zb*/Zk*, no Zfh/Zfa/Zicboz): `BM_VECTOR=0 build-win.sh`
+-> `build-rv-scalar/`, launched with `sdcard_boot.py --isa rv64imafdc`. It is a
+portability reference, not a shipping configuration — without RVV the software
+renderer falls back to softgles2's non-vector reference paths. See
+[docs/scalar-rv64imafdc.md](docs/scalar-rv64imafdc.md).
+
+DTB placement is a platform constraint, not a DoomOS detail: the blob must sit
+above `__heap_end` or `ram_init_from_dtb()`'s clamp subtracts it from the heap
+one-for-one, silently. See [docs/dtb-placement-constraint.md](docs/dtb-placement-constraint.md).
+
+Keep generated builds, scratch disk images, logs and captures inside this repository.
+The Windows engine build defaults to `build-rv/`; validation artifacts belong in
+`riscv/build/`. Keep the custom medany compiler, downloads and intermediates in
+`build/toolchain/` (installed compiler: `build/toolchain/install/bin/`).
+Do not create task build directories elsewhere on the system.
+
 ## Toolchain
 
 | Tool | Used for |
@@ -87,6 +130,35 @@ Expected output ends with the RVV self-test and a clean SBI power-off:
 | `riscv64-unknown-elf-gcc` (system) | fallback (v0.11 intrinsics, no libc) |
 | `qemu-system-riscv64` (8.2 `-cpu max`, or locally-built 11 `-cpu rva23s64`) | run target |
 | OpenSBI (`fw_dynamic`, bundled with QEMU) | M-mode firmware → S-mode handoff |
+
+### Windows (MSYS2 UCRT64) — anchored to `c:\msys64`
+
+Windows hosts build and run entirely from the MSYS2 stack at **`c:\msys64`** plus a
+one-time medany runtime-library build. See **[docs/windows-build.md](docs/windows-build.md)**
+for the full recipe; the short version:
+
+| Tool | Source |
+|------|--------|
+| `qemu-system-riscv64` **11.1.1** | pacman `mingw-w64-ucrt-x86_64-qemu` — accepts `-cpu rva23s64` + bundled OpenSBI v1.8.1 (verified booting to S-mode @ `0x80200000`) |
+| binutils 2.47, host gcc, gmp/mpfr/mpc, ninja, cmake, texinfo | pacman (UCRT64) |
+| **medany** `riscv64-unknown-elf-gcc` **16.1.0** + newlib 4.6.0 + libgcc/libstdc++ | built once into **`C:\projects\dhewm3\build\toolchain\install`** (recipe: `C:\projects\dhewm3\riscv\build-toolchain-win.sh`) |
+
+> **Why a separate toolchain:** the pacman `riscv64-unknown-elf-*` package ships
+> **medlow** prebuilt archives (`libc`/`libm`/`libgcc`/`libsupc++`/`libstdc++`).
+> The image links at `0x80200000`, past medlow's ±2 GiB reach, so every one of
+> them overflows (`relocation truncated to fit: R_RISCV_HI20`). C++ exceptions +
+> RTTI are load-bearing (`common->Error()` throws), so `libsupc++`/`libstdc++`/
+> `libgcc` must be medany too — a "rebuild newlib only" shortcut does **not**
+> work. The medany build reuses `c:\msys64`'s binutils/host-gcc/gmp-mpfr-mpc and
+> only replaces the compiler + runtime libs.
+
+Build + run from a **UCRT64 shell** (cc1plus needs the ucrt64 DLLs on `PATH`):
+
+```sh
+riscv/build-win.sh                                  # -> C:/projects/dhewm3/build-rv/dhewm3
+cp doom.img build-rv/doom-scratch.img                 # engine writes to the disk
+DISK="$PWD/build-rv/doom-scratch.img" riscv/run-win.sh
+```
 
 ## Layout
 

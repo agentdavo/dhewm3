@@ -9,18 +9,16 @@
 #include "libc/libc.h"
 #include "boot/runtime.h"
 
+#ifdef __riscv_vector
 /* Exercise the V extension: report VLEN, then do a vectorised int32 add. */
 static void rvv_demo(void)
 {
-    unsigned long vlenb;
-    asm volatile("csrr %0, vlenb" : "=r"(vlenb));   /* bytes per vector reg */
-
-    unsigned long vlmax_e32;
-    asm volatile("vsetvli %0, zero, e32, m1, ta, ma" : "=r"(vlmax_e32));
+    const rv_platform_caps *caps = rv_get_platform_caps();
 
     printf("[rvv] V extension present: VLEN = %lu bits (vlenb=%lu)\n",
-           vlenb * 8, vlenb);
-    printf("[rvv] e32/m1 VLMAX = %lu lanes\n", vlmax_e32);
+           caps->vlenb * 8, caps->vlenb);
+    printf("[rvv] e32 VLMAX: m1=%lu m2=%lu lanes\n",
+           caps->vlmax_e32m1, caps->vlmax_e32m2);
 
     static int32_t a[37], b[37], c[37];
     for (int i = 0; i < 37; ++i) { a[i] = i; b[i] = 1000 + i; c[i] = -1; }
@@ -46,6 +44,14 @@ static void rvv_demo(void)
     printf("[rvv] vector add: c[0]=%d c[36]=%d  -> %s\n",
            c[0], c[36], ok ? "PASS" : "FAIL");
 }
+#else
+/* Scalar-only ISA (no V in -march): the demo above is unassemblable.
+ * Say so rather than silently reporting nothing. */
+static void rvv_demo(void)
+{
+    printf("[rvv] V extension not built in (scalar -march); skipping.\n");
+}
+#endif
 
 int kmain(void)
 {

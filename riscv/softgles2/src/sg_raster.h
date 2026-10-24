@@ -26,14 +26,16 @@ void sgl_raster_tri_prog(sgl_framebuffer *fb,
                          sgl_frag_fn frag, sgl_frag_simt_fn frag_simt, void *ctx);
 
 /* Hierarchical-Z whole-triangle occlusion cull (LESS/LEQUAL). One coarse
- * depth-max per 16x16 tile. sgl_hiz_clear seeds it (call from glClear depth);
- * sgl_hiz_refresh recomputes it from the depth buffer (call once per draw,
- * after the tile fan-out joins). sgl_hiz_enabled gates the whole feature. */
+ * depth-max per 32x32 tile. sgl_hiz_clear seeds it (call from glClear depth);
+ * sgl_hiz_mark_dirty_rect coalesces depth-write bboxes; the next cull flushes
+ * them via sgl_hiz_refresh_rect. sgl_hiz_enabled gates the whole feature. */
 extern int  sgl_hiz_enabled;
 void sgl_hiz_clear(const sgl_framebuffer *fb, float depth);
 void sgl_hiz_refresh(const sgl_framebuffer *fb);
 /* Refresh only the tiles overlapping the draw's screen bbox (inclusive). */
 void sgl_hiz_refresh_rect(const sgl_framebuffer *fb, int rx0, int ry0, int rx1, int ry1);
+/* Coalesce a depth-write dirty region; flushed automatically on next cull. */
+void sgl_hiz_mark_dirty_rect(const sgl_framebuffer *fb, int rx0, int ry0, int rx1, int ry1);
 
 /* Scalar texture sample (nearest or bilinear). Shared by the rasteriser
  * scalar path and the GLSL fragment interpreter (texture2D). */

@@ -52,8 +52,9 @@ int _gettimeofday(struct timeval *tv, void *tz)
     (void)tz;
     if (tv) {
         uint64_t t = timer_ticks();
-        tv->tv_sec  = (long)(t / TIMEBASE_HZ);
-        tv->tv_usec = (long)((t % TIMEBASE_HZ) / (TIMEBASE_HZ / 1000000UL));
+        unsigned long hz = timer_hz();
+        tv->tv_sec  = (long)(t / hz);
+        tv->tv_usec = (long)(((t % hz) * 1000000UL) / hz);
     }
     return 0;
 }

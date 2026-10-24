@@ -60,7 +60,7 @@ int main(void)
     glStencilFunc(GL_GEQUAL, 128, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     draw_fullscreen();
-    ok &= check(sgl_pixel(fb, 4, 4) == 0xFF000000u, "GEQUAL rejects low stencil");
+    ok &= check(sgl_pixel(fb, 4, 4) == 0xFF0000FFu, "GEQUAL: reference 128 accepts stored 1");
 
     glClearStencil(128);
     glClear(GL_STENCIL_BUFFER_BIT);

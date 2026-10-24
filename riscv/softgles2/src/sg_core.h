@@ -10,15 +10,83 @@
 #include "sgl.h"
 #include "sg_align.h"
 
-/* Texture object as seen by the rasteriser. */
+/* 4096x4096 (Doom 3's largest) needs 13 levels; 16 covers up to 32768. */
+#define SGL_MAX_MIP 16
+
+struct sgl_mip_level { int w, h; uint32_t *texels; };
+
+/* Texture object as seen by the rasteriser.
+ *
+ * w/h/texels ALWAYS describe level 0 and mip[0] aliases them, so every existing
+ * user of those three fields keeps working untouched. Levels 1..nmip-1 are the
+ * reduced images, used only by the LOD path in sg_math.h. */
 typedef struct sgl_tex {
     int       w, h;
     uint32_t *texels;       /* RGBA8, w*h, 0xAABBGGRR */
     int       min_filter;   /* 0 = nearest, 1 = linear (mag uses same for v1) */
     int       wrap;         /* 0 = clamp-to-edge, 1 = repeat                  */
     int       is_cube;      /* 1 = textureCube samples the cube_faces array   */
+    int       is_depth;     /* 1 = level-0 texels are raw IEEE-754 depth bits  */
     const struct sgl_tex *cube_faces[6];
+    /* Mip pyramid. Before this existed the sampler read full-resolution texels
+     * for every fragment however minified the surface was, so each bilinear
+     * gather straddled distant texels and missed cache -- and glTexImage2D
+     * silently DISCARDED every level > 0 the application uploaded.
+     *
+     * Held BEHIND A POINTER, not inline. An inline [16] array added 256 bytes to
+     * sgl_tex, and the sampler builds a by-value level view per texture fetch --
+     * measured at +15.5% guest instructions, i.e. the pyramid cost more than the
+     * cache locality it bought. Keep this struct small. */
+    struct sgl_mip_level *mips;   /* NULL, or nmip entries; [0] aliases w/h/texels */
+    int       nmip;         /* valid levels, >= 1 once level 0 exists */
+    int       mip_filter;   /* 0 = level 0 only, 1 = nearest level, 2 = linear between levels */
+    /* GL_TEXTURE_MAX_ANISOTROPY_EXT. 1 = isotropic (the common case, byte-identical
+     * to the pre-aniso sampler). Doom 3 requests up to 8 (Ultra). glGenTextures
+     * memsets sgl_tex to 0, so the sampler treats any value < 1 as 1 -- a
+     * zero-initialised texture behaves exactly as before this field existed. */
+    float     max_aniso;
+    int       opaque_alpha; /* RGB storage: alpha is 1; occupies former tail padding on RV64. */
 } sgl_tex;
+
+/* Analytic screen-space UV derivatives for one lane-batch, in NORMALISED
+ * texcoord units (the sampler scales by tex->w/h to texels). Passed by pointer:
+ * NULL means "no derivative info" and the RVV sampler falls back to its prior
+ * per-batch two-lane estimate, so callers that cannot supply derivatives keep
+ * their exact previous behaviour. */
+typedef struct sgl_uv_deriv {
+    float dudx, dvdx, dudy, dvdy;
+} sgl_uv_deriv;
+
+/* Analytic screen-space derivative of ONE perspective-correct varying at a pixel.
+ *
+ * The rasteriser interpolates a varying as  val = (Σ w_i p_i) / (Σ w_i iw_i),
+ * where w_i = e_i*invArea are the barycentric weights, iw_i = vertex 1/w, and
+ * p_i = vertex_value * iw_i (the premultiplied plane coeff vpa/vpb/vpc). The
+ * edge functions e_i are linear in screen (x,y) with de_i/dx = Ax[i],
+ * de_i/dy = Ay[i]. Differentiating the quotient analytically (no cross-lane
+ * sampling) gives both partials from the plane data alone:
+ *
+ *   d(val)/dx = ( dnum/dx - val * ddenom/dx ) / denom
+ *   dnum/dx  = invArea * Σ Ax_i p_i ,  ddenom/dx = invArea * Σ Ax_i iw_i   (y analog)
+ *
+ * `e[3]` are the edge values at the pixel whose derivative is wanted (any
+ * interior pixel of the batch). This is exact for the perspective-correct
+ * interpolation, matching the rasteriser's own u,v at that pixel. */
+static inline void sgl_vary_screen_deriv(const float e[3], const float Ax[3],
+        const float Ay[3], float invArea, const float iw[3], const float p[3],
+        float *ddx, float *ddy)
+{
+    float w0 = e[0] * invArea, w1 = e[1] * invArea, w2 = e[2] * invArea;
+    float denom = w0 * iw[0] + w1 * iw[1] + w2 * iw[2];
+    float s = (denom != 0.f) ? 1.f / denom : 0.f;
+    float val = (w0 * p[0] + w1 * p[1] + w2 * p[2]) * s;
+    float ddenomdx = invArea * (Ax[0] * iw[0] + Ax[1] * iw[1] + Ax[2] * iw[2]);
+    float ddenomdy = invArea * (Ay[0] * iw[0] + Ay[1] * iw[1] + Ay[2] * iw[2]);
+    float dnumdx   = invArea * (Ax[0] * p[0]  + Ax[1] * p[1]  + Ax[2] * p[2]);
+    float dnumdy   = invArea * (Ay[0] * p[0]  + Ay[1] * p[1]  + Ay[2] * p[2]);
+    *ddx = (dnumdx - val * ddenomdx) * s;
+    *ddy = (dnumdy - val * ddenomdy) * s;
+}
 
 /* Screen-space vertex: post-projection position + per-vertex varyings.
  * Colour and texcoords are stored pre-multiplied by invw for perspective
@@ -96,7 +164,16 @@ typedef struct {
     int   poly_off_on;      /* GL_POLYGON_OFFSET_FILL enabled */
     int   depth_bounds_on;  /* GL_EXT_depth_bounds_test: cull where dst depth outside [min,max] */
     float depth_bounds_min, depth_bounds_max;
-    int _layout_pad[5];     /* pad sizeof up to a 64-byte multiple (SG_RVV_ALIGN) */
+    /* Live-varying mask: bit k set = the fragment shader reads varying float k,
+     * so the perspective interpolation can skip the rest. 0 = unknown,
+     * interpolate everything (the safe default and what the VM always gets).
+     * Carried BY VALUE, not as a pointer, because this struct is snapshotted
+     * into FrameBin draw records and must stay trivially copyable. */
+    unsigned int vary_live_mask;
+    unsigned int derivative_mask; /* zero = conservative all-varying setup */
+    int skip_derivatives;          /* classified shader does not consume them */
+    int skip_fragcoord;            /* no gl_FragCoord read in the shader */
+    int _layout_pad[1];     /* preserve the existing draw-state size */
 } sgl_drawstate SG_ALIGNED_TYPE(SG_RVV_ALIGN);
 
 SG_STATIC_ASSERT(sizeof(sgl_drawstate) % SG_RVV_ALIGN == 0);
@@ -131,8 +208,9 @@ static inline int sgl_depth_pass(int func, float z, float zb)
 
 static inline int sgl_stencil_pass(const sgl_stencil_face *sf, uint8_t value)
 {
-    unsigned lhs = (unsigned)value & sf->read_mask;
-    unsigned rhs = (unsigned)sf->ref & sf->read_mask;
+    /* OpenGL compares (reference & mask) FUNC (stored stencil & mask). */
+    unsigned lhs = (unsigned)sf->ref & sf->read_mask;
+    unsigned rhs = (unsigned)value & sf->read_mask;
     switch (sf->func) {
     case SGL_DEPTH_NEVER:    return 0;
     case SGL_DEPTH_LESS:     return lhs <  rhs;
@@ -168,7 +246,9 @@ static inline uint8_t sgl_stencil_apply_op(const sgl_stencil_face *sf, int op, u
  * Set for VLEN=1024 with LMUL=m2 (64× f32). At runtime vsetvl returns the actual
  * hardware lane count (e.g. 8 at VLEN=256/m2); the SoA stride remains this value
  * so code is VLEN-agnostic. Lower to 16 for VLEN <= 256 to reduce stack. */
+#ifndef SGL_SIMT_LANES
 #define SGL_SIMT_LANES 64
+#endif
 /* Max varying floats we thread through programmable fragment programs. */
 #define SGL_MAX_VARY 32
 

@@ -1,11 +1,50 @@
 #include "sg_vertex.h"
 #include "sg_diag.h"
+#include "sg_prof.h"
 #include "sg_layout.h"
+#include "sg_mt_sched.h"
 #include "glsl_internal.h"
 
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+
+/* Post-transform vertex dedupe (see sg_vertex_prog_simt_dedup).
+ * MIN_VERTS: below this the hash build outweighs the transforms saved.
+ * MAX_PCT:   give up when uniques exceed this percentage of corners, i.e. when
+ *            there is too little reuse for the expansion copies to pay off.
+ *            A closed indexed mesh sits near 33%; 90% only rejects the
+ *            pathological all-distinct case. */
+#ifndef SGL_VS_DEDUP_MIN_VERTS
+#define SGL_VS_DEDUP_MIN_VERTS 64
+#endif
+
+/* Runtime-settable so a test can render the SAME scene with the optimisation on
+ * and off IN ONE PROCESS and compare exactly -- the only way to check a claim of
+ * "bit-exact by construction", which is an argument, not a measurement. Read
+ * once per DRAW, never per vertex, so this costs nothing measurable. Raise it
+ * above any real draw's vertex count to disable the path. */
+int sgl_vs_dedup_min_verts = SGL_VS_DEDUP_MIN_VERTS;
+
+/* Defined below; declared here so the dedupe path can route its (already
+ * shrunk) unique-vertex list through the hart pool too. */
+static int sg_vertex_prog_simt_mt(GLsizei count, const int *idx, glsl_program *gp,
+                                  int vstride, sgl_pvert *pv, float *vb,
+                                  int mvp_set, const float *mvp,
+                                  int vp_x, int vp_y, int vp_w, int vp_h,
+                                  float depth_near, float depth_far,
+                                  sg_vertex_fetch_fn fetch, void *fetch_ctx);
+
+/* Parallel when the draw is big enough to amortise a dispatch, serial
+ * otherwise. One place so every caller gets the same policy. */
+#define SG_VS_SIMT(count, idx, gp, vstride, pv, vb, ms, mvp, x, y, w, h, dn, df, f, fc) \
+    (sg_vertex_prog_simt_mt((count), (idx), (gp), (vstride), (pv), (vb), (ms), (mvp), \
+                            (x), (y), (w), (h), (dn), (df), (f), (fc)) ||             \
+     sg_vertex_prog_simt_seq((count), (idx), (gp), (vstride), (pv), (vb), (ms), (mvp), \
+                             (x), (y), (w), (h), (dn), (df), (f), (fc)))
+#ifndef SGL_VS_DEDUP_MAX_PCT
+#define SGL_VS_DEDUP_MAX_PCT   90u
+#endif
 
 #if defined(__riscv_v_intrinsic) && __riscv_v_intrinsic >= 1000000
 #  include <riscv_vector.h>
@@ -22,6 +61,40 @@ volatile unsigned long sgl_dbg_vs_simt = 0;
 volatile unsigned long sgl_dbg_vs_scalar = 0;
 volatile unsigned long sgl_dbg_vs_cache_hit = 0;
 volatile unsigned long sgl_dbg_vs_cache_miss = 0;
+volatile unsigned long sgl_prof_vs_simt_draws = 0, sgl_prof_vs_simt_verts = 0;
+
+/* Draw-size distribution for the vertex stage.
+ *
+ * The vertex transform is the last SERIAL stage in the frame: FrameBin moved
+ * raster onto all harts, but pv[] is still built on the submitting hart while
+ * the other five idle (~800ms serial against ~2489ms parallel raster).
+ *
+ * How to fix it depends entirely on the SHAPE of the workload, which the mean
+ * cannot tell you: 91761 verts over 994 draws averages 92, comfortably under
+ * any per-draw MT threshold -- but if a handful of large draws carry most of
+ * the vertices, dispatching just those to the hart pool is a few lines, whereas
+ * a uniform distribution forces the full deferred-vertex refactor (copy
+ * attributes at record time, transform in parallel at flush; it cannot simply
+ * defer the FETCH because Doom 3 uses client-side arrays -- vbo:0 every frame --
+ * and refills them between draws).
+ *
+ * So: count draws and verts per size bucket, and report what fraction of all
+ * vertices live in draws big enough to be worth dispatching. Buckets are
+ * powers of two from <64 up to >=4096. */
+#define SGL_VS_HIST_BUCKETS 8
+volatile unsigned long sgl_prof_vs_hist_draws[SGL_VS_HIST_BUCKETS];
+volatile unsigned long sgl_prof_vs_hist_verts[SGL_VS_HIST_BUCKETS];
+
+static void sg_vs_hist_add(GLsizei count)
+{
+    unsigned b = 0;
+    unsigned long c = (unsigned long)(count > 0 ? count : 0);
+    unsigned long n = c >> 6;            /* bucket 0 = <64 */
+    while (n && b < SGL_VS_HIST_BUCKETS - 1) { n >>= 1; ++b; }
+    sgl_prof_vs_hist_draws[b]++;
+    sgl_prof_vs_hist_verts[b] += c;
+}
+volatile unsigned long sgl_prof_vs_scalar_draws = 0, sgl_prof_vs_scalar_verts = 0;
 
 typedef struct {
     float c[GLSL_MAX_ATTRIBS][4][SGL_SIMT_LANES];
@@ -275,7 +348,10 @@ static int sg_vertex_prog_simt_seq(GLsizei count, const int *idx, glsl_program *
     int simt_lanes = sg_vertex_simt_chunk_lanes_for(gp, attr_slots, used_vary);
     if (simt_lanes < 1) simt_lanes = SGL_SIMT_LANES;
     if (simt_lanes > SGL_SIMT_LANES) simt_lanes = SGL_SIMT_LANES;
-    if (count < (GLsizei)(simt_lanes * 2))
+    /* Register-resident kernels have no generic IR register-file setup and win
+     * even on a single triangle. Keep the measured two-chunk crossover only for
+     * the generic vertex VM. */
+    if (!gp->vs_kernel && count < (GLsizei)(simt_lanes * 2))
         return 0;
 
     static const float def[4] = {0, 0, 0, 1};
@@ -291,6 +367,15 @@ static int sg_vertex_prog_simt_seq(GLsizei count, const int *idx, glsl_program *
 
     for (GLsizei base = 0; base < count; base += simt_lanes) {
         int vl = (count - base > simt_lanes) ? simt_lanes : (int)(count - base);
+        /* Attribute gather, timed separately from the transform below. It is
+         * scalar by construction: one INDIRECT call per lane per attribute, each
+         * doing a bounds check and a memcpy per float, so no compiler can
+         * vectorise through it. Vertex data here is client-side AoS idDrawVert at
+         * 60-byte stride (the engine reports vbo:0 every frame), which is exactly
+         * the shape a strided load handles in one instruction per component.
+         * Measure before rewriting -- gather and transform were previously summed
+         * into one bucket, so neither could be attributed. */
+        uint64_t pf_g0 = sgl_prof_now();
         for (int u = 0; u < nused_locs; ++u) {
             int loc = used_locs[u];
             if (loc >= GLSL_MAX_ATTRIBS) continue;
@@ -306,6 +391,7 @@ static int sg_vertex_prog_simt_seq(GLsizei count, const int *idx, glsl_program *
                     attrs_soa.c[row][c][lane] = a[c];
             }
         }
+        if (sgl_prof_enabled) sgl_prof_vs_gather += sgl_prof_now() - pf_g0;
 
         if (used_vary > 0) {
             sg_vary_soa vary_soa;
@@ -359,6 +445,191 @@ static int sg_vertex_prog_simt_seq(GLsizei count, const int *idx, glsl_program *
     return 1;
 }
 
+/*
+ * Transform each DISTINCT index once through the SIMT path, then expand the
+ * results back out to one entry per triangle corner.
+ *
+ * Returns 1 if it handled the draw, 0 to fall through unchanged (too small, too
+ * little reuse to pay for the hash, allocation failure, or the SIMT path itself
+ * declining the program).
+ *
+ * The expansion writes each corner's varyings into the caller's vb exactly where
+ * the non-deduped path would have, and fixes up pv[i].vary to point at it, so
+ * nothing downstream can tell the difference.
+ */
+static int sg_vertex_prog_simt_dedup(GLsizei count, const int *idx, glsl_program *gp,
+                                     int vstride, sgl_pvert *pv, float *vb,
+                                     int mvp_set, const float *mvp,
+                                     int vp_x, int vp_y, int vp_w, int vp_h,
+                                     float depth_near, float depth_far,
+                                     sg_vertex_fetch_fn fetch, void *fetch_ctx)
+{
+    /* Below this the hash build costs more than the transforms it saves. */
+    if (count < sgl_vs_dedup_min_verts || vstride < 0)
+        return 0;
+    if (!glsl_vs_simt_ok(gp))
+        return 0;
+
+    size_t cap = 1;
+    while (cap < (size_t)count * 2u) cap <<= 1;
+
+    int *slot = (int *)malloc(sizeof(int) * cap);          /* hash -> unique idx */
+    int *uidx = (int *)malloc(sizeof(int) * (size_t)count); /* unique index list */
+    int *map  = (int *)malloc(sizeof(int) * (size_t)count); /* corner -> unique   */
+    if (!slot || !uidx || !map) {
+        free(slot); free(uidx); free(map);
+        return 0;
+    }
+    for (size_t i = 0; i < cap; ++i) slot[i] = -1;
+
+    GLsizei nuniq = 0;
+    for (GLsizei i = 0; i < count; ++i) {
+        int key = idx[i];
+        size_t h = ((unsigned)key * 2654435761u) & (cap - 1u);
+        while (slot[h] >= 0 && uidx[slot[h]] != key) h = (h + 1u) & (cap - 1u);
+        if (slot[h] < 0) {
+            slot[h] = nuniq;
+            uidx[nuniq] = key;
+            ++nuniq;
+        }
+        map[i] = slot[h];
+    }
+    free(slot);
+
+    /* Not enough reuse to be worth the copies. A closed mesh sits near 3x; this
+     * bails out on the degenerate "every corner distinct" case, where deduping
+     * would be pure overhead. */
+    if ((size_t)nuniq * 100u > (size_t)count * SGL_VS_DEDUP_MAX_PCT) {
+        free(uidx); free(map);
+        return 0;
+    }
+
+    sgl_pvert *upv = (sgl_pvert *)malloc(sizeof(sgl_pvert) * (size_t)nuniq);
+    float *uvb = (float *)malloc(sizeof(float) * (size_t)nuniq *
+                                 (size_t)(vstride > 0 ? vstride : 1));
+    if (!upv || !uvb) {
+        free(upv); free(uvb); free(uidx); free(map);
+        return 0;
+    }
+
+    if (!SG_VS_SIMT(nuniq, uidx, gp, vstride, upv, uvb, mvp_set, mvp,
+                    vp_x, vp_y, vp_w, vp_h, depth_near, depth_far,
+                    fetch, fetch_ctx)) {
+        free(upv); free(uvb); free(uidx); free(map);
+        return 0;
+    }
+
+    for (GLsizei i = 0; i < count; ++i) {
+        int u = map[i];
+        float *dst = vb + (size_t)i * (size_t)vstride;
+        pv[i] = upv[u];
+        if (vstride > 0)
+            memcpy(dst, uvb + (size_t)u * (size_t)vstride,
+                   sizeof(float) * (size_t)vstride);
+        pv[i].vary = dst;
+    }
+
+    if (sgl_diag_enabled) {
+        sgl_dbg_vs_cache_hit  += (unsigned long)(count - nuniq);
+        sgl_dbg_vs_cache_miss += (unsigned long)nuniq;
+    }
+
+    free(upv); free(uvb); free(uidx); free(map);
+    return 1;
+}
+
+/*
+ * Spread ONE large draw's vertex transform across the hart pool.
+ *
+ * The vertex stage is the last serial part of a frame: FrameBin put raster on
+ * every hart, but pv[] is still built on the submitting hart (~800ms serial
+ * against ~2489ms parallel raster), so by Amdahl it now caps the frame.
+ *
+ * Whether this cheap fix is enough is a question about the WORKLOAD SHAPE, and
+ * the mean actively misleads: 27012 verts over ~105 draws averages 257, which
+ * looks far too small to dispatch. The [rprof-vshist] distribution shows the
+ * truth -- FOUR draws of >=4096 verts carry 93% of all vertices. So a per-draw
+ * threshold reaches almost all of the work, and the deferred-transform refactor
+ * (copy attributes at record time, transform at flush) is not needed.
+ *
+ * Bit-exactness: each vertex's result depends only on its own attributes and the
+ * uniforms, never on which batch or hart it lands in, so splitting the range is
+ * exact rather than merely close. Ranges are disjoint in both pv[] and vb[], so
+ * there is no sharing to synchronise.
+ */
+#ifndef SGL_VS_MT_MIN_VERTS
+#define SGL_VS_MT_MIN_VERTS 2048
+#endif
+
+/* Runtime-settable, same reasoning as sgl_vs_dedup_min_verts above. */
+int sgl_vs_mt_min_verts = SGL_VS_MT_MIN_VERTS;
+
+typedef struct {
+    GLsizei count; const int *idx; glsl_program *gp; int vstride;
+    sgl_pvert *pv; float *vb; int mvp_set; const float *mvp;
+    int vp_x, vp_y, vp_w, vp_h; float depth_near, depth_far;
+    sg_vertex_fetch_fn fetch; void *fetch_ctx;
+    volatile int failed;
+} sg_vs_mt_ctx;
+
+/* sg_vs_mt_range() lives in src/sg_vs_range.c: dependency-free integer
+ * arithmetic so a HOST test can exercise the real function (not a copy of it).
+ * See test/vsmt_ranges.c. */
+int sg_vs_mt_range(int count, int worker, int nworkers, int *lo, int *hi);
+
+static void sg_vs_mt_work(void *vctx, int worker, int nworkers)
+{
+    sg_vs_mt_ctx *c = (sg_vs_mt_ctx *)vctx;
+    int lo, hi;
+
+    if (!sg_vs_mt_range((int)c->count, worker, nworkers, &lo, &hi))
+        return;
+
+    if (!sg_vertex_prog_simt_seq(hi - lo, c->idx + lo, c->gp, c->vstride,
+                                 c->pv + lo, c->vb + (size_t)lo * (size_t)c->vstride,
+                                 c->mvp_set, c->mvp, c->vp_x, c->vp_y, c->vp_w, c->vp_h,
+                                 c->depth_near, c->depth_far, c->fetch, c->fetch_ctx))
+        __atomic_store_n(&c->failed, 1, __ATOMIC_RELAXED);
+}
+
+static int sg_vertex_prog_simt_mt(GLsizei count, const int *idx, glsl_program *gp,
+                                  int vstride, sgl_pvert *pv, float *vb,
+                                  int mvp_set, const float *mvp,
+                                  int vp_x, int vp_y, int vp_w, int vp_h,
+                                  float depth_near, float depth_far,
+                                  sg_vertex_fetch_fn fetch, void *fetch_ctx)
+{
+#if defined(SGL_BAREMETAL)
+    sg_vs_mt_ctx c;
+
+    if (count < sgl_vs_mt_min_verts)
+        return 0;
+    /* Re-entering sg_mt_sched_run() from inside a parallel section deadlocks on
+     * its single gen/done handshake. */
+    if (sg_mt_sched_busy() || sg_mt_sched_nharts() < 2)
+        return 0;
+    /* Every worker must agree to take the SIMT path, or some ranges would be
+     * transformed and others left untouched. Ask once, up front. */
+    if (!glsl_vs_simt_ok(gp))
+        return 0;
+
+    c.count = count; c.idx = idx; c.gp = gp; c.vstride = vstride;
+    c.pv = pv; c.vb = vb; c.mvp_set = mvp_set; c.mvp = mvp;
+    c.vp_x = vp_x; c.vp_y = vp_y; c.vp_w = vp_w; c.vp_h = vp_h;
+    c.depth_near = depth_near; c.depth_far = depth_far;
+    c.fetch = fetch; c.fetch_ctx = fetch_ctx;
+    c.failed = 0;
+
+    sg_mt_sched_run(sg_vs_mt_work, &c);
+    return !c.failed;
+#else
+    (void)count; (void)idx; (void)gp; (void)vstride; (void)pv; (void)vb;
+    (void)mvp_set; (void)mvp; (void)vp_x; (void)vp_y; (void)vp_w; (void)vp_h;
+    (void)depth_near; (void)depth_far; (void)fetch; (void)fetch_ctx;
+    return 0;
+#endif
+}
+
 void sg_vertex_prog_cached(GLsizei count, const int *idx, glsl_program *gp,
                           int vstride, sgl_pvert *pv, float *vb,
                           int mvp_set, const float *mvp,
@@ -368,10 +639,12 @@ void sg_vertex_prog_cached(GLsizei count, const int *idx, glsl_program *gp,
 {
     if (!pv || !vb || !idx || !fetch) return;
     if (!count) return;
+    if (sgl_prof_enabled) sg_vs_hist_add(count);
 
     (void)mvp_set;
     (void)mvp;
 
+    uint64_t phase0 = sgl_prof_now();
     int sequential = 1;
 #if SG_VERTEX_RVV
     /* Item 8 (RVV audit): vectorise the per-draw sequential-index precheck.
@@ -390,22 +663,53 @@ void sg_vertex_prog_cached(GLsizei count, const int *idx, glsl_program *gp,
         if (idx[i] != (int)i) { sequential = 0; break; }
     }
 #endif
+    if (sgl_prof_enabled) sgl_prof_vs_index += sgl_prof_now() - phase0;
 
     if (sequential) {
-        if (sg_vertex_prog_simt_seq(count, idx, gp, vstride, pv, vb, mvp_set, mvp,
-                                   vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx))
+        phase0 = sgl_prof_now();
+        if (SG_VS_SIMT(count, idx, gp, vstride, pv, vb, mvp_set, mvp,
+                       vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx)) {
+            if (sgl_prof_enabled) sgl_prof_vs_simt += sgl_prof_now() - phase0;
+            if (sgl_prof_enabled) { ++sgl_prof_vs_simt_draws; sgl_prof_vs_simt_verts += (unsigned long)count; }
             return;
+        }
         for (GLsizei i = 0; i < count; ++i) {
             pv[i] = sg_vertex_prog_once(idx[i], gp, vb + (size_t)i * vstride, mvp_set, mvp,
                                         vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx);
         }
+        if (sgl_prof_enabled) sgl_prof_vs_scalar += sgl_prof_now() - phase0;
         if (sgl_diag_enabled) sgl_dbg_vs_scalar += (unsigned long)count;
+        if (sgl_prof_enabled) { ++sgl_prof_vs_scalar_draws; sgl_prof_vs_scalar_verts += (unsigned long)count; }
         return;
     }
 
-    if (sg_vertex_prog_simt_seq(count, idx, gp, vstride, pv, vb, mvp_set, mvp,
-                               vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx))
+    /* Indexed draws arrive as one entry per TRIANGLE CORNER, so a closed mesh
+     * presents each vertex once per triangle that touches it -- measured here at
+     * exactly 3.0x (91761 corners for 30599 triangles), i.e. no reuse was being
+     * exploited at all. A post-transform cache existed below, but the SIMT path
+     * returns before it can ever run, so it was dead code on every indexed draw.
+     *
+     * Deduping in front of the SIMT path gets both: each distinct vertex is
+     * transformed once, and it is still transformed in wide SIMT batches. The
+     * expansion afterwards is a copy, which is far cheaper than re-running the
+     * vertex shader. Bit-exact by construction -- the transform is a pure
+     * function of (index, uniforms), so computing it once and copying gives the
+     * same bits as computing it three times. */
+    phase0 = sgl_prof_now();
+    if (sg_vertex_prog_simt_dedup(count, idx, gp, vstride, pv, vb, mvp_set, mvp,
+                                  vp_x, vp_y, vp_w, vp_h, depth_near, depth_far,
+                                  fetch, fetch_ctx)) {
+        if (sgl_prof_enabled) sgl_prof_vs_simt += sgl_prof_now() - phase0;
+        if (sgl_prof_enabled) { ++sgl_prof_vs_simt_draws; sgl_prof_vs_simt_verts += (unsigned long)count; }
         return;
+    }
+
+    if (SG_VS_SIMT(count, idx, gp, vstride, pv, vb, mvp_set, mvp,
+                   vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx)) {
+        if (sgl_prof_enabled) sgl_prof_vs_simt += sgl_prof_now() - phase0;
+        if (sgl_prof_enabled) { ++sgl_prof_vs_simt_draws; sgl_prof_vs_simt_verts += (unsigned long)count; }
+        return;
+    }
 
     int probe = count < 64 ? count : 64;
     int likely_reuse = 0;
@@ -419,7 +723,9 @@ void sg_vertex_prog_cached(GLsizei count, const int *idx, glsl_program *gp,
             pv[i] = sg_vertex_prog_once(idx[i], gp, vb + (size_t)i * vstride, mvp_set, mvp,
                                         vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx);
         }
+        if (sgl_prof_enabled) sgl_prof_vs_scalar += sgl_prof_now() - phase0;
         if (sgl_diag_enabled) sgl_dbg_vs_scalar += (unsigned long)count;
+        if (sgl_prof_enabled) { ++sgl_prof_vs_scalar_draws; sgl_prof_vs_scalar_verts += (unsigned long)count; }
         return;
     }
 
@@ -438,7 +744,9 @@ void sg_vertex_prog_cached(GLsizei count, const int *idx, glsl_program *gp,
             pv[i] = sg_vertex_prog_once(idx[i], gp, vb + (size_t)i * vstride, mvp_set, mvp,
                                         vp_x, vp_y, vp_w, vp_h, depth_near, depth_far, fetch, fetch_ctx);
         }
+        if (sgl_prof_enabled) sgl_prof_vs_scalar += sgl_prof_now() - phase0;
         if (sgl_diag_enabled) sgl_dbg_vs_scalar += (unsigned long)count;
+        if (sgl_prof_enabled) { ++sgl_prof_vs_scalar_draws; sgl_prof_vs_scalar_verts += (unsigned long)count; }
         return;
     }
 
@@ -472,6 +780,8 @@ void sg_vertex_prog_cached(GLsizei count, const int *idx, glsl_program *gp,
         sgl_dbg_vs_cache_hit += cache_hit;
         sgl_dbg_vs_cache_miss += cache_miss;
     }
+    if (sgl_prof_enabled) { ++sgl_prof_vs_scalar_draws; sgl_prof_vs_scalar_verts += cache_miss; }
+    if (sgl_prof_enabled) sgl_prof_vs_cache += sgl_prof_now() - phase0;
     free(keys);
     free(used);
     free(cache_pv);

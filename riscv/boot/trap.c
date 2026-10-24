@@ -11,6 +11,14 @@ __attribute__((weak)) int os_handle_irq(unsigned long scause)
     return 0;
 }
 
+/* ISA probing (runtime.c) needs to survive a deliberate illegal-instruction
+ * trap. Weak so a build without runtime.c still links. */
+__attribute__((weak)) int rv_probe_trap_hook(unsigned long scause, unsigned long *sepc)
+{
+    (void)scause; (void)sepc;
+    return 0;
+}
+
 static const char *exc_name(unsigned long scause)
 {
     if ((long)scause < 0)
@@ -38,6 +46,13 @@ void trap_handler(unsigned long scause, unsigned long sepc, unsigned long stval,
 {
     if ((long)scause < 0 && os_handle_irq(scause))
         return;
+
+    /* A probe stepping over its own deliberate fault: advance sepc past the
+     * instruction and resume rather than powering the machine off. */
+    if (rv_probe_trap_hook(scause, &sepc)) {
+        asm volatile("csrw sepc, %0" :: "r"(sepc));
+        return;
+    }
 
     printf("\n!!! FATAL TRAP !!!\n");
     printf("    scause = %#lx (%s)\n", scause, exc_name(scause));

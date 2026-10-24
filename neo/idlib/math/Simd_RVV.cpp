@@ -794,6 +794,8 @@ void VPCALL idSIMD_RVV::NormalizeTangents( idDrawVert *verts, const int numVerts
 		vfloat32m4_t lensq = __riscv_vfmul_vv_f32m4( nx, nx, vl );
 		lensq = __riscv_vfmacc_vv_f32m4( lensq, ny, ny, vl );
 		lensq = __riscv_vfmacc_vv_f32m4( lensq, nz, nz, vl );
+		// Guard vfrsqrt7(+0) = +inf -> 0*inf = NaN; see DeriveTriPlanes below.
+		lensq = __riscv_vfmax_vf_f32m4( lensq, 1.17549435e-38f, vl );
 		vfloat32m4_t inv_len = __riscv_vfrsqrt7_v_f32m4( lensq, vl );
 		vfloat32m4_t tmp = __riscv_vfmul_vv_f32m4( lensq, inv_len, vl );
 		tmp = __riscv_vfmul_vv_f32m4( tmp, inv_len, vl );
@@ -818,6 +820,8 @@ void VPCALL idSIMD_RVV::NormalizeTangents( idDrawVert *verts, const int numVerts
 			vfloat32m4_t tlensq = __riscv_vfmul_vv_f32m4( tx, tx, vl );
 			tlensq = __riscv_vfmacc_vv_f32m4( tlensq, ty, ty, vl );
 			tlensq = __riscv_vfmacc_vv_f32m4( tlensq, tz, tz, vl );
+			// Guard vfrsqrt7(+0) = +inf -> 0*inf = NaN (degenerate tangent).
+			tlensq = __riscv_vfmax_vf_f32m4( tlensq, 1.17549435e-38f, vl );
 			vfloat32m4_t inv_lt = __riscv_vfrsqrt7_v_f32m4( tlensq, vl );
 			tmp = __riscv_vfmul_vv_f32m4( tlensq, inv_lt, vl );
 			tmp = __riscv_vfmul_vv_f32m4( tmp, inv_lt, vl );
@@ -1042,6 +1046,15 @@ void VPCALL idSIMD_RVV::DeriveTriPlanes( idPlane *planes, const idDrawVert *vert
 		vfloat32m1_t len2 = __riscv_vfmul_vv_f32m1( nx, nx, vl );
 		len2 = __riscv_vfmacc_vv_f32m1( len2, ny, ny, vl );
 		len2 = __riscv_vfmacc_vv_f32m1( len2, nz, nz, vl );
+		// Degenerate triangles are common in Doom 3 meshes and land here with
+		// len2 == 0. RVV defines vfrsqrt7(+0) = +inf, so the Newton step below
+		// computes len2*inv_len = 0*inf = NaN and every plane derived from it is
+		// NaN -- and NaN comparisons return false, which silently flips facing
+		// tests in the shadow-volume code. The generic idMath::RSqrt returns a
+		// finite ~1.98e19 for zero, giving a zero normal instead. Clamping to
+		// FLT_MIN reproduces that finite behaviour; anything below FLT_MIN is a
+		// degenerate triangle whose normal is meaningless either way.
+		len2 = __riscv_vfmax_vf_f32m1( len2, 1.17549435e-38f, vl );
 		vfloat32m1_t inv_len = __riscv_vfrsqrt7_v_f32m1( len2, vl );
 		vfloat32m1_t yr = __riscv_vfmul_vv_f32m1( len2, inv_len, vl );
 		yr = __riscv_vfmul_vv_f32m1( yr, inv_len, vl );
@@ -1252,6 +1265,8 @@ void VPCALL idSIMD_RVV::BlendJoints( idJointQuat *joints, const idJointQuat *ble
 			vfloat32m1_t sc = __riscv_vfmul_vv_f32m1( cosom, cosom, vl );
 			sc = __riscv_vfrsub_vf_f32m1( sc, 1.0f, vl );
 
+			// Guard vfrsqrt7(+0) = +inf -> 0*inf = NaN (parallel vectors).
+			sc = __riscv_vfmax_vf_f32m1( sc, 1.17549435e-38f, vl );
 			vfloat32m1_t si = __riscv_vfrsqrt7_v_f32m1( sc, vl );
 			vfloat32m1_t nr = __riscv_vfmul_vv_f32m1( sc, si, vl );
 			nr = __riscv_vfmul_vv_f32m1( nr, si, vl );
@@ -1607,6 +1622,8 @@ void VPCALL idSIMD_RVV::CreateSpecularTextureCoords( idVec4 *texCoords, const id
 		vs_ = __riscv_vfmacc_vv_f32m1( vs_, vdz, vdz, vl );
 
 		{
+			// Guard vfrsqrt7(+0) = +inf -> inf*inf*0 = NaN (zero-length light dir).
+			ls = __riscv_vfmax_vf_f32m1( ls, 1.17549435e-38f, vl );
 			vfloat32m1_t rs = __riscv_vfrsqrt7_v_f32m1( ls, vl );
 			vfloat32m1_t nr = __riscv_vfmul_vv_f32m1( rs, rs, vl );
 			nr = __riscv_vfmul_vv_f32m1( nr, ls, vl );
@@ -1620,6 +1637,8 @@ void VPCALL idSIMD_RVV::CreateSpecularTextureCoords( idVec4 *texCoords, const id
 		}
 
 		{
+			// Guard vfrsqrt7(+0) = +inf -> inf*inf*0 = NaN (zero-length view dir).
+			vs_ = __riscv_vfmax_vf_f32m1( vs_, 1.17549435e-38f, vl );
 			vfloat32m1_t rs = __riscv_vfrsqrt7_v_f32m1( vs_, vl );
 			vfloat32m1_t nr = __riscv_vfmul_vv_f32m1( rs, rs, vl );
 			nr = __riscv_vfmul_vv_f32m1( nr, vs_, vl );
@@ -2196,45 +2215,42 @@ void VPCALL idSIMD_RVV::MatX_TransposeMultiplyVecX( idVecX &dst, const idMatX &m
 			break;
 		case 4:
 			for ( i = 0; i < numColumns; i++ ) {
-				dstPtr[i] = *(mPtr) * vPtr[0] + *(mPtr+numColumns) * vPtr[1] + *(mPtr+2*numColumns) * vPtr[2] +
-						*(mPtr+3*numColumns) * vPtr[3];
+				dstPtr[i] = *(mPtr) * vPtr[0] + *(mPtr+numColumns) * vPtr[1] + *(mPtr+2*numColumns) * vPtr[2] + *(mPtr+3*numColumns) * vPtr[3];
 				mPtr++;
 			}
 			break;
 		case 5:
 			for ( i = 0; i < numColumns; i++ ) {
-				dstPtr[i] = *(mPtr) * vPtr[0] + *(mPtr+numColumns) * vPtr[1] + *(mPtr+2*numColumns) * vPtr[2] +
-						*(mPtr+3*numColumns) * vPtr[3] + *(mPtr+4*numColumns) * vPtr[4];
+				dstPtr[i] = *(mPtr) * vPtr[0] + *(mPtr+numColumns) * vPtr[1] + *(mPtr+2*numColumns) * vPtr[2] + *(mPtr+3*numColumns) * vPtr[3] + *(mPtr+4*numColumns) * vPtr[4];
 				mPtr++;
 			}
 			break;
 		case 6:
 			for ( i = 0; i < numColumns; i++ ) {
-				dstPtr[i] = *(mPtr) * vPtr[0] + *(mPtr+numColumns) * vPtr[1] + *(mPtr+2*numColumns) * vPtr[2] +
-						*(mPtr+3*numColumns) * vPtr[3] + *(mPtr+4*numColumns) * vPtr[4] + *(mPtr+5*numColumns) * vPtr[5];
+				dstPtr[i] = *(mPtr) * vPtr[0] + *(mPtr+numColumns) * vPtr[1] + *(mPtr+2*numColumns) * vPtr[2] + *(mPtr+3*numColumns) * vPtr[3] + *(mPtr+4*numColumns) * vPtr[4] + *(mPtr+5*numColumns) * vPtr[5];
 				mPtr++;
 			}
 			break;
-		default:
-			int numRows = mat.GetNumRows();
-			ptrdiff_t stride = numColumns * sizeof( float );
-			for ( i = 0; i < numColumns; i++ ) {
-				mPtr = mat.ToFloatPtr() + i;
-				float sum = 0.0f;
-				int k = 0;
-				while ( k < numRows ) {
-					size_t vl = __riscv_vsetvl_e32m8( numRows - k );
-					vfloat32m8_t mv = __riscv_vlse32_v_f32m8( mPtr, stride, vl );
-					vfloat32m8_t vv = __riscv_vle32_v_f32m8( vPtr + k, vl );
-					vfloat32m1_t acc = __riscv_vfmv_s_f_f32m1( 0.0f, 1 );
-					acc = __riscv_vfredusum_vs_f32m8_f32m1( __riscv_vfmul_vv_f32m8( mv, vv, vl ), acc, vl );
-					sum += __riscv_vfmv_f_s_f32m1_f32( acc );
-					mPtr += vl * numColumns;
-					k += vl;
+		default: {
+			// Reduction-FREE, unit-stride: dst[j] = sum_i mat[i][j]*vec[i]. Tile output
+			// columns by vl, ONE vfmacc per row (mat row i is numColumns contiguous
+			// floats -> unit-stride vle). Removes the old per-column strided vlse load
+			// AND the per-output-element vfredusum. Row-order sum matches generic; the
+			// small (<=6) sizes stay scalar above (a vl=numColumns vector wastes lanes).
+			const int numRows = mat.GetNumRows();
+			int j = 0;
+			while ( j < numColumns ) {
+				size_t vl = __riscv_vsetvl_e32m8( numColumns - j );
+				vfloat32m8_t acc = __riscv_vfmv_v_f_f32m8( 0.0f, vl );
+				for ( i = 0; i < numRows; i++ ) {
+					vfloat32m8_t row = __riscv_vle32_v_f32m8( mPtr + (ptrdiff_t)i * numColumns + j, vl );
+					acc = __riscv_vfmacc_vf_f32m8( acc, vPtr[i], row, vl );
 				}
-				dstPtr[i] = sum;
+				__riscv_vse32_v_f32m8( dstPtr + j, acc, vl );
+				j += (int)vl;
 			}
-			break;
+		}
+		break;
 	}
 }
 

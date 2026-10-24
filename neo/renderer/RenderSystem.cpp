@@ -41,6 +41,13 @@ If you have questions concerning this license or the applicable additional terms
 idRenderSystemLocal	tr;
 idRenderSystem	*renderSystem = &tr;
 
+#ifdef BAREMETAL
+// softgles2 stats overlay: renderer-level counts are pushed to it from
+// R_PerformanceCounters() below. Declared here because a linkage specification
+// is only valid at namespace scope.
+extern "C" void sgl_overlay_set_stat( const char *name, long value );
+#endif
+
 
 /*
 =====================
@@ -121,6 +128,18 @@ static void R_PerformanceCounters( void ) {
 		common->Printf( "lightScale: %f\n", backEnd.pc.maxLightValue );
 	}
 
+#ifdef BAREMETAL
+	// Publish renderer-level counts to the softgles2 stats overlay. This is the
+	// only correct point: R_PerformanceCounters() is the last reader of tr.pc and
+	// zeroes it immediately below, so anything sampling from outside the renderer
+	// (e.g. after common->Frame()) reads zeroes -- which it did, silently, and the
+	// overlay just showed "lights 0" as though the scene had none.
+	{
+		sgl_overlay_set_stat( "lights", tr.pc.c_viewLights );
+		sgl_overlay_set_stat( "entities", tr.pc.c_visibleViewEntities );
+		sgl_overlay_set_stat( "views", tr.pc.c_numViews );
+	}
+#endif
 	memset( &tr.pc, 0, sizeof( tr.pc ) );
 	memset( &backEnd.pc, 0, sizeof( backEnd.pc ) );
 }

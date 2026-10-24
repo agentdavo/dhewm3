@@ -30,6 +30,8 @@ volatile unsigned long sgl_dbg_draw_default = 0;
 volatile unsigned long sgl_dbg_draw_scalar = 0;
 volatile unsigned long sgl_dbg_draw_simt = 0;
 volatile unsigned long sgl_dbg_draw_skipped_transparent = 0;
+/* Per-draw diagnostic A/B; zero restores conservative batch-input setup. */
+int sgl_batch_inputs_prune = 1;
 
 /* A draw is a bit-exact no-op when it only ever produces the destination colour.
  * That happens for a fully-transparent layer (source alpha == 0 everywhere) under
@@ -92,6 +94,24 @@ static sg_draw_context draw_context_from_state(void)
     return dc;
 }
 
+#if defined(SGL_BAREMETAL)
+extern char __heap_end[];
+extern uint64_t ram_end(void);   /* true guest-RAM top from the DTB (riscv/boot/runtime.c) */
+/* Upper bound for a legitimate in-RAM pointer. dhewm3's malloc arena is extended
+ * past __heap_end up to ram_end() (see dos_heap_limit in dos_syscalls.c), so the
+ * Doom 3 vertex cache hands out client-array pointers ABOVE __heap_end. The fetch
+ * backstop must use the real RAM top or it rejects them and returns the default
+ * -- which zeroed heatHaze's normal-map UV (constant (0,0) -> refraction streaks).
+ * ram_end() is already clamped below the DTB blob, so wild pointers past real RAM
+ * are still rejected. */
+static inline uintptr_t sgl_ram_hi(void)
+{
+    uintptr_t he = (uintptr_t)__heap_end;
+    uint64_t  re = ram_end();
+    return (re > (uint64_t)he) ? (uintptr_t)re : he;
+}
+#endif
+
 static void fetch(const attrib_t *a, int vi, float *out, int outn, const float *def)
 {
     if (!a->enabled) {
@@ -119,12 +139,13 @@ static void fetch(const attrib_t *a, int vi, float *out, int outn, const float *
     }
 #if defined(SGL_BAREMETAL)
     /* Hard backstop: a stray vertex index or stale client pointer must never make the
-     * rasteriser read outside RAM [0x80000000, __heap_end). Caught a load fault at the
-     * reception-scene geometry (client-array attribute with a garbage vi). */
+     * rasteriser read outside guest RAM [0x80000000, ram_end()). Caught a load fault at
+     * the reception-scene geometry (client-array attribute with a garbage vi). The upper
+     * bound is the real RAM top (sgl_ram_hi), NOT __heap_end -- the vertex cache lives in
+     * the malloc arena's extension above __heap_end. */
     {
-        extern char __heap_end[];
         uintptr_t pp = (uintptr_t)p;
-        if (pp < (uintptr_t)0x80000000UL || pp + need > (uintptr_t)__heap_end) {
+        if (pp < (uintptr_t)0x80000000UL || pp + need > sgl_ram_hi()) {
             for (int i = 0; i < outn; ++i) out[i] = def[i];
             return;
         }
@@ -318,16 +339,18 @@ static void emit_tri_prog(const sgl_pvert *a, const sgl_pvert *b, const sgl_pver
     sgl_raster_tri_prog(dc->fb, a, b, c, nvary, &face_st, sg_frag_cb_scalar, frag_simt, ctx);
 }
 
-/* After a draw that wrote depth, bring hierarchical-Z back in sync with the
- * depth buffer so the next draw's whole-triangle cull is exact. Skipped when
- * the draw didn't touch depth (e.g. the blended 2D overlay) -> zero hi-Z cost
- * on low-overdraw frames. Only the tiles under the draw's screen bbox are
- * rescanned (the rest weren't touched), so a small draw pays a small refresh. */
+/* After a draw that wrote depth, mark hierarchical-Z dirty over the draw bbox.
+ * Refresh is deferred and coalesced until the next whole-triangle cull (see
+ * sgl_hiz_mark_dirty_rect) so a stream of depth-prepass / lit draws pays one
+ * rescan instead of one per draw. Skipped for EQUAL-only light passes that do
+ * not grow the occluder front (common Doom interaction after z-fill). */
 static void hiz_sync_after_draw(const sg_draw_packet *draw, const sgl_framebuffer *fb,
                                 const sgl_pvert *pv, GLsizei count)
 {
     if (!(sgl_hiz_enabled && draw->state.depth_test && draw->state.depth_write &&
           fb && fb->depth))
+        return;
+    if (draw->state.depth_func == SGL_DEPTH_EQUAL)
         return;
     float minx = pv[0].x, maxx = pv[0].x, miny = pv[0].y, maxy = pv[0].y;
     for (GLsizei i = 1; i < count; ++i) {
@@ -335,7 +358,7 @@ static void hiz_sync_after_draw(const sg_draw_packet *draw, const sgl_framebuffe
         if (x < minx) minx = x; else if (x > maxx) maxx = x;
         if (y < miny) miny = y; else if (y > maxy) maxy = y;
     }
-    sgl_hiz_refresh_rect(fb, (int)minx, (int)miny, (int)(maxx + 1.f), (int)(maxy + 1.f));
+    sgl_hiz_mark_dirty_rect(fb, (int)minx, (int)miny, (int)(maxx + 1.f), (int)(maxy + 1.f));
 }
 
 /* ---- C3: near-plane clipping ------------------------------------------------
@@ -414,7 +437,19 @@ static void sg_clip_push(sg_clip_ctx *cc, const sgl_pvert *v)
 static void sg_clip_src_tri(sg_clip_ctx *cc, int ia, int ib, int ic)
 {
     const sgl_pvert *a = &cc->pv_in[ia], *b = &cc->pv_in[ib], *c = &cc->pv_in[ic];
-    if (!pv_behind_near(a, cc->dn, cc->df) &&
+    /* A projected coord this far off-screen (in pixels) means a grazing vertex
+     * with a tiny positive w slipped past the near-only test; rasterising it
+     * blows edge-function precision (garbage band). Such a triangle must take the
+     * guard-band clip path even though no vertex is behind the near plane. */
+#define SG_CLIP_GUARD_PX 8192.0f
+    int graze = (a->x < -SG_CLIP_GUARD_PX || a->x > SG_CLIP_GUARD_PX ||
+                 a->y < -SG_CLIP_GUARD_PX || a->y > SG_CLIP_GUARD_PX ||
+                 b->x < -SG_CLIP_GUARD_PX || b->x > SG_CLIP_GUARD_PX ||
+                 b->y < -SG_CLIP_GUARD_PX || b->y > SG_CLIP_GUARD_PX ||
+                 c->x < -SG_CLIP_GUARD_PX || c->x > SG_CLIP_GUARD_PX ||
+                 c->y < -SG_CLIP_GUARD_PX || c->y > SG_CLIP_GUARD_PX);
+    if (!graze &&
+        !pv_behind_near(a, cc->dn, cc->df) &&
         !pv_behind_near(b, cc->dn, cc->df) &&
         !pv_behind_near(c, cc->dn, cc->df)) {
         sg_clip_push(cc, a); sg_clip_push(cc, b); sg_clip_push(cc, c);
@@ -426,12 +461,14 @@ static void sg_clip_src_tri(sg_clip_ctx *cc, int ia, int ib, int ic)
     clip_space_for_vertex(cc->dc, cc->gp, cc->idx[ib], cp[1]);
     clip_space_for_vertex(cc->dc, cc->gp, cc->idx[ic], cp[2]);
     const float *iv[3] = { a->vary, b->vary, c->vary };
-    float out_pos[4][4];
-    float out_vary[4 * SGL_MAX_VARY];
-    int n = sgl_clip_near_tri(cp, iv, cc->nvary, out_pos, out_vary);
-    if (n < 3) return;   /* fully behind the near plane */
+    float out_pos[SGL_CLIP_MAXV][4];
+    float out_vary[SGL_CLIP_MAXV * SGL_MAX_VARY];
+    /* guard=4: clip only what projects beyond 4x the clip volume, so on-screen
+     * geometry is untouched and grazing verts are bounded to ~4x the viewport. */
+    int n = sgl_clip_frustum_tri(cp, iv, cc->nvary, out_pos, out_vary, 4.0f);
+    if (n < 3) return;   /* fully outside the near/guard volume */
 
-    sgl_pvert proj[4];
+    sgl_pvert proj[SGL_CLIP_MAXV];
     for (int j = 0; j < n; ++j) {
         const float *vstore;
         if (cc->vb_cursor + cc->vstride <= cc->cap_verts * cc->vstride) {
@@ -454,6 +491,14 @@ static void draw_prog(GLenum mode, GLsizei count, const int *idx, glsl_program *
 {
     sg_draw_context dc = draw_context_from_state();
     int dbg_selected = sgl_diag_draw_selected(draw_no);
+    /* heatHaze path-B diagnostic: only for a selected heatHaze draw (bm_sglDbgDraws 1).
+     * Captures attrib-8 (MultiTexCoord0) enable/pointer state and the actual UV the
+     * shader will fetch, so we can tell if the re-enable guard delivered VARYING per-
+     * vertex UVs (fix worked) or still a constant/garbage (fix didn't). Main-hart. */
+    const char *hz_kname = glsl_kernel_name(gp);
+    int hz_probe = dbg_selected && hz_kname &&
+                   (!strcmp(hz_kname, "heathaze") || !strcmp(hz_kname, "heathaze_mask"));
+    int hz_loc = -1;
     int nvary = glsl_num_varying_floats(gp);
     if (nvary > SGL_MAX_VARY) nvary = SGL_MAX_VARY;
     int vstride = nvary > 0 ? nvary : 1;
@@ -481,6 +526,68 @@ static void draw_prog(GLenum mode, GLsizei count, const int *idx, glsl_program *
                 break;
             }
         }
+        /* heatHaze streak diagnosis (path-B). The MultiTexCoord0 slot (location 8,
+         * carrying the normal-map deform UV) is diagnosed, NOT patched: the probe below
+         * proved location 8 is already enabled for every heatHaze draw (no enable-bit
+         * leak), yet the CLIENT-ARRAY heatHaze draws (buf=0) fetch a constant (0,0) UV
+         * while the VBO-backed ones (buf=254/255) fetch correct varying UVs. So the
+         * real fault is a bad/stale client-side MultiTexCoord0 pointer (fetch()'s
+         * bare-metal bounds backstop returns the {0,0,..} default), collapsing the
+         * deform to a constant -> streaks. Fixing that is the remaining path-B work;
+         * the shipping default is path-A (bm_heathazeDeform 0 -> undistorted glass). */
+        if (hz_probe) {
+            for (int b = 0; b < po->nabind; ++b)
+                if (!strcmp(po->abind[b].name, "_gl4es_MultiTexCoord0")) {
+                    int loc = po->abind[b].index;
+                    if (loc >= 0 && loc < SGL_MAX_VERTEX_ATTRIBS) hz_loc = loc;
+                    break;
+                }
+        }
+    }
+
+    if (hz_probe && hz_loc >= 0) {
+        const attrib_t *a = &C.attribs[hz_loc];
+        static const float hz_tdef[4] = {0, 0, 0, 0};
+        float uv0[2] = {0, 0}, uv1[2] = {0, 0};
+        int i0 = idx ? idx[0] : 0;
+        int i1 = (count > 1) ? (idx ? idx[1] : 1) : i0;
+        fetch(a, i0, uv0, 2, hz_tdef);
+        fetch(a, i1, uv1, 2, hz_tdef);
+        /* Replicate fetch()'s address + branch decision to record WHY buf=0 heatHaze
+         * draws return (0,0). path: v=vbo-read V=vbo-oob->def c=client-read
+         * N=client-null->def B=baremetal-backstop->def D=disabled->def. addr* is the
+         * absolute byte address fetch would read for i0/i1 (client) or data+off (vbo).
+         * Verdict (per the path-B table): ptr==0x1/NULL => gl4es never bound a client
+         * array; strd wrong => bind stride/type bug; path=B with a plausible ptr =>
+         * fetch()'s bare-metal range is too tight for client arrays; path=c/v yet
+         * v0==v1 => an indexing bug, not bounds. */
+        int comp = (a->type == GL_UNSIGNED_BYTE) ? 1 : 4;
+        int strd = a->stride ? a->stride : a->size * comp;
+        size_t need = (size_t)a->size * comp;
+        uintptr_t base = (uintptr_t)a->ptr, addr0 = 0, addr1 = 0;
+        char path = '?';
+        if (!a->enabled) path = 'D';
+        else if (a->buffer && a->buffer < MAX_BUFFERS && g_buffers[a->buffer].data) {
+            uintptr_t off0 = base + (size_t)i0 * strd, off1 = base + (size_t)i1 * strd;
+            addr0 = (uintptr_t)g_buffers[a->buffer].data + off0;
+            addr1 = (uintptr_t)g_buffers[a->buffer].data + off1;
+            path = (off0 + need > g_buffers[a->buffer].size) ? 'V' : 'v';
+        } else if (!a->ptr) {
+            path = 'N';
+        } else {
+            addr0 = base + (size_t)i0 * strd; addr1 = base + (size_t)i1 * strd;
+            path = 'c';
+#if defined(SGL_BAREMETAL)
+            if (addr0 < (uintptr_t)0x80000000UL || addr0 + need > sgl_ram_hi()) path = 'B';
+#endif
+        }
+        /* Main-hart print (float + %p ok here). */
+        printf("[hz] draw=%lu %s loc=%d en=%d buf=%u | ptr=%p strd=%d type=0x%x size=%d norm=%d cur=%d"
+               " | count=%d i0=%d i1=%d addr0=%p addr1=%p path=%c | v0=(%.5g,%.5g) v1=(%.5g,%.5g)\n",
+               draw_no, hz_kname, hz_loc, a->enabled, (unsigned)a->buffer,
+               a->ptr, strd, (unsigned)a->type, a->size, a->normalized, a->has_cur,
+               (int)count, i0, i1, (void *)addr0, (void *)addr1, path,
+               uv0[0], uv0[1], uv1[0], uv1[1]);
     }
 
     /* Per-frame arena: reclaimed wholesale at present, not leaked per draw. In
@@ -504,16 +611,22 @@ static void draw_prog(GLenum mode, GLsizei count, const int *idx, glsl_program *
                          C.depth_near, C.depth_far,
                          sg_vertex_attr_fetch_cb, &dc);
     if (sgl_prof_enabled) { sgl_prof_vertex += sgl_prof_now() - pf_t0; sgl_prof_draws++; sgl_prof_tris += (uint64_t)(count / 3); }
-
     /* C3: near-plane clip. One scan; pass through untouched if nothing is behind
      * the near plane, else rebuild the draw as a clipped GL_TRIANGLES stream so
      * all dispatch routes below inherit clipping. */
     if (count >= 3) {
         int any_behind = 0;
-        for (GLsizei i = 0; i < count; ++i)
-            if (pv_behind_near(&pv[i], C.depth_near, C.depth_far)) { any_behind = 1; break; }
+        for (GLsizei i = 0; i < count; ++i) {
+            const sgl_pvert *v = &pv[i];
+            /* behind near, OR a grazing vertex (tiny +w) that projected far off
+             * screen -- both need the guard-band clip (see sg_clip_src_tri). */
+            if (pv_behind_near(v, C.depth_near, C.depth_far) ||
+                v->x < -8192.0f || v->x > 8192.0f || v->y < -8192.0f || v->y > 8192.0f) {
+                any_behind = 1; break;
+            }
+        }
         if (any_behind) {
-            int cap = (int)count * 2;   /* a triangle splits into at most 2 -> <= 2x verts */
+            int cap = (int)count * 3;   /* guard-band clip can fan a triangle to a few tris */
             sgl_pvert *pv2 = (sgl_pvert *)sg_frame_alloc(sizeof(sgl_pvert) * (size_t)cap);
             float *vb2 = (float *)sg_frame_alloc(sizeof(float) * (size_t)cap * (size_t)vstride);
             if (pv2 && vb2) {
@@ -542,6 +655,8 @@ static void draw_prog(GLenum mode, GLsizei count, const int *idx, glsl_program *
 
     if (dbg_selected) {
         sgl_dbg_print_projected(draw_no, mode, pv, count);
+        printf("[sgldbg]   layout nvary=%d color_mask=0x%x discard=%d\n",
+               nvary, C.color_mask, glsl_fs_has_discard(gp));
     }
 
 #if !defined(SGL_BAREMETAL)
@@ -579,6 +694,15 @@ static void draw_prog(GLenum mode, GLsizei count, const int *idx, glsl_program *
     draw.fs_cost = fs_cost;
     draw.fs_simt_ok = fs_simt_ok;
     draw.state.has_discard = glsl_fs_has_discard(gp);   /* SIMT alpha-test: defer depth-write, kill coverage */
+    /* Only meaningful beside a bound fs_kernel: the VM addresses varyings by
+     * offset, so it must always see the full set. glsl_fs_classify() leaves the
+     * mask 0 for VM programs, which the rasteriser reads as "interpolate all". */
+    draw.state.vary_live_mask = glsl_fs_vary_live_mask(gp);
+    if (sgl_batch_inputs_prune) {
+        draw.state.derivative_mask = glsl_fs_derivative_mask(gp);
+        draw.state.skip_derivatives = draw.state.derivative_mask == 0;
+        draw.state.skip_fragcoord = !glsl_fs_uses_fragcoord(gp);
+    }
     {   /* diagnostic: classify this draw's blend so [fswork] shows opaque vs additive */
         int cls = (draw.state.blend == SGL_BLEND_NONE) ? 0
                 : (draw.state.blendf.dst_rgb == GL_ONE &&
@@ -600,6 +724,18 @@ static void draw_prog(GLenum mode, GLsizei count, const int *idx, glsl_program *
     if (sgl_framebin_enabled) {
         /* Defer: record this draw; the whole frame is binned + shaded across
          * harts at present. pv/vb are frame-arena owned (alive until flush). */
+        /* HiZ and deferral are mutually exclusive. The pyramid is maintained by
+         * hiz_sync_after_draw() below, which the deferred path never reaches, so
+         * it would go stale against a depth buffer written later at flush time.
+         * Stale-far entries are merely conservative, but glClear seeds the
+         * pyramid immediately (sg_state.c) while the clear itself is only
+         * replayed at flush -- that ordering can leave entries NEARER than the
+         * real buffer, which culls geometry that should be drawn. Rather than
+         * carry that risk, drop HiZ while deferring: it only ever fires on
+         * LESS/LEQUAL draws, i.e. the depth-fill pass (everything else is
+         * GL_EQUAL), and r_useDepthOnlyFill already makes that pass nearly free.
+         * Revisit by replaying clears into the pyramid at flush. */
+        if (sgl_hiz_enabled) sgl_hiz_enabled = 0;
         sg_framebin_record_draw(&draw, mode, count, pv, gp);
         return;
     }

@@ -23,6 +23,7 @@ typedef struct {
     float    *depth;   /* w*h, 1.0 = far                   */
     uint8_t  *stencil; /* w*h, 8-bit stencil               */
     void     *color_alloc, *depth_alloc, *stencil_alloc; /* allocation owners */
+    uint8_t   color_external; /* color is borrowed, not freed by sgl_fb_destroy */
     uint32_t  clear_color;
     float     clear_depth;
     uint8_t   clear_stencil;
@@ -68,6 +69,7 @@ sgl_framebuffer *sgl_fb_create(int w, int h);
 sgl_framebuffer *sgl_fb_create_ex(int w, int h, unsigned flags);
 void             sgl_fb_destroy(sgl_framebuffer *fb);
 void             sgl_fb_swap_storage(sgl_framebuffer *a, sgl_framebuffer *b);
+void             sgl_fb_bind_external_color(sgl_framebuffer *fb, uint32_t *color);
 void             sgl_present_copy(sgl_framebuffer *dst, const sgl_framebuffer *src);
 int              sgl_present(sgl_framebuffer *front, sgl_framebuffer *back, int mode);
 void             sgl_blit_rgba32(sgl_framebuffer *dst, const void *pixels, int pitch,

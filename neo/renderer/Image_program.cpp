@@ -30,6 +30,14 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/tr_local.h"
 
 #include "renderer/Image.h"
+#ifdef BAREMETAL
+#include "../../riscv/engine/texture_profile.h"
+#include "../../riscv/engine/texture_jobs.h"
+#define BM_TEX_SCOPE(phase) BMTextureScope bmTextureScope(phase)
+#else
+#define BM_TEX_SCOPE(phase) ((void)0)
+#endif
+
 
 /*
 
@@ -70,21 +78,20 @@ properly without knowing the texture coordinate stretching.
 We can assume constant and equal ST vectors for walls, but not for characters.
 =================
 */
-static void R_HeightmapToNormalMap( byte *data, int width, int height, float scale ) {
-	int		i, j;
-	byte	*depth;
-
-	scale = scale / 256;
-
-	// copy and convert to grey scale
-	j = width * height;
-	depth = (byte *)R_StaticAlloc( j );
-	for ( i = 0 ; i < j ; i++ ) {
-		depth[i] = ( data[i*4] + data[i*4+1] + data[i*4+2] ) / 3;
-	}
-
+struct heightMapRows_t {
+	byte *data;
+	const byte *depth;
+	int width, height;
+	float scale;
+};
+static void R_HeightmapRows( void *opaque, int first, int end ) {
+	heightMapRows_t &job = *(heightMapRows_t *)opaque;
+	byte *data = job.data;
+	const byte *depth = job.depth;
+	int width = job.width, height = job.height, i, j;
+	float scale = job.scale;
 	idVec3	dir, dir2;
-	for ( i = 0 ; i < height ; i++ ) {
+	for ( i = first ; i < end ; i++ ) {
 		for ( j = 0 ; j < width ; j++ ) {
 			int		d1, d2, d3, d4;
 			int		a1, a3, a4;
@@ -123,11 +130,32 @@ static void R_HeightmapToNormalMap( byte *data, int width, int height, float sca
 			data[ a1 + 3 ] = 255;
 		}
 	}
-
-
-	R_StaticFree( depth );
 }
 
+static void R_HeightmapToNormalMap( byte *data, int width, int height, float scale ) {
+	BM_TEX_SCOPE(BM_TEX_HEIGHT);
+	byte *depth = (byte *)R_StaticAlloc( width * height );
+	for ( int i = 0; i < width * height; ++i ) {
+		depth[i] = ( data[i*4] + data[i*4+1] + data[i*4+2] ) / 3;
+	}
+	heightMapRows_t job = { data, depth, width, height, scale / 256 };
+#ifdef BAREMETAL
+	BM_TextureRows( height, width, R_HeightmapRows, &job );
+	if ( bm_texture_validate ) {
+		byte *reference = (byte *)R_StaticAlloc( width * height * 4 );
+		job.data = reference;
+		R_HeightmapRows( &job, 0, height );
+		if ( memcmp( data, reference, width * height * 4 ) ) {
+			common->FatalError( "Parallel height map differs: %dx%d", width, height );
+		}
+		common->Printf( "[texture-jobs] height %dx%d byte-exact PASS\n", width, height );
+		R_StaticFree( reference );
+	}
+#else
+	R_HeightmapRows( &job, 0, height );
+#endif
+	R_StaticFree( depth );
+}
 
 /*
 =================
@@ -192,20 +220,16 @@ R_AddNormalMaps
 
 ===================
 */
-static void R_AddNormalMaps( byte *data1, int width1, int height1, byte *data2, int width2, int height2 ) {
-	int		i, j;
-	byte	*newMap;
-
-	// resample pic2 to the same size as pic1
-	if ( width2 != width1 || height2 != height1 ) {
-		newMap = R_Dropsample( data2, width2, height2, width1, height1 );
-		data2 = newMap;
-	} else {
-		newMap = NULL;
-	}
-
+struct addNormalRows_t {
+	byte *data1, *data2;
+	int width;
+};
+static void R_AddNormalRows( void *opaque, int first, int end ) {
+	addNormalRows_t &job = *(addNormalRows_t *)opaque;
+	byte *data1 = job.data1, *data2 = job.data2;
+	int width1 = job.width, i, j;
 	// add the normal change from the second and renormalize
-	for ( i = 0 ; i < height1 ; i++ ) {
+	for ( i = first ; i < end ; i++ ) {
 		for ( j = 0 ; j < width1 ; j++ ) {
 			byte	*d1, *d2;
 			idVec3	n;
@@ -236,9 +260,36 @@ static void R_AddNormalMaps( byte *data1, int width1, int height1, byte *data2, 
 		}
 	}
 
-	if ( newMap ) {
-		R_StaticFree( newMap );
+}
+
+static void R_AddNormalMaps( byte *data1, int width1, int height1, byte *data2, int width2, int height2 ) {
+	BM_TEX_SCOPE(BM_TEX_NORMALS);
+	byte *newMap = NULL;
+	if ( width2 != width1 || height2 != height1 ) {
+		newMap = R_Dropsample( data2, width2, height2, width1, height1 );
+		data2 = newMap;
 	}
+	addNormalRows_t job = { data1, data2, width1 };
+#ifdef BAREMETAL
+	byte *reference = NULL;
+	if ( bm_texture_validate ) {
+		reference = (byte *)R_StaticAlloc( width1 * height1 * 4 );
+		memcpy( reference, data1, width1 * height1 * 4 );
+		addNormalRows_t serial = { reference, data2 == data1 ? reference : data2, width1 };
+		R_AddNormalRows( &serial, 0, height1 );
+	}
+	BM_TextureRows( height1, width1, R_AddNormalRows, &job );
+	if ( reference ) {
+		if ( memcmp( data1, reference, width1 * height1 * 4 ) ) {
+			common->FatalError( "Parallel normal blend differs: %dx%d", width1, height1 );
+		}
+		common->Printf( "[texture-jobs] normals %dx%d byte-exact PASS\n", width1, height1 );
+		R_StaticFree( reference );
+	}
+#else
+	R_AddNormalRows( &job, 0, height1 );
+#endif
+	if ( newMap ) R_StaticFree( newMap );
 }
 
 /*

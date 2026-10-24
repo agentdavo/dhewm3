@@ -48,17 +48,24 @@ static inline float sgl_math_log2_f(float x)
     float e = (float)((int)((v.u >> 23) & 0xFF) - 127);
     v.u = (v.u & 0x007FFFFFu) | 0x3F800000u;
     float m = v.f;
-    return e + (-1.7417939f + (2.8212026f + (-1.4699568f + (0.4471888f - 0.0566510f * m) * m) * m) * m);
+    /* log2(m) = 2/ln(2) * atanh((m-1)/(m+1)); |t| <= 1/3.
+     * The old polynomial approximated ln(m), causing jumps at powers of two. */
+    float t = (m - 1.f) / (m + 1.f), t2 = t * t;
+    float p = 1.f + t2 * (1.f/3.f + t2 * (1.f/5.f + t2 * (1.f/7.f + t2/9.f)));
+    return e + (t * p) * 2.8853900817779268f;
 }
 
 static inline float sgl_math_exp2_f(float x)
 {
+	/* Shader colours below the normal float range round to zero in RGBA8.
+	 * Prevent exponent-bit wraparound from producing huge positive values. */
+	if (x < -126.f) return 0.f;
     float xi = sgl_math_floor_f(x);
     float xf = x - xi;
-    float p = 1.0f + xf * (0.6931472f + xf * (0.2402265f + xf * (0.0555041f + xf * 0.0096181f)));
+    float p = 1.0f + xf * (0.6931472f + xf * (0.2402265f + xf * (0.0555041f + xf * (0.0096181291f + xf * (0.0013333558f + xf * 0.0001540353f)))));
     union { float f; unsigned u; } v;
     v.f = p;
-    v.u += (unsigned)((int)xi << 23);
+    v.u += ((unsigned)(int)xi << 23);
     return v.f;
 }
 
@@ -283,22 +290,29 @@ SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_log2_m2(vfloat32m2_t x, size_t vl)
     /* m = bits with exponent forced to 127 -> mantissa in [1,2) */
     vfloat32m2_t m = __riscv_vreinterpret_v_u32m2_f32m2(
                         __riscv_vor_vx_u32m2(__riscv_vand_vx_u32m2(u, 0x007FFFFFu, vl), 0x3F800000u, vl));
-    /* poly = -1.7417939 + (2.8212026 + (-1.4699568 + (0.4471888 - 0.0566510*m)*m)*m)*m */
-    vfloat32m2_t p = __riscv_vfmv_v_f_f32m2(-0.0566510f, vl);
-    p = __riscv_vfmadd_vv_f32m2(p, m, __riscv_vfmv_v_f_f32m2(0.4471888f, vl), vl);
-    p = __riscv_vfmadd_vv_f32m2(p, m, __riscv_vfmv_v_f_f32m2(-1.4699568f, vl), vl);
-    p = __riscv_vfmadd_vv_f32m2(p, m, __riscv_vfmv_v_f_f32m2(2.8212026f, vl), vl);
-    p = __riscv_vfmadd_vv_f32m2(p, m, __riscv_vfmv_v_f_f32m2(-1.7417939f, vl), vl);
-    return __riscv_vfadd_vv_f32m2(e, p, vl);
+    vfloat32m2_t t = __riscv_vfdiv_vv_f32m2(__riscv_vfsub_vf_f32m2(m, 1.0f, vl),
+                                            __riscv_vfadd_vf_f32m2(m, 1.0f, vl), vl);
+    vfloat32m2_t t2 = __riscv_vfmul_vv_f32m2(t, t, vl);
+    vfloat32m2_t s = __riscv_vfmv_v_f_f32m2(0.11111111f, vl);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(0.14285715f, vl), vl);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(0.2f, vl), vl);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(0.33333334f, vl), vl);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(1.0f, vl), vl);
+    vfloat32m2_t ts = __riscv_vfmul_vv_f32m2(t, s, vl);
+    return __riscv_vfadd_vv_f32m2(e, __riscv_vfmul_vf_f32m2(ts, 2.8853900817779268f, vl), vl);
 }
 
 SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_exp2_m2(vfloat32m2_t x, size_t vl)
 {
+    vbool16_t underflow = __riscv_vmflt_vf_f32m2_b16(x, -126.f, vl);
+    x = __riscv_vfmax_vf_f32m2(x, -126.f, vl);
     /* xi = floor(x); xf = x - xi */
     vint32m2_t xii = __riscv_vfcvt_x_f_v_i32m2_rm(x, __RISCV_FRM_RDN, vl);
     vfloat32m2_t xf = __riscv_vfsub_vv_f32m2(x, __riscv_vfcvt_f_x_v_f32m2(xii, vl), vl);
-    /* p = 1 + xf*(0.6931472 + xf*(0.2402265 + xf*(0.0555041 + xf*0.0096181))) */
-    vfloat32m2_t p = __riscv_vfmv_v_f_f32m2(0.0096181f, vl);
+    /* Sixth-order exp2 polynomial: keep exponent-boundary error below an RGBA8 step. */
+    vfloat32m2_t p = __riscv_vfmv_v_f_f32m2(0.0001540353f, vl);
+    p = __riscv_vfmadd_vv_f32m2(p, xf, __riscv_vfmv_v_f_f32m2(0.0013333558f, vl), vl);
+    p = __riscv_vfmadd_vv_f32m2(p, xf, __riscv_vfmv_v_f_f32m2(0.0096181291f, vl), vl);
     p = __riscv_vfmadd_vv_f32m2(p, xf, __riscv_vfmv_v_f_f32m2(0.0555041f, vl), vl);
     p = __riscv_vfmadd_vv_f32m2(p, xf, __riscv_vfmv_v_f_f32m2(0.2402265f, vl), vl);
     p = __riscv_vfmadd_vv_f32m2(p, xf, __riscv_vfmv_v_f_f32m2(0.6931472f, vl), vl);
@@ -306,12 +320,43 @@ SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_exp2_m2(vfloat32m2_t x, size_t vl)
     /* p.u += xi << 23  (scale by 2^xi) */
     vint32m2_t pii = __riscv_vadd_vv_i32m2(__riscv_vreinterpret_v_f32m2_i32m2(p),
                                            __riscv_vsll_vx_i32m2(xii, 23, vl), vl);
-    return __riscv_vreinterpret_v_i32m2_f32m2(pii);
+    return __riscv_vmerge_vvm_f32m2(__riscv_vreinterpret_v_i32m2_f32m2(pii),
+        __riscv_vfmv_v_f_f32m2(0.f, vl), underflow, vl);
 }
 
-/* pow(x,y) = (x<=0) ? (y==0?1:0) : exp2(y*log2(x)) — matches sgl_math_pow_f. */
+/* Exact successive-square path for common integer exponents. Shared by the
+ * scalar-exponent helper and the generic pow so kernel vs SIMT VM stay identical. */
+SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_pow_posint_m2(vfloat32m2_t x, int n, size_t vl)
+{
+    vbool16_t xle0 = __riscv_vmfle_vf_f32m2_b16(x, 0.f, vl);
+    vfloat32m2_t z = __riscv_vfmv_v_f_f32m2(0.f, vl);
+    if (n == 0) return __riscv_vfmv_v_f_f32m2(1.f, vl);
+    if (n == 1) return __riscv_vmerge_vvm_f32m2(x, z, xle0, vl);
+    vfloat32m2_t r = x;
+    if (n == 2) {
+        r = __riscv_vfmul_vv_f32m2(x, x, vl);
+    } else if (n == 16) {
+        r = __riscv_vfmul_vv_f32m2(x, x, vl);   /* x^2 */
+        r = __riscv_vfmul_vv_f32m2(r, r, vl);   /* x^4 */
+        r = __riscv_vfmul_vv_f32m2(r, r, vl);   /* x^8 */
+        r = __riscv_vfmul_vv_f32m2(r, r, vl);   /* x^16 */
+    } else {
+        /* Fallback: repeated multiply (rare). */
+        r = __riscv_vfmv_v_f_f32m2(1.f, vl);
+        for (int i = 0; i < n; ++i) r = __riscv_vfmul_vv_f32m2(r, x, vl);
+    }
+    return __riscv_vmerge_vvm_f32m2(r, z, xle0, vl);
+}
+
+/* pow(x,y) = (x<=0) ? (y==0?1:0) : exp2(y*log2(x)) — matches sgl_math_pow_f,
+ * except for exact integer exponents 0/1/2/16 which use successive multiplies so
+ * the interaction kernel and SIMT VM agree bit-for-bit (and TCG is faster). */
 SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_pow_m2(vfloat32m2_t x, vfloat32m2_t y, size_t vl)
 {
+    float y0 = __riscv_vfmv_f_s_f32m2_f32(y);
+    if ((y0 == 0.f || y0 == 1.f || y0 == 2.f || y0 == 16.f) &&
+        __riscv_vcpop_m_b16(__riscv_vmfne_vf_f32m2_b16(y, y0, vl), vl) == 0)
+        return sgl_rvv_pow_posint_m2(x, (int)y0, vl);
     vfloat32m2_t e = sgl_rvv_exp2_m2(__riscv_vfmul_vv_f32m2(y, sgl_rvv_log2_m2(x, vl), vl), vl);
     /* guard lanes where x<=0: result is 1 when y==0, else 0 */
     vbool16_t xle0 = __riscv_vmfle_vf_f32m2_b16(x, 0.f, vl);
@@ -319,6 +364,14 @@ SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_pow_m2(vfloat32m2_t x, vfloat32m2_t y
     vfloat32m2_t guard = __riscv_vmerge_vvm_f32m2(__riscv_vfmv_v_f_f32m2(0.f, vl),
                                                   __riscv_vfmv_v_f_f32m2(1.f, vl), yz, vl);
     return __riscv_vmerge_vvm_f32m2(e, guard, xle0, vl);
+}
+
+/* Scalar-exponent pow for hot uniforms (Doom gamma / colorScale / specular). */
+SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_pow_sf_m2(vfloat32m2_t x, float y, size_t vl)
+{
+    if (y == 0.f || y == 1.f || y == 2.f || y == 16.f)
+        return sgl_rvv_pow_posint_m2(x, (int)y, vl);
+    return sgl_rvv_pow_m2(x, __riscv_vfmv_v_f_f32m2(y, vl), vl);
 }
 
 SGL_RVV_ALWAYS_INLINE vfloat32m2_t sgl_rvv_dot4_v1_m2(vfloat32m2_t a0, vfloat32m2_t a1,
@@ -632,7 +685,15 @@ SGL_RVV_ALWAYS_INLINE void sgl_rvv_sample2d_nearest_m2(const sgl_tex *tex, vfloa
     vuint32m2_t yi = __riscv_vminu_vx_u32m2(
         __riscv_vfcvt_rtz_xu_f_v_u32m2(__riscv_vfmul_vf_f32m2(v, (float)tex->h, vl), vl),
         (uint32_t)(tex->h - 1), vl);
-    sgl_rvv_unpack_rgba_m2(sgl_rvv_tex_gather_m2(tex, xi, yi, vl), vl, inv255, tr, tg, tb, ta);
+    vuint32m2_t word = sgl_rvv_tex_gather_m2(tex, xi, yi, vl);
+    if (tex->is_depth) {
+        /* Depth texel holds raw float bits: return (d,d,d,1) with d reinterpreted. */
+        vfloat32m2_t d = __riscv_vreinterpret_v_u32m2_f32m2(word);
+        *tr = d; *tg = d; *tb = d;
+        *ta = __riscv_vfmv_v_f_f32m2(1.0f, vl);
+        return;
+    }
+    sgl_rvv_unpack_rgba_m2(word, vl, inv255, tr, tg, tb, ta);
 }
 
 SGL_RVV_ALWAYS_INLINE void sgl_rvv_sample2d_bilinear_m2(const sgl_tex *tex, vfloat32m2_t u, vfloat32m2_t v,
@@ -662,6 +723,40 @@ SGL_RVV_ALWAYS_INLINE void sgl_rvv_sample2d_bilinear_m2(const sgl_tex *tex, vflo
      * (vs2r/vl2re32) spills in glsl_fs_kernel_interaction; per-channel keeps the
      * live set ~20 vregs and spills ~0. Bit-identical: same per-channel lerp order
      * (horizontal in dx, then vertical in dy) as the original unpack-then-lerp. */
+    /* Degenerate-axis fast path. A 1-texel-high texture clamps both y0 and y1 to
+     * 0, so p01 == p00 and p11 == p10 and the outer lerp collapses to
+     * a + dy*(a - a) == a EXACTLY (texels come from vfcvt.f.xu so are never -0.0,
+     * the one case where that identity would not hold). Half the gathers and half
+     * the per-channel lerps are therefore dead weight. This is not a Doom-specific
+     * hack: Doom 3's _specularTable is 256x1 and is sampled on every interaction
+     * fragment, but any GLES2 Nx1/1xN gradient LUT hits it. Bit-exact. */
+    if (tex->h == 1) {
+        vuint32m2_t q0 = sgl_rvv_tex_gather_m2(tex, x0u, y0u, vl);
+        vuint32m2_t q1 = sgl_rvv_tex_gather_m2(tex, x1u, y0u, vl);
+#define SGL_BILERP_CH1(OUT, SH) \
+        *(OUT) = sgl_rvv_lerp_m2(sgl_rvv_chan_m2(q0, (SH), inv255, vl), \
+                                 sgl_rvv_chan_m2(q1, (SH), inv255, vl), dx, vl)
+        SGL_BILERP_CH1(tr, 0);
+        SGL_BILERP_CH1(tg, 8);
+        SGL_BILERP_CH1(tb, 16);
+        SGL_BILERP_CH1(ta, 24);
+#undef SGL_BILERP_CH1
+        return;
+    }
+    if (tex->w == 1) {
+        vuint32m2_t q0 = sgl_rvv_tex_gather_m2(tex, x0u, y0u, vl);
+        vuint32m2_t q1 = sgl_rvv_tex_gather_m2(tex, x0u, y1u, vl);
+#define SGL_BILERP_CW1(OUT, SH) \
+        *(OUT) = sgl_rvv_lerp_m2(sgl_rvv_chan_m2(q0, (SH), inv255, vl), \
+                                 sgl_rvv_chan_m2(q1, (SH), inv255, vl), dy, vl)
+        SGL_BILERP_CW1(tr, 0);
+        SGL_BILERP_CW1(tg, 8);
+        SGL_BILERP_CW1(tb, 16);
+        SGL_BILERP_CW1(ta, 24);
+#undef SGL_BILERP_CW1
+        return;
+    }
+
     vuint32m2_t p00 = sgl_rvv_tex_gather_m2(tex, x0u, y0u, vl);
     vuint32m2_t p10 = sgl_rvv_tex_gather_m2(tex, x1u, y0u, vl);
     vuint32m2_t p01 = sgl_rvv_tex_gather_m2(tex, x0u, y1u, vl);
@@ -699,30 +794,258 @@ SGL_RVV_ALWAYS_INLINE void sgl_rvv_sample2d_bilinear_m2(const sgl_tex *tex, vflo
  * screen pixels): texels/pixel = |du/dx|*texW. NOT bit-exact (visual) -> gated;
  * default on, sgl_rvv_mag_downgrade_enabled=0 restores true bilinear. */
 extern int sgl_rvv_mag_downgrade_enabled;
+/* Kill switch for the live-varying interpolation skip (sgl_drawstate.
+ * vary_live_mask). On by default; set to 0 to bisect a rendering difference
+ * back to a kernel whose declared live set is wrong. */
+extern int sgl_vary_liveness_enabled;
+/* Blend between two mip levels (true trilinear). Off: pick the nearest level,
+ * which halves the texture fetches. */
+extern int sgl_mip_trilinear_enabled;
+/* Master switch for mip sampling. Default OFF: under QEMU TCG the guest cache
+ * hierarchy is not emulated, so the locality win mips exist for is invisible
+ * while their LOD cost is fully counted -- measured a large net loss. Turn ON
+ * for real hardware and for image quality (it also fixes minification aliasing). */
+extern int sgl_mip_enabled;
+extern int sgl_heathaze_deform;   /* 0 = clean undistorted glass (path-A); 1 = normal-map deform */
+
+/* Mip level selection.
+ *
+ * The batch's lanes are consecutive screen pixels, so the texel stride per pixel
+ * -- exactly GL's rho -- falls out of the first/last lane the same way the
+ * mag-downgrade test already reads it. That makes LOD ~6 scalar ops per batch
+ * with no per-lane derivative machinery, and one level for the whole batch.
+ *
+ * Per-batch rather than per-lane is an approximation: a batch spanning a sharp
+ * perspective gradient gets one level for all 64 lanes. Within a 64-pixel span
+ * of one triangle that is a fraction of a level, which is well below what a
+ * trilinear blend would smooth out anyway.
+ *
+ * Returns the level and leaves `frac` as the blend weight toward level+1. */
+SGL_RVV_ALWAYS_INLINE int sgl_rvv_pick_lod(const sgl_tex *tex, float rho, float *frac)
+{
+    *frac = 0.f;
+    if (tex->nmip <= 1 || rho <= 1.0f) return 0;
+    /* log2 via the float exponent: rho >= 1 here, so the biased exponent is the
+     * integer part and the mantissa is the fraction. Cheaper than a real log2
+     * and exact at level boundaries, which is where banding would show. */
+    union { float f; uint32_t u; } bits;
+    bits.f = rho;
+    int lod = (int)((bits.u >> 23) & 0xffu) - 127;
+    if (lod < 0) lod = 0;
+    if (lod >= tex->nmip - 1) return tex->nmip - 1;
+    bits.u = (bits.u & 0x007fffffu) | 0x3f800000u;   /* mantissa in [1,2) */
+    *frac = bits.f - 1.0f;
+    return lod;
+}
+
+/* Build a level view. The existing samplers only read w/h/texels, so a stack
+ * copy with those three swapped samples that level with no other changes. */
+SGL_RVV_ALWAYS_INLINE sgl_tex sgl_rvv_mip_view(const sgl_tex *tex, int level)
+{
+    sgl_tex v = *tex;
+    if (level > 0 && level < tex->nmip && tex->mips && tex->mips[level].texels) {
+        v.w = tex->mips[level].w;
+        v.h = tex->mips[level].h;
+        v.texels = tex->mips[level].texels;
+    }
+    return v;
+}
+
+/* Blend a bilinear fetch at (uk,vk) between mip levels `lod` and `lod+1` (weight
+ * `frac`) when trilinear is requested, else a single-level bilinear. Writes the
+ * result to the four out registers. `lv`/`lv1` are prebuilt level views. */
+SGL_RVV_ALWAYS_INLINE void sgl_rvv_tap_trilinear_m2(const sgl_tex *tex,
+        const sgl_tex *lv, int lod, float frac,
+        vfloat32m2_t uk, vfloat32m2_t vk, size_t vl, float inv255, int wrap,
+        vfloat32m2_t *r, vfloat32m2_t *g, vfloat32m2_t *b, vfloat32m2_t *a)
+{
+    sgl_rvv_sample2d_bilinear_m2(lv, uk, vk, vl, inv255, wrap, r, g, b, a);
+    if (tex->mip_filter == 2 && sgl_mip_trilinear_enabled && frac > 0.f && lod + 1 < tex->nmip) {
+        vfloat32m2_t r1, g1, b1, a1;
+        sgl_tex lv1 = sgl_rvv_mip_view(tex, lod + 1);
+        sgl_rvv_sample2d_bilinear_m2(&lv1, uk, vk, vl, inv255, wrap, &r1, &g1, &b1, &a1);
+        *r = __riscv_vfmacc_vf_f32m2(*r, frac, __riscv_vfsub_vv_f32m2(r1, *r, vl), vl);
+        *g = __riscv_vfmacc_vf_f32m2(*g, frac, __riscv_vfsub_vv_f32m2(g1, *g, vl), vl);
+        *b = __riscv_vfmacc_vf_f32m2(*b, frac, __riscv_vfsub_vv_f32m2(b1, *b, vl), vl);
+        *a = __riscv_vfmacc_vf_f32m2(*a, frac, __riscv_vfsub_vv_f32m2(a1, *a, vl), vl);
+    }
+}
 
 SGL_RVV_ALWAYS_INLINE void sgl_rvv_sample2d_m2(const sgl_tex *tex, vfloat32m2_t u, vfloat32m2_t v,
                                        size_t vl, float inv255, int min_filter, int wrap,
+                                       const sgl_uv_deriv *duv,
                                        vfloat32m2_t *tr, vfloat32m2_t *tg,
                                        vfloat32m2_t *tb, vfloat32m2_t *ta)
 {
+    if (tex->is_depth) {
+        /* Depth textures are point-sampled and their texels are raw float bits,
+         * so bilinear/LOD/aniso blending is meaningless; force the nearest path.
+         * This is the depth agent's no-mip, no-aniso, reinterpret path and MUST
+         * stay first so is_depth never reaches the mip/aniso logic below. */
+        sgl_rvv_sample2d_nearest_m2(tex, u, v, vl, inv255, wrap, tr, tg, tb, ta);
+        return;
+    }
     if (min_filter == 1) {
-        if (sgl_rvv_mag_downgrade_enabled && vl >= 2) {
+        if (duv) {
+            /* Analytic per-batch derivatives: exact rho and (optional) anisotropy,
+             * no cross-lane sampling and correct on vcompress-packed batches. */
+            float dudx = duv->dudx * (float)tex->w, dvdx = duv->dvdx * (float)tex->h;
+            float dudy = duv->dudy * (float)tex->w, dvdy = duv->dvdy * (float)tex->h;
+            float px = __builtin_sqrtf(dudx * dudx + dvdx * dvdx);   /* texels/pixel along screen x */
+            float py = __builtin_sqrtf(dudy * dudy + dvdy * dvdy);   /* texels/pixel along screen y */
+            float pmax = px > py ? px : py;
+            float pmin = px < py ? px : py;
+            float aniso = tex->max_aniso; if (aniso < 1.f) aniso = 1.f;  /* 0-init -> isotropic */
+            int   do_mip = sgl_mip_enabled && tex->mip_filter && tex->nmip > 1;
+
+            if (aniso > 1.f && pmin > 0.f && pmax > pmin) {
+                /* Anisotropic: N bilinear taps stepped along the major screen axis;
+                 * base LOD from the MINOR axis so each tap's footprint is ~isotropic. */
+                int N = (int)(pmax / pmin + 0.5f);
+                int Nmax = (int)aniso;
+                if (Nmax < 1) Nmax = 1;
+                if (N < 1) N = 1;
+                if (N > Nmax) N = Nmax;
+                if (N > 1) {
+                    float frac = 0.f;
+                    int lod = do_mip ? sgl_rvv_pick_lod(tex, pmin, &frac) : 0;
+                    sgl_tex lv = sgl_rvv_mip_view(tex, lod);
+                    float su, sv;                         /* major-axis step, normalised uv */
+                    if (px >= py) { su = duv->dudx; sv = duv->dvdx; }
+                    else          { su = duv->dudy; sv = duv->dvdy; }
+                    float invN = 1.f / (float)N;
+                    su *= invN; sv *= invN;
+                    float base = -0.5f * (float)(N - 1);  /* centre the taps on (u,v) */
+                    vfloat32m2_t accr = __riscv_vfmv_v_f_f32m2(0.f, vl);
+                    vfloat32m2_t accg = accr, accb = accr, acca = accr;
+                    for (int k = 0; k < N; ++k) {
+                        float off = base + (float)k;
+                        vfloat32m2_t uk = __riscv_vfadd_vf_f32m2(u, off * su, vl);
+                        vfloat32m2_t vk = __riscv_vfadd_vf_f32m2(v, off * sv, vl);
+                        vfloat32m2_t r, g, b, a;
+                        sgl_rvv_tap_trilinear_m2(tex, &lv, lod, frac, uk, vk, vl, inv255, wrap, &r, &g, &b, &a);
+                        accr = __riscv_vfadd_vv_f32m2(accr, r, vl);
+                        accg = __riscv_vfadd_vv_f32m2(accg, g, vl);
+                        accb = __riscv_vfadd_vv_f32m2(accb, b, vl);
+                        acca = __riscv_vfadd_vv_f32m2(acca, a, vl);
+                    }
+                    *tr = __riscv_vfmul_vf_f32m2(accr, invN, vl);
+                    *tg = __riscv_vfmul_vf_f32m2(accg, invN, vl);
+                    *tb = __riscv_vfmul_vf_f32m2(accb, invN, vl);
+                    *ta = __riscv_vfmul_vf_f32m2(acca, invN, vl);
+                    return;
+                }
+            }
+            /* Isotropic (max_aniso<=1, the common case): single (tri)linear at the
+             * level matching the LONGER axis -- byte-identical fetch to a plain
+             * bilinear when no minification/level is selected. */
+            if (do_mip) {
+                float frac;
+                int lod = sgl_rvv_pick_lod(tex, pmax, &frac);
+                if (lod > 0) {
+                    sgl_tex lv = sgl_rvv_mip_view(tex, lod);
+                    sgl_rvv_tap_trilinear_m2(tex, &lv, lod, frac, u, v, vl, inv255, wrap, tr, tg, tb, ta);
+                    return;
+                }
+            }
+            sgl_rvv_sample2d_bilinear_m2(tex, u, v, vl, inv255, wrap, tr, tg, tb, ta);
+            return;
+        }
+        /* No analytic derivatives supplied -> preserve the prior per-batch two-lane
+         * estimate exactly (callers with no plane data, e.g. the GLSL VM, keep
+         * their previous behaviour). */
+        if ((sgl_rvv_mag_downgrade_enabled || (sgl_mip_enabled && tex->nmip > 1)) && vl >= 2) {
             float u_lo = __riscv_vfmv_f_s_f32m2_f32(u);
-            float u_hi = __riscv_vfmv_f_s_f32m2_f32(__riscv_vslidedown_vx_f32m2(u, vl - 1, vl));
+            float u_hi = __riscv_vfmv_f_s_f32m2_f32(__riscv_vslidedown_vx_f32m2(u, vl - 1, 1));
             float v_lo = __riscv_vfmv_f_s_f32m2_f32(v);
-            float v_hi = __riscv_vfmv_f_s_f32m2_f32(__riscv_vslidedown_vx_f32m2(v, vl - 1, vl));
+            float v_hi = __riscv_vfmv_f_s_f32m2_f32(__riscv_vslidedown_vx_f32m2(v, vl - 1, 1));
             float du = (u_hi - u_lo); if (du < 0.f) du = -du;
             float dv = (v_hi - v_lo); if (dv < 0.f) dv = -dv;
             float inv = 1.f / (float)(vl - 1);
-            if (du * inv * (float)tex->w <= 1.0f && dv * inv * (float)tex->h <= 1.0f) {
+            float tu = du * inv * (float)tex->w;
+            float tv = dv * inv * (float)tex->h;
+            if (sgl_rvv_mag_downgrade_enabled && tu <= 1.0f && tv <= 1.0f) {
                 sgl_rvv_sample2d_nearest_m2(tex, u, v, vl, inv255, wrap, tr, tg, tb, ta);
                 return;
+            }
+            if (sgl_mip_enabled && tex->mip_filter && tex->nmip > 1) {
+                float rho = tu > tv ? tu : tv;
+                float frac;
+                int lod = sgl_rvv_pick_lod(tex, rho, &frac);
+                if (lod > 0) {
+                    sgl_tex lv = sgl_rvv_mip_view(tex, lod);
+                    sgl_rvv_tap_trilinear_m2(tex, &lv, lod, frac, u, v, vl, inv255, wrap, tr, tg, tb, ta);
+                    return;
+                }
             }
         }
         sgl_rvv_sample2d_bilinear_m2(tex, u, v, vl, inv255, wrap, tr, tg, tb, ta);
         return;
     }
     sgl_rvv_sample2d_nearest_m2(tex, u, v, vl, inv255, wrap, tr, tg, tb, ta);
+}
+
+/* textureCube — bit-identical face select + UV map to sample_cube_tex() in glsl.c,
+ * then the same 2D sampler as texture2D. Lanes are partitioned across the six
+ * faces; each non-empty face does one RVV sample2d and the results are merged.
+ * Under TCG this replaces a scalar per-lane cube walk (the old interaction
+ * kernel path) with at most 6 vector samples, usually 1–3 live faces. */
+SGL_RVV_ALWAYS_INLINE void sgl_rvv_sample_cube_m2(const sgl_tex *cube,
+        vfloat32m2_t dx, vfloat32m2_t dy, vfloat32m2_t dz, size_t vl, float inv255,
+        vfloat32m2_t *tr, vfloat32m2_t *tg, vfloat32m2_t *tb, vfloat32m2_t *ta)
+{
+    vfloat32m2_t z = __riscv_vfmv_v_f_f32m2(0.f, vl);
+    vfloat32m2_t one = __riscv_vfmv_v_f_f32m2(1.f, vl);
+    vfloat32m2_t half = __riscv_vfmv_v_f_f32m2(0.5f, vl);
+    *tr = *tg = *tb = z;
+    *ta = one;
+    if (!cube) return;
+
+    vfloat32m2_t ax = __riscv_vfabs_v_f32m2(dx, vl);
+    vfloat32m2_t ay = __riscv_vfabs_v_f32m2(dy, vl);
+    vfloat32m2_t az = __riscv_vfabs_v_f32m2(dz, vl);
+    vbool16_t x_dom = __riscv_vmand_mm_b16(
+        __riscv_vmfge_vv_f32m2_b16(ax, ay, vl),
+        __riscv_vmfge_vv_f32m2_b16(ax, az, vl), vl);
+    vbool16_t y_dom = __riscv_vmand_mm_b16(
+        __riscv_vmnot_m_b16(x_dom, vl),
+        __riscv_vmfge_vv_f32m2_b16(ay, az, vl), vl);
+    vbool16_t z_dom = __riscv_vmnot_m_b16(__riscv_vmor_mm_b16(x_dom, y_dom, vl), vl);
+
+    /* Face masks match sample_cube_tex major-axis ties. (No vbool arrays — GCC
+     * RVV types are not array-able.) */
+    vbool16_t m0 = __riscv_vmand_mm_b16(x_dom, __riscv_vmfge_vf_f32m2_b16(dx, 0.f, vl), vl);
+    vbool16_t m1 = __riscv_vmand_mm_b16(x_dom, __riscv_vmflt_vf_f32m2_b16(dx, 0.f, vl), vl);
+    vbool16_t m2 = __riscv_vmand_mm_b16(y_dom, __riscv_vmfge_vf_f32m2_b16(dy, 0.f, vl), vl);
+    vbool16_t m3 = __riscv_vmand_mm_b16(y_dom, __riscv_vmflt_vf_f32m2_b16(dy, 0.f, vl), vl);
+    vbool16_t m4 = __riscv_vmand_mm_b16(z_dom, __riscv_vmfge_vf_f32m2_b16(dz, 0.f, vl), vl);
+    vbool16_t m5 = __riscv_vmand_mm_b16(z_dom, __riscv_vmflt_vf_f32m2_b16(dz, 0.f, vl), vl);
+
+#define SGL_CUBE_FACE(MASK, FACE, MA, SC, TC) do { \
+        if (__riscv_vcpop_m_b16((MASK), vl) == 0) break; \
+        vfloat32m2_t _ma = (MA); \
+        _ma = __riscv_vmerge_vvm_f32m2(_ma, one, __riscv_vmfeq_vf_f32m2_b16(_ma, 0.f, vl), vl); \
+        vfloat32m2_t _u = __riscv_vfmacc_vf_f32m2(half, 0.5f, __riscv_vfdiv_vv_f32m2((SC), _ma, vl), vl); \
+        vfloat32m2_t _v = __riscv_vfmacc_vf_f32m2(half, 0.5f, __riscv_vfdiv_vv_f32m2((TC), _ma, vl), vl); \
+        const sgl_tex *_src = (cube->is_cube && cube->cube_faces[(FACE)]) \
+            ? cube->cube_faces[(FACE)] : cube; \
+        vfloat32m2_t _fr = z, _fg = z, _fb = z, _fa = one; \
+        if (_src && _src->texels) \
+            sgl_rvv_sample2d_m2(_src, _u, _v, vl, inv255, _src->min_filter, _src->wrap, \
+                                (const sgl_uv_deriv *)0, &_fr, &_fg, &_fb, &_fa); \
+        *tr = __riscv_vmerge_vvm_f32m2(*tr, _fr, (MASK), vl); \
+        *tg = __riscv_vmerge_vvm_f32m2(*tg, _fg, (MASK), vl); \
+        *tb = __riscv_vmerge_vvm_f32m2(*tb, _fb, (MASK), vl); \
+        *ta = __riscv_vmerge_vvm_f32m2(*ta, _fa, (MASK), vl); \
+    } while (0)
+
+    SGL_CUBE_FACE(m0, 0, ax, __riscv_vfneg_v_f32m2(dz, vl), __riscv_vfneg_v_f32m2(dy, vl));
+    SGL_CUBE_FACE(m1, 1, ax, dz,                            __riscv_vfneg_v_f32m2(dy, vl));
+    SGL_CUBE_FACE(m2, 2, ay, dx,                            dz);
+    SGL_CUBE_FACE(m3, 3, ay, dx,                            __riscv_vfneg_v_f32m2(dz, vl));
+    SGL_CUBE_FACE(m4, 4, az, dx,                            __riscv_vfneg_v_f32m2(dy, vl));
+    SGL_CUBE_FACE(m5, 5, az, __riscv_vfneg_v_f32m2(dx, vl), __riscv_vfneg_v_f32m2(dy, vl));
+#undef SGL_CUBE_FACE
 }
 
 /* ===================================================================== *

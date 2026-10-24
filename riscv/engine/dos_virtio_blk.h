@@ -26,7 +26,14 @@ extern "C" {
  * Idempotent after first success. */
 int      vblk_init(void);
 
-/* Device capacity in 512-byte sectors (0 if not initialised). */
+/* Select the DOSFS volume: legacy whole disk or one MBR type-0xda partition.
+ * Call once after init, before mounting. All subsequent I/O/capacity is relative
+ * to this volume, including savefs writes. Returns <0 for malformed media. */
+int      vblk_select_dosfs(void);
+uint64_t vblk_volume_start(void);
+
+/* Capacity in 512-byte sectors (0 if not initialised); after select_dosfs,
+ * this is the selected volume's capacity rather than the whole device. */
 uint64_t vblk_capacity_sectors(void);
 
 /* Read `count` 512-byte sectors starting at LBA `lba` into `buf`

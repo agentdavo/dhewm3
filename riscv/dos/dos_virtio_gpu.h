@@ -14,6 +14,8 @@ extern "C" {
 #endif
 
 int dvgpu_present_rgba(const uint32_t *pixels, int w, int h);
+int dvgpu_present_rgba_gamma(const uint32_t *pixels, int w, int h, const uint8_t *gamma_lut);
+uint32_t *dvgpu_scanout_rgba(int w, int h);
 
 #ifdef __cplusplus
 }

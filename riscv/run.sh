@@ -8,7 +8,7 @@
 #
 #   MEM=4G SMP=2 DISK=doom.img TIMEOUT=60 ./run.sh build/payload.elf
 #   SMP=8,cores=4,threads=2 ./run.sh build/payload.elf
-#   TCG_TB_SIZE=256 ./run.sh build/payload.elf
+#   RVV_VLEN=256 TCG_TB_SIZE=256 ./run.sh build/payload.elf
 #   PIN_HARTS=1 PIN_HART_CPUS=0,1,2,3 ./run.sh build/payload.elf
 #   AIA=aplic ./run.sh build/payload.elf
 #   AIA=aplic-imsic ./run.sh build/payload.elf
@@ -19,7 +19,8 @@ ELF="${1:-build/payload.elf}"
 [ -f "$ELF" ] || { echo "error: payload '$ELF' not found (run 'make' first)"; exit 1; }
 
 PROJ="$(cd "$(dirname "$0")/.." && pwd)"
-QEMU_CPU_RVA23S64="rva23s64,vlen=1024,v=true,vext_spec=v1.0,elen=64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zfh=true,zvfh=true,zvfbfmin=true,zvfbfwma=true,zvbc=true,zvkng=true,zvksg=true"
+RVV_VLEN="${RVV_VLEN:-1024}"
+QEMU_CPU_RVA23S64="rva23s64,vlen=${RVV_VLEN},v=true,vext_spec=v1.0,elen=64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zfh=true,zvfh=true,zvfbfmin=true,zvfbfwma=true,zvbc=true,zvkng=true,zvksg=true"
 NEW_QEMU="$PROJ/qemu-11.0.1/build/qemu-system-riscv64"
 BIOS_L=()
 if [ -x "$NEW_QEMU" ]; then

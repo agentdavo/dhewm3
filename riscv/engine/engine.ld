@@ -105,7 +105,7 @@ SECTIONS
 
     /* Thread-local storage. tp is set to __tls_base in start.S; .tdata is the
      * (loaded) initial image, .tbss is zeroed by _cstart. SDL3 + gl4es use TLS. */
-    .tdata : ALIGN(16)
+    .tdata : ALIGN(64)
     {
         PROVIDE(__tls_base = .);
         *(.tdata .tdata.* .gnu.linkonce.td.*)
@@ -118,7 +118,8 @@ SECTIONS
         PROVIDE(__tbss_end = .);
     } > RAM :data :tls
 
-    .bss (NOLOAD) : ALIGN(16)
+    /* Main-hart TLS is used in place, rather than copied by an OS loader. */
+    .bss ALIGN(__tbss_end, 4K) (NOLOAD) : ALIGN(16)
     {
         PROVIDE(__bss_start = .);
         *(.sbss .sbss.*)

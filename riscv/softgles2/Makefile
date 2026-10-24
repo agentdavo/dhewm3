@@ -17,12 +17,11 @@ CROSS  ?= $(shell test -x /opt/riscv/bin/riscv64-unknown-elf-gcc && printf /opt/
 RVCC   := $(CROSS)gcc
 RVSIZE := $(CROSS)size
 # rva23s64 + explicit optional extensions, matched by run.sh's QEMU CPU
-# line (vlen=1024, ELEN=64). Needs /opt/riscv GCC 16. NOTE: zvl1024b is MANDATORY
-# for codegen fidelity — the SIMT VM and kernels are pinned to e32m2 (= 64 lanes =
-# SGL_SIMT_LANES) which only holds at VLEN=1024; zvl256b strip-mines x4 and adds
-# spurious vsetvls, so its disassembly does NOT represent the shipping build (RVV
-# audit §1). Keep this aligned with riscv/toolchain/baremetal-rva23s64.cmake.
-ARCH   ?= rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfwma_zvbc_zvkng_zvksg_zvl1024b
+# line. Each build uses an SoA width equal to e32m2 VLMAX; runtime detection
+# validates the actual machine geometry. Keep aligned with the CMake toolchain.
+RVV_VLEN ?= 1024
+SIMT_LANES ?= $(shell expr $(RVV_VLEN) / 16)
+ARCH   ?= rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfwma_zvbc_zvkng_zvksg_zvl$(RVV_VLEN)b
 ABI    ?= lp64d
 
 # -mrvv-vector-bits=zvl: VLEN is fixed at the zvl minimum (1024) on this target,
@@ -32,17 +31,20 @@ RVCFLAGS := -march=$(ARCH) -mabi=$(ABI) -mcmodel=medany -mrvv-vector-bits=zvl \
             -ffreestanding -nostdlib -fno-pic -fno-common \
             -fno-tree-loop-distribute-patterns -fno-math-errno \
             -O2 -g -Wall -Wextra -ffunction-sections -fdata-sections \
-            -DSGL_BAREMETAL -Iinclude -Isrc -Itest -I..
+            -DSGL_BAREMETAL -DSGL_SIMT_LANES=$(SIMT_LANES) -Iinclude -Isrc -Itest -I..
 RVLDFLAGS := -nostdlib -Wl,--gc-sections -Wl,-T../boot/linker.ld -lgcc
 
-RT     := ../boot/start.S ../boot/runtime.c ../boot/sbi.c ../boot/trap.c \
+# fdt.c is required by runtime.c (timer_init_from_dtb / the Sstc probe). It only
+# linked without it because --gc-sections happened to drop the timer_arm path;
+# any test that arms a timer or parks would fail to link.
+RT     := ../boot/start.S ../boot/runtime.c ../boot/sbi.c ../boot/trap.c ../boot/fdt.c \
           ../libc/string.c ../libc/printf.c ../libc/malloc.c
 CORE   := src/fb.c src/sg_diag.c src/sg_raster.c
 GLSLCORE := src/glsl.c src/glsl_lex.c src/glsl_parse.c src/glsl_ir.c src/glsl_simt.c src/sg_kernels.c
 GLCORE := $(CORE) src/gles2.c $(GLSLCORE) \
           src/sg_mt.c src/sg_mt_prim.c src/sg_mt_tiles.c \
           src/sg_mt_raster.c src/sg_mt_sched.c \
-          src/sg_state.c src/sg_vertex.c src/sg_frag.c src/sg_frame.c src/sg_framebin.c src/sg_prof.c \
+          src/sg_state.c src/sg_vertex.c src/sg_vs_range.c src/sg_frag.c src/sg_frame.c src/sg_framebin.c src/sg_prof.c \
           src/sg_buffer.c src/sg_texture.c src/sg_framebuffer.c \
           src/sg_shader.c src/sg_draw.c src/sg_clip.c
 
@@ -118,6 +120,13 @@ iakgl4esrv: | $(BUILD)
 iakgl4esrun: iakgl4esrv
 	../run.sh $(BUILD)/iakern_gl4es_validate.elf
 
+# Exact SSAA resolve (tails, clamped edges, all channels) and same-process timing.
+resolverv: | $(BUILD)
+	$(RVCC) $(RVCFLAGS) $(RVLDFLAGS) $(RT) src/sg_fb.c test/resolve_validate.c -o $(BUILD)/resolve_validate.elf
+
+kernelbindingsrv: | $(BUILD)
+	$(RVCC) $(RVCFLAGS) $(RVLDFLAGS) $(RT) src/sg_diag.c $(GLSLCORE) test/kernel_bindings_validate.c -o $(BUILD)/kernel_bindings_validate.elf
+
 # 2D-overlay kernel + coherent gather: classifier binds it, bit-identical vs VM.
 ovkrv: | $(BUILD)
 	$(RVCC) $(RVCFLAGS) -DSGL_GATHER_RUNTIME_TOGGLE $(RVLDFLAGS) $(RT) src/sg_diag.c $(GLSLCORE) test/overlay_validate.c -o $(BUILD)/overlay_validate.elf
@@ -147,6 +156,31 @@ dbrv: | $(BUILD)
 	@$(RVSIZE) $(BUILD)/depthbounds_validate.elf
 dbrun: dbrv
 	../run.sh $(BUILD)/depthbounds_validate.elf
+
+# Parallel-vertex range-split contract: every vertex owned by exactly one worker,
+# swept over many (count, nworkers). Pure integer arithmetic -- host, no QEMU.
+vsmt_ranges: | $(BUILD)
+	$(HOST_CC) $(HOST_CFLAGS) -DSGL_SIMT_LANES=$(SIMT_LANES) src/sg_vs_range.c test/vsmt_ranges.c -o $(BUILD)/vsmt_ranges
+	./$(BUILD)/vsmt_ranges
+
+# Vertex dedupe equivalence gate: same indexed mesh drawn with the post-transform
+# dedupe off and on, IN ONE PROCESS, compared byte for byte. QEMU.
+vsdeduprv: | $(BUILD)
+	$(RVCC) $(RVCFLAGS) $(RVLDFLAGS) $(RT) $(GLCORE) test/vsdedup_validate.c -o $(BUILD)/vsdedup_validate.elf
+	@$(RVSIZE) $(BUILD)/vsdedup_validate.elf
+vsdeduprun: vsdeduprv
+	../run.sh $(BUILD)/vsdedup_validate.elf
+
+# FrameBin equivalence gate: the SAME scene rendered immediate and deferred in
+# ONE process, compared byte for byte. Replaces the whole-engine [fbhash] A/B for
+# this question -- that one compares two QEMU runs whose frame content is
+# wall-clock dependent, so it reports differences even between two runs of the
+# identical binary. QEMU.
+framebinrv: | $(BUILD)
+	$(RVCC) $(RVCFLAGS) $(RVLDFLAGS) $(RT) $(GLCORE) test/framebin_validate.c -o $(BUILD)/framebin_validate.elf
+	@$(RVSIZE) $(BUILD)/framebin_validate.elf
+framebinrun: framebinrv
+	../run.sh $(BUILD)/framebin_validate.elf
 
 # C2 blend gate: real glBlendFunc/Equation/Color factors vs an independent
 # GL-spec reference, across every factor + all three equations. QEMU.
@@ -178,7 +212,7 @@ polyoffhost: | $(BUILD)
 
 # SIMT vertex (T&L) gate: validate glsl_run_vertex_simt vs scalar oracle + measure.
 vtxrv: | $(BUILD)
-	$(RVCC) $(RVCFLAGS) $(RVLDFLAGS) $(RT) $(GLSLCORE) src/sg_vertex.c test/vtx_validate.c -o $(BUILD)/vtx_validate.elf
+	$(RVCC) $(RVCFLAGS) $(RVLDFLAGS) $(RT) $(GLSLCORE) src/sg_vertex.c src/sg_vs_range.c test/vtx_validate.c -o $(BUILD)/vtx_validate.elf
 	@$(RVSIZE) $(BUILD)/vtx_validate.elf
 vtxrun: vtxrv
 	../run.sh $(BUILD)/vtx_validate.elf

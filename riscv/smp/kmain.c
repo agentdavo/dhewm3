@@ -32,7 +32,7 @@
  */
 #include <stdint.h>
 #include "libc/libc.h"
-#include "boot/runtime.h"
+#include "smp_timer.h"   /* NOT boot/runtime.h -- see that header */
 #include "smp_sbi.h"
 
 #ifndef SMP_MAX_HARTS
@@ -207,7 +207,7 @@ int kmain(void)
      * hanging QEMU until the external TIMEOUT.
      */
     uint64_t start_ticks = timer_ticks();
-    uint64_t deadline = start_ticks + 5UL * TIMEBASE_HZ; /* 5 s budget */
+    uint64_t deadline = start_ticks + 5UL * timer_hz(); /* 5 s budget */
     int seen = 0;
     while ((seen = __atomic_load_n(&g_harts_alive, __ATOMIC_ACQUIRE)) < n_started) {
         if (timer_ticks() >= deadline) {

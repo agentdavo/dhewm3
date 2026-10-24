@@ -43,16 +43,28 @@ void sgl_sample(const sgl_tex *t, float u, float v, float out[4])
  * lays them out at float offsets 0/4/8/.../28 (what the classifier verifies). */
 static const char *VS_GL4ES =
 "#version 100\n"
-"attribute vec4 p;\n"
-"attribute vec4 aCol;\nattribute vec4 a0;\nattribute vec4 a1;\nattribute vec4 a2;\n"
-"attribute vec4 a3;\nattribute vec4 a4;\nattribute vec4 a5;\nattribute vec4 a6;\n"
+"attribute vec4 _gl4es_Vertex; attribute vec4 _gl4es_Color;\n"
+"attribute vec4 _gl4es_VertexAttrib_8; attribute vec4 _gl4es_VertexAttrib_9;\n"
+"attribute vec4 _gl4es_VertexAttrib_10; attribute vec4 _gl4es_VertexAttrib_11;\n"
+"uniform mat4 _gl4es_ModelViewProjectionMatrix;\n"
+"uniform vec4 _gl4es_Vertex_ProgramEnv_4; uniform vec4 _gl4es_Vertex_ProgramEnv_5;\n"
+"uniform vec4 _gl4es_Vertex_ProgramEnv_6; uniform vec4 _gl4es_Vertex_ProgramEnv_7; uniform vec4 _gl4es_Vertex_ProgramEnv_8; uniform vec4 _gl4es_Vertex_ProgramEnv_9;\n"
+"uniform vec4 _gl4es_Vertex_ProgramEnv_10; uniform vec4 _gl4es_Vertex_ProgramEnv_11; uniform vec4 _gl4es_Vertex_ProgramEnv_12; uniform vec4 _gl4es_Vertex_ProgramEnv_13;\n"
+"uniform vec4 _gl4es_Vertex_ProgramEnv_14; uniform vec4 _gl4es_Vertex_ProgramEnv_15; uniform vec4 _gl4es_Vertex_ProgramEnv_16; uniform vec4 _gl4es_Vertex_ProgramEnv_17;\n"
 "varying vec4 _gl4es_FrontColor;\n"
 "varying vec4 _gl4es_TexCoord_0;\nvarying vec4 _gl4es_TexCoord_1;\nvarying vec4 _gl4es_TexCoord_2;\n"
 "varying vec4 _gl4es_TexCoord_3;\nvarying vec4 _gl4es_TexCoord_4;\nvarying vec4 _gl4es_TexCoord_5;\n"
 "varying vec4 _gl4es_TexCoord_6;\n"
-"void main(){ gl_Position=p; _gl4es_FrontColor=aCol;\n"
-"  _gl4es_TexCoord_0=a0; _gl4es_TexCoord_1=a1; _gl4es_TexCoord_2=a2; _gl4es_TexCoord_3=a3;\n"
-"  _gl4es_TexCoord_4=a4; _gl4es_TexCoord_5=a5; _gl4es_TexCoord_6=a6; }\n";
+"void main(){ vec4 L=_gl4es_Vertex_ProgramEnv_4-_gl4es_Vertex; vec4 V=_gl4es_Vertex_ProgramEnv_5-_gl4es_Vertex; vec4 d=vec4(0.0,0.5,0.0,1.0);\n"
+" gl_Position=_gl4es_ModelViewProjectionMatrix*_gl4es_Vertex;\n"
+" _gl4es_TexCoord_0=vec4(dot(_gl4es_VertexAttrib_9.xyz,L.xyz),dot(_gl4es_VertexAttrib_10.xyz,L.xyz),dot(_gl4es_VertexAttrib_11.xyz,L.xyz),0.0);\n"
+" _gl4es_TexCoord_1=d; _gl4es_TexCoord_1.x=dot(_gl4es_VertexAttrib_8,_gl4es_Vertex_ProgramEnv_10); _gl4es_TexCoord_1.y=dot(_gl4es_VertexAttrib_8,_gl4es_Vertex_ProgramEnv_11);\n"
+" _gl4es_TexCoord_2=d; _gl4es_TexCoord_2.x=dot(_gl4es_Vertex,_gl4es_Vertex_ProgramEnv_9);\n"
+" _gl4es_TexCoord_3=vec4(dot(_gl4es_Vertex,_gl4es_Vertex_ProgramEnv_6),dot(_gl4es_Vertex,_gl4es_Vertex_ProgramEnv_7),0.0,dot(_gl4es_Vertex,_gl4es_Vertex_ProgramEnv_8));\n"
+" _gl4es_TexCoord_4=d; _gl4es_TexCoord_4.x=dot(_gl4es_VertexAttrib_8,_gl4es_Vertex_ProgramEnv_12); _gl4es_TexCoord_4.y=dot(_gl4es_VertexAttrib_8,_gl4es_Vertex_ProgramEnv_13);\n"
+" _gl4es_TexCoord_5=d; _gl4es_TexCoord_5.x=dot(_gl4es_VertexAttrib_8,_gl4es_Vertex_ProgramEnv_14); _gl4es_TexCoord_5.y=dot(_gl4es_VertexAttrib_8,_gl4es_Vertex_ProgramEnv_15);\n"
+" L.xyz=normalize(L.xyz)+normalize(V.xyz); _gl4es_TexCoord_6=vec4(dot(_gl4es_VertexAttrib_9.xyz,L.xyz),dot(_gl4es_VertexAttrib_10.xyz,L.xyz),dot(_gl4es_VertexAttrib_11.xyz,L.xyz),0.0);\n"
+" _gl4es_FrontColor=_gl4es_Color*_gl4es_Vertex_ProgramEnv_16+_gl4es_Vertex_ProgramEnv_17; }\n";
 
 #include "interaction_gl4es_fs.h"   /* FS_INTERACTION_GL4ES — the captured shader */
 
@@ -91,16 +103,33 @@ int kmain(void)
     for (int i = 0; i < 6; ++i) g_cube.cube_faces[i] = &g_face[i];
 
     glsl_program *p = glsl_program_create();
+    glsl_link_dump = 1;
     char err[200]; err[0] = 0;
     if (!glsl_attach_source(p, 0, VS_GL4ES, err, sizeof err)) { printf("VS: %s\n", err); return 1; }
     if (!glsl_attach_source(p, 1, FS_INTERACTION_GL4ES, err, sizeof err)) { printf("FS: %s\n", err); return 1; }
     if (!glsl_link(p, err, sizeof err)) { printf("link: %s\n", err); return 1; }
 
-    /* bind cube -> unit 0, Sampler2D_1..6 -> units 1..6, + the 3 ProgramEnv vec4s */
-    { int l = glsl_uniform_location(p, "_gl4es_SamplerCube_0"); if (l >= 0) glsl_uniform_sampler(p, l, 0); }
+    { float m[16]={1,0,0,0, 0,1,0,0, 0,0,1,0, .1f,-.2f,.3f,1}; int l=glsl_uniform_location(p,"_gl4es_ModelViewProjectionMatrix"); glsl_uniform(p,l,m,16); }
+    for(int e=4;e<=17;++e){ char n[40]; const char *q="_gl4es_Vertex_ProgramEnv_"; int k=0;while(q[k]){n[k]=q[k];++k;}if(e>=10)n[k++]=(char)('0'+e/10);n[k++]=(char)('0'+e%10);n[k]=0;float v[4]={rnd(),rnd(),rnd(),rnd()};int l=glsl_uniform_location(p,n);if(l>=0)glsl_uniform(p,l,v,4); }
+
+    /* gl4es ARB shaders encode their intended texture unit in the sampler name.
+     * Do NOT manually bind these: this validates the real gl4es integration
+     * contract that previously left every sampler at unit zero. */
     const char *s2d[6] = { "_gl4es_Sampler2D_1","_gl4es_Sampler2D_2","_gl4es_Sampler2D_3",
                            "_gl4es_Sampler2D_4","_gl4es_Sampler2D_5","_gl4es_Sampler2D_6" };
-    for (int i = 0; i < 6; ++i) { int l = glsl_uniform_location(p, s2d[i]); if (l >= 0) glsl_uniform_sampler(p, l, i + 1); }
+    int sampler_defaults_ok = 1;
+    { int l = glsl_uniform_location(p, "_gl4es_SamplerCube_0");
+      if (l < 0 || p->uni[l].unit != 0) sampler_defaults_ok = 0; }
+    for (int i = 0; i < 6; ++i) {
+        int l = glsl_uniform_location(p, s2d[i]);
+        if (l < 0 || p->uni[l].unit != i + 1) sampler_defaults_ok = 0;
+        /* Simulate gl4es replaying its zero-initialised sampler cache. Internal
+         * ARB sampler names must retain the unit encoded by their suffix. */
+        if (l >= 0) glsl_uniform_sampler(p, l, 0);
+        if (l < 0 || p->uni[l].unit != i + 1) sampler_defaults_ok = 0;
+    }
+    printf("[gik] gl4es sampler-name unit defaults: %s\n", sampler_defaults_ok ? "OK" : "FAIL");
+    if (!sampler_defaults_ok) return 1;
     { int l = glsl_uniform_location(p, "_gl4es_Fragment_ProgramEnv_0");  float c[4]={0.9f,0.8f,0.7f,1.f};  if(l>=0) glsl_uniform(p,l,c,4); }
     { int l = glsl_uniform_location(p, "_gl4es_Fragment_ProgramEnv_1");  float c[4]={1.0f,1.0f,1.0f,1.f};  if(l>=0) glsl_uniform(p,l,c,4); }
     { int l = glsl_uniform_location(p, "_gl4es_Fragment_ProgramEnv_21"); float c[4]={1.0f,1.0f,1.0f,0.5f}; if(l>=0) glsl_uniform(p,l,c,4); }
@@ -118,6 +147,14 @@ int kmain(void)
     for (int i = 7; i < GLSL_MAX_SAMPLERS; ++i) samplers[i] = 0;
 
     int vl = (int)__riscv_vsetvl_e32m2((size_t)GLSL_SIMT_MAXLANE);
+    { static float at[GLSL_MAX_ATTRIBS*4*GLSL_SIMT_MAXLANE],cv0[4*GLSL_SIMT_MAXLANE],cv1[4*GLSL_SIMT_MAXLANE];
+      static float vv0[GLSL_MAX_VARYING_FLOATS*GLSL_SIMT_MAXLANE],vv1[GLSL_MAX_VARYING_FLOATS*GLSL_SIMT_MAXLANE];
+      for(int i=0;i<GLSL_MAX_ATTRIBS*4*vl;++i)at[i]=rnd();
+      glsl_vs_kernel_fn vk=p->vs_kernel; p->vs_kernel=0; glsl_run_vertex_simt(p,at,vl,cv0,vv0); p->vs_kernel=vk; glsl_run_vertex_simt(p,at,vl,cv1,vv1);
+      float md=0;int bm=0;for(int i=0;i<4*vl;++i){float d=cv0[i]-cv1[i];if(d<0)d=-d;if(d>md)md=d;if(cv0[i]!=cv1[i])++bm;}
+      for(int i=0;i<32*vl;++i){float d=vv0[i]-vv1[i];if(d<0)d=-d;if(d>md)md=d;if(vv0[i]!=vv1[i])++bm;}
+      printf("[gik-vs] kernel=%s maxdiff=%u e-6 bitmiss=%d %s\n",vk?"YES":"NO",(unsigned)(md*1000000.f),bm,md<1e-4f?"OK":"FAIL");
+      if(!vk||md>=1e-4f)return 1; }
     static float varys[GLSL_MAX_VARYING_FLOATS * GLSL_SIMT_MAXLANE];
     static float kout[4 * GLSL_SIMT_MAXLANE], vout[4 * GLSL_SIMT_MAXLANE];
     /* non-degenerate inputs in [-1,1] so cube face-selection, N.L/N.H and the proj
@@ -138,6 +175,10 @@ int kmain(void)
     uint64_t vm_ns = (t1 - t0) * 1000000000ull / TIMEBASE_HZ;
     uint64_t k_ns  = (k1 - k0) * 1000000000ull / TIMEBASE_HZ;
 
+    /* Correctness: both paths use production samplers (RVV cube + RVV 2D). The
+     * kernel must stay bit-identical to the SIMT VM when both execute the same
+     * face-select helper. (Scalar-cube A/B is available by setting
+     * glsl_rvv_texturecube_enabled=0 before the VM run.) */
     p->fs_kernel = 0;   glsl_run_fragment_simt(p, varys, nv, vl, samplers, vout);
     p->fs_kernel = kfn; glsl_run_fragment_simt(p, varys, nv, vl, samplers, kout);
     float maxd = 0; int bitmiss = 0;

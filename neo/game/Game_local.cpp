@@ -51,6 +51,10 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "Game_local.h"
 
+#ifndef BM_DEMOFLOW
+#define BM_DEMOFLOW 0
+#endif
+
 #ifdef BAREMETAL
 extern "C" void bm_io_stats_print(void);
 extern "C" int bm_io_stats_enabled(void);
@@ -2405,7 +2409,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 	gameReturn_t		ret;
 	idPlayer			*player;
 	const renderView_t	*view;
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 	int					bm_runFrameStartMsec = Sys_Milliseconds();
 	int					bm_thinkStartMsec = 0;
 	int					bm_slowestThinkMsec = 0;
@@ -2431,7 +2435,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 			player->Think();
 		}
 	} else do {
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 		Printf( "[demoflow] game.RunFrame ENTER framenum=%d time=%d\n", framenum, time );
 #endif
 		// update the game time
@@ -2486,7 +2490,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 
 		timer_think.Clear();
 		timer_think.Start();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 		bm_thinkStartMsec = Sys_Milliseconds();
 		bm_slowestThinkMsec = 0;
 		bm_slowestThinkName = "";
@@ -2506,7 +2510,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 				ent->Think();
 				timer_singlethink.Stop();
 				ms = timer_singlethink.Milliseconds();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 				if ( ms > bm_slowestThinkMsec ) {
 					bm_slowestThinkMsec = idMath::FtoiFast( ms );
 					bm_slowestThinkName = ent->name.c_str();
@@ -2525,7 +2529,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 						ent->GetPhysics()->UpdateTime( time );
 						continue;
 					}
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 					int bm_entStartMsec = Sys_Milliseconds();
 					if ( ( num & 63 ) == 0 && bm_entStartMsec - bm_thinkStartMsec > 5000 ) {
 						Printf( "[demoflow] game.RunFrame Think progress entity=%d name=%s elapsed=%dms\n",
@@ -2533,7 +2537,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 					}
 #endif
 					ent->Think();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 					int bm_entMsec = Sys_Milliseconds() - bm_entStartMsec;
 					if ( bm_entMsec > bm_slowestThinkMsec ) {
 						bm_slowestThinkMsec = bm_entMsec;
@@ -2545,7 +2549,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 			} else {
 				num = 0;
 				for( ent = activeEntities.Next(); ent != NULL; ent = ent->activeNode.Next() ) {
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 					int bm_entStartMsec = Sys_Milliseconds();
 					if ( ( num & 63 ) == 0 && bm_entStartMsec - bm_thinkStartMsec > 5000 ) {
 						Printf( "[demoflow] game.RunFrame Think progress entity=%d name=%s elapsed=%dms\n",
@@ -2553,7 +2557,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 					}
 #endif
 					ent->Think();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 					int bm_entMsec = Sys_Milliseconds() - bm_entStartMsec;
 					if ( bm_entMsec > bm_slowestThinkMsec ) {
 						bm_slowestThinkMsec = bm_entMsec;
@@ -2581,7 +2585,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 		}
 
 		timer_think.Stop();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 		if ( timer_think.Milliseconds() > 500 ) {
 			Printf( "[demoflow] game.RunFrame Think EXIT dt=%ums active=%d slowest=%dms name=%s total=%dms\n",
 				timer_think.Milliseconds(), num, bm_slowestThinkMsec, bm_slowestThinkName,
@@ -2590,7 +2594,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 #endif
 		timer_events.Clear();
 		timer_events.Start();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 		Printf( "[demoflow] game.RunFrame ServiceEvents START total=%dms\n",
 			Sys_Milliseconds() - bm_runFrameStartMsec );
 #endif
@@ -2599,7 +2603,7 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 		idEvent::ServiceEvents();
 
 		timer_events.Stop();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 		Printf( "[demoflow] game.RunFrame ServiceEvents EXIT dt=%ums total=%dms\n",
 			timer_events.Milliseconds(), Sys_Milliseconds() - bm_runFrameStartMsec );
 #endif
@@ -2670,13 +2674,13 @@ gameReturn_t idGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 	}
 
 	// show any debug info for this frame
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 	Printf( "[demoflow] game.RunFrame Debug START total=%dms\n",
 		Sys_Milliseconds() - bm_runFrameStartMsec );
 #endif
 	RunDebugInfo();
 	D_DrawDebugLines();
-#if defined(BAREMETAL)
+#if defined(BAREMETAL) && BM_DEMOFLOW
 	Printf( "[demoflow] game.RunFrame EXIT total=%dms\n",
 		Sys_Milliseconds() - bm_runFrameStartMsec );
 #endif
@@ -3562,21 +3566,96 @@ void idGameLocal::SpawnMapEntities( void ) {
 	bm_cacheMediaGuiMsec = 0;
 	bm_cacheMediaTotalMsec = 0;
 
+	// Per-phase and per-classname attribution for the spawn loop.
+	//
+	// 35% of map load sat inside this loop with NOTHING measuring it. The three
+	// phases are separated because they fail differently: the epairs copy is a
+	// whole idDict duplication per entity, InhibitEntitySpawn is a handful of
+	// dict lookups, and SpawnEntityDef is where decls get parsed and models get
+	// touched. Timed with the precise (double, sub-millisecond) clock -- with
+	// integer Sys_Milliseconds every individual entity floors to 0 and the sum
+	// undercounts by roughly everything.
+	#define BM_SPAWN_CLASS_SLOTS 48
+	struct bmSpawnClass_t { const char *name; double ms; int count; };
+	double copyMs = 0.0, inhibitMs = 0.0, spawnMs = 0.0, t0;
+	bmSpawnClass_t cls[BM_SPAWN_CLASS_SLOTS];
+	int ncls = 0;
+	memset( cls, 0, sizeof( cls ) );
+
 	for ( i = 1 ; i < numEntities ; i++ ) {
 		mapEnt = mapFile->GetEntity( i );
+		t0 = Sys_MillisecondsPrecise();
 		args = mapEnt->epairs;
+		copyMs += Sys_MillisecondsPrecise() - t0;
 
-		if ( !InhibitEntitySpawn( args ) ) {
+		t0 = Sys_MillisecondsPrecise();
+		bool inhibited = InhibitEntitySpawn( args );
+		inhibitMs += Sys_MillisecondsPrecise() - t0;
+
+		if ( !inhibited ) {
 			// precache any media specified in the map entity
 			CacheDictionaryMedia( &args );
 
+			// Attribute by classname. Linear scan over a small fixed table:
+			// a map has O(10) distinct classes that matter, and anything past
+			// the table lands in the overflow slot rather than being dropped
+			// silently.
+			const char *cn = args.GetString( "classname", "<none>" );
+			t0 = Sys_MillisecondsPrecise();
 			SpawnEntityDef( args );
+			double dt = Sys_MillisecondsPrecise() - t0;
+			spawnMs += dt;
+
+			int c;
+			for ( c = 0; c < ncls; c++ ) {
+				if ( cls[c].name && idStr::Icmp( cls[c].name, cn ) == 0 ) {
+					break;
+				}
+			}
+			if ( c == ncls ) {
+				if ( ncls < BM_SPAWN_CLASS_SLOTS - 1 ) {
+					// classname strings live in the map file's epairs, which
+					// outlive this loop, so keeping the pointer is safe.
+					cls[ncls].name = cn;
+					ncls++;
+				} else {
+					c = BM_SPAWN_CLASS_SLOTS - 1;	// overflow, never dropped
+					cls[c].name = "<other>";
+					ncls = BM_SPAWN_CLASS_SLOTS;
+				}
+			}
+			cls[c].ms += dt;
+			cls[c].count++;
+
 			num++;
 		} else {
 			inhibit++;
 		}
 	}
 	bm_cacheMediaProfileActive = false;
+
+	Printf( "[demoflow] game.SpawnMapEntities phases copy=%dms inhibit=%dms spawnDef=%dms mediaCache=%dms\n",
+		(int)copyMs, (int)inhibitMs, (int)spawnMs, bm_cacheMediaTotalMsec );
+	// Sorted descending by cost, so the first line is the thing to look at.
+	for ( int a = 0; a < ncls; a++ ) {
+		for ( int b = a + 1; b < ncls; b++ ) {
+			if ( cls[b].ms > cls[a].ms ) {
+				bmSpawnClass_t tmp = cls[a];	// ncls is tiny; a plain swap is fine
+				cls[a] = cls[b];
+				cls[b] = tmp;
+			}
+		}
+	}
+	for ( int a = 0; a < ncls && a < 12; a++ ) {
+		if ( cls[a].count == 0 ) {
+			continue;
+		}
+		Printf( "[demoflow]   spawn-class %-28s n=%-5d %dms\n",
+			cls[a].name ? cls[a].name : "?", cls[a].count, (int)cls[a].ms );
+	}
+	Printf( "[demoflow] game.SpawnMapEntities MatchPrefix calls=%d scanned=%d avg=%d\n",
+		idDict::matchPrefixCalls, idDict::matchPrefixScanned,
+		idDict::matchPrefixCalls ? idDict::matchPrefixScanned / idDict::matchPrefixCalls : 0 );
 
 	Printf( "...%i entities spawned, %i inhibited\n\n", num, inhibit );
 	Printf( "[demoflow] game.SpawnMapEntities loop EXIT dt=%dms spawned=%d inhibited=%d entities=%d\n",

@@ -14,9 +14,10 @@ SIZE    := $(CROSS)size
 OBJDUMP := $(CROSS)objdump
 
 # rva23s64 + explicit optional extensions; mandatory for bare metal and matched
-# by run.sh's QEMU CPU line (VLEN=1024, ELEN=64).
+# by run.sh's QEMU CPU line. Override RVV_VLEN for a matching test payload.
 # Requires the /opt/riscv GCC 16 toolchain.
-ARCH    ?= rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfmin_zvfbfwma_zvbc_zvkg_zvkned_zvknha_zvknhb_zvksc_zvksed_zvksg_zvksh_zvl1024b
+RVV_VLEN ?= 1024
+ARCH    ?= rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfmin_zvfbfwma_zvbc_zvkg_zvkned_zvknha_zvknhb_zvksc_zvksed_zvksg_zvksh_zvl$(RVV_VLEN)b
 ABI     ?= lp64d
 
 CFLAGS  := -march=$(ARCH) -mabi=$(ABI) -mcmodel=medany \
@@ -27,7 +28,10 @@ CFLAGS  := -march=$(ARCH) -mabi=$(ABI) -mcmodel=medany \
 
 LDFLAGS := -nostdlib -Wl,--gc-sections -Wl,-Tboot/linker.ld -lgcc
 
-SRCS := boot/start.S boot/runtime.c boot/sbi.c boot/trap.c boot/irq.c \
+# boot/fdt.c is required by runtime.c (timer_probe_sstc / ram_init_from_dtb).
+# It was missing here and only ever linked when --gc-sections happened to drop
+# those paths; any build that keeps them fails with undefined fdt_* references.
+SRCS := boot/start.S boot/runtime.c boot/sbi.c boot/trap.c boot/irq.c boot/fdt.c \
         libc/string.c libc/printf.c libc/malloc.c \
         kmain.c
 

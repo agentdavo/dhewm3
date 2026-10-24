@@ -14,6 +14,8 @@
 #include "sg_layout.h"
 #include "sg_math.h"
 #include "sg_raster.h"
+#include "sg_frag.h"
+#include "sg_align.h"
 
 #if defined(__riscv_v_intrinsic) && __riscv_v_intrinsic >= 1000000
 #  include <riscv_vector.h>
@@ -23,27 +25,83 @@
 #endif
 #define SIMT_MAXLANE GLSL_SIMT_MAXLANE
 
+/* gl_FragCoord lane map — defined here so GLSLCORE-only tests (iakern) link. */
+SG_FRAG_TLS float sgl_simt_frag_x[SGL_SIMT_LANES] SG_ALIGNED_VAR(SG_RVV_ALIGN);
+SG_FRAG_TLS float sgl_simt_frag_y[SGL_SIMT_LANES] SG_ALIGNED_VAR(SG_RVV_ALIGN);
+SG_FRAG_TLS float sgl_scalar_frag_x = 0.5f, sgl_scalar_frag_y = 0.5f;
+
+/* Per-batch analytic screen-space UV derivatives (see sg_frag.h). Indexed by
+ * varying float number; only entries the bound kernel samples are consumed. */
+SG_FRAG_TLS float sgl_simt_vary_ddx[SGL_MAX_VARY] SG_ALIGNED_VAR(SG_RVV_ALIGN);
+SG_FRAG_TLS float sgl_simt_vary_ddy[SGL_MAX_VARY] SG_ALIGNED_VAR(SG_RVV_ALIGN);
+SG_FRAG_TLS int sgl_simt_deriv_valid = 0;
+/* Default ON so real hardware / image-quality builds get correct mip-LOD +
+ * anisotropy out of the box. sys_dos.cpp's bm_mip cvar drives it (and
+ * sgl_mip_enabled) together; setting bm_mip 0 for TCG perf runs also clears
+ * this, restoring the exact mip-OFF fast path. */
+int   sgl_lod_deriv_enabled = 1;
+
+void sgl_simt_set_fragcoord_run(int x0, int y, int vl)
+{
+    float fy = (float)y + 0.5f;
+    if (vl > SGL_SIMT_LANES) vl = SGL_SIMT_LANES;
+    for (int i = 0; i < vl; ++i) {
+        sgl_simt_frag_x[i] = (float)(x0 + i) + 0.5f;
+        sgl_simt_frag_y[i] = fy;
+    }
+}
+
+void sgl_simt_set_fragcoord_packed(int x0, const uint32_t *xs, int y, int vl)
+{
+    float fy = (float)y + 0.5f;
+    if (vl > SGL_SIMT_LANES) vl = SGL_SIMT_LANES;
+    for (int i = 0; i < vl; ++i) {
+        sgl_simt_frag_x[i] = (float)(x0 + (int)xs[i]) + 0.5f;
+        sgl_simt_frag_y[i] = fy;
+    }
+}
+
+void sgl_scalar_set_fragcoord(int x, int y)
+{
+    sgl_scalar_frag_x = (float)x + 0.5f;
+    sgl_scalar_frag_y = (float)y + 0.5f;
+}
+
 /* SoA register file row. For vec1..4 each c[k] is a contiguous SIMT_MAXLANE-float
  * lane row (component k). A mat4 is a per-lane-IDENTICAL uniform, so instead of
  * spreading 16 components across lanes we pack its 16 col-major scalars linearly
- * into c[0][0..15] (SIMT_MAXLANE==16 holds exactly 16) and flag is_mat — the
+ * into mat[0..15], independent of lane count, and flag is_mat — the
  * mat*vec kernel then broadcasts those scalars with vfmacc.vf, no SoA storage and
  * no struct growth. */
 typedef sg_simt_reg_soa simt_reg;
+volatile unsigned long sgl_prof_vs_kernel_batches = 0, sgl_prof_vs_kernel_verts = 0;
 
 /* texture2d sample counters: referenced by sg_diag.c on every build, so defined
  * unconditionally (the scalar sampler path increments _scalar on host too). */
 volatile unsigned long sgl_dbg_tex2d_rvv = 0;
 volatile unsigned long sgl_dbg_tex2d_scalar = 0;
 
+/* Renderer feature toggles the engine writes through extern "C" on every
+ * build (BM_SyncRendererCvars in sys_dos.cpp), so they are defined
+ * unconditionally like sgl_dither_enabled / sgl_lod_deriv_enabled. Only the
+ * RVV sampler paths below read them; a scalar build still has to link.
+ */
+int sgl_mip_trilinear_enabled = 1;   /* true trilinear between levels; bm_mip gates the whole mip path */
+int sgl_mip_enabled = 1;   /* mip-LOD on by default (correct minification + aniso); bm_mip 0 restores the TCG fast path */
+int sgl_heathaze_deform = 1;   /* Normal-map refraction; 0 is an undistorted diagnostic.
+                                * Fragment coordinates are private to each render thread.
+                                * Driven by bm_heathazeDeform (sys_dos.cpp). */
+
 #if GLSL_SIMT_RVV
 int glsl_rvv_texture2d_enabled = 1;   /* RVV gather sampler: bit-exact vs scalar, ~40% faster */
+int glsl_rvv_texturecube_enabled = 1; /* RVV cubemap: face-select + sample2d; toggle for oracle */
 #ifdef SGL_GATHER_RUNTIME_TOGGLE
 int sgl_rvv_coherent_gather_enabled = 1;  /* coherent-row vle32 fast path (Lever 2); bit-identical.
                                            * Runtime A/B only for overlay_validate; the shipping build
                                            * folds it to a compile-time 1 (RVV audit item 4). */
 #endif
-int sgl_rvv_mag_downgrade_enabled = 0;    /* nearest for magnified bilinear (Lever 5); visual, not bit-exact -> opt-in */
+int sgl_rvv_mag_downgrade_enabled = 0;
+int sgl_vary_liveness_enabled = 1;   /* skip interpolating varyings the bound kernel never reads */    /* nearest for magnified bilinear (Lever 5); visual, not bit-exact -> opt-in */
 
 typedef struct {
     const float *in_vary;
@@ -80,6 +138,65 @@ simt_builtin_scalar_fallback(const ir_inst *o, int vl, simt_reg *reg,
     }
 }
 
+/* Lane-parallel (f32m2) replica of sgl_rvv_sincos_f_m1 (sg_math.h): same minimax
+ * constants, same op order, so the SIMT sin/cos/tan lanes agree with the scalar
+ * g_sincos() path to fma-contraction. */
+static inline void simt_sincos_m2(vfloat32m2_t a, size_t VL,
+                                  vfloat32m2_t *sin_out, vfloat32m2_t *cos_out)
+{
+    vint32m2_t   ki = __riscv_vfcvt_x_f_v_i32m2(__riscv_vfmul_vf_f32m2(a, SGL_RVV_TWO_OVER_PI, VL), VL);
+    vfloat32m2_t kf = __riscv_vfcvt_f_x_v_f32m2(ki, VL);
+    vfloat32m2_t r  = __riscv_vfnmsac_vf_f32m2(a, SGL_RVV_PI_2, kf, VL);
+    vfloat32m2_t r2 = __riscv_vfmul_vv_f32m2(r, r, VL);
+
+    vfloat32m2_t acc = __riscv_vfmv_v_f_f32m2(SGL_RVV_C3, VL);
+    acc = __riscv_vfmacc_vv_f32m2(__riscv_vfmv_v_f_f32m2(SGL_RVV_C2, VL), r2, acc, VL);
+    acc = __riscv_vfmacc_vv_f32m2(__riscv_vfmv_v_f_f32m2(SGL_RVV_C1, VL), r2, acc, VL);
+    vfloat32m2_t cosv = __riscv_vfmacc_vv_f32m2(__riscv_vfmv_v_f_f32m2(1.0f, VL), r2, acc, VL);
+
+    vfloat32m2_t sa = __riscv_vfmv_v_f_f32m2(SGL_RVV_S3, VL);
+    sa = __riscv_vfmacc_vv_f32m2(__riscv_vfmv_v_f_f32m2(SGL_RVV_S2, VL), r2, sa, VL);
+    sa = __riscv_vfmacc_vv_f32m2(__riscv_vfmv_v_f_f32m2(SGL_RVV_S1, VL), r2, sa, VL);
+    vfloat32m2_t rr2 = __riscv_vfmul_vv_f32m2(r, r2, VL);
+    vfloat32m2_t sinv = __riscv_vfmacc_vv_f32m2(r, rr2, sa, VL);
+
+    vint32m2_t kq = __riscv_vand_vx_i32m2(ki, 3, VL);
+    vint32m2_t b0 = __riscv_vand_vx_i32m2(kq, 1, VL);
+    vint32m2_t b2 = __riscv_vand_vx_i32m2(kq, 2, VL);
+    vbool16_t swap   = __riscv_vmsne_vx_i32m2_b16(b0, 0, VL);
+    vbool16_t sinneg = __riscv_vmsne_vx_i32m2_b16(b2, 0, VL);
+    vbool16_t cosneg = __riscv_vmsne_vx_i32m2_b16(
+        __riscv_vxor_vv_i32m2(__riscv_vsll_vx_i32m2(b0, 1, VL), b2, VL), 0, VL);
+
+    vfloat32m2_t s_sel = __riscv_vmerge_vvm_f32m2(sinv, cosv, swap, VL);
+    vfloat32m2_t c_sel = __riscv_vmerge_vvm_f32m2(cosv, sinv, swap, VL);
+    *sin_out = __riscv_vmerge_vvm_f32m2(s_sel, __riscv_vfneg_v_f32m2(s_sel, VL), sinneg, VL);
+    *cos_out = __riscv_vmerge_vvm_f32m2(c_sel, __riscv_vfneg_v_f32m2(c_sel, VL), cosneg, VL);
+}
+
+/* Accurate lane-parallel log2 for the log2()/log() builtins: same artanh-series
+ * identity as the scalar g_log2() (glsl.c), NOT the coarse sgl_rvv_log2_m2 that
+ * backs pow(). log2(m) = (2/ln2)*artanh((m-1)/(m+1)) on mantissa m in [1,2). */
+static inline vfloat32m2_t simt_log2_m2(vfloat32m2_t x, size_t VL)
+{
+    vuint32m2_t u = __riscv_vreinterpret_v_f32m2_u32m2(x);
+    vint32m2_t ei = __riscv_vreinterpret_v_u32m2_i32m2(
+                        __riscv_vand_vx_u32m2(__riscv_vsrl_vx_u32m2(u, 23, VL), 0xFFu, VL));
+    vfloat32m2_t e = __riscv_vfcvt_f_x_v_f32m2(__riscv_vsub_vx_i32m2(ei, 127, VL), VL);
+    vfloat32m2_t m = __riscv_vreinterpret_v_u32m2_f32m2(
+                        __riscv_vor_vx_u32m2(__riscv_vand_vx_u32m2(u, 0x007FFFFFu, VL), 0x3F800000u, VL));
+    vfloat32m2_t t = __riscv_vfdiv_vv_f32m2(__riscv_vfsub_vf_f32m2(m, 1.0f, VL),
+                                            __riscv_vfadd_vf_f32m2(m, 1.0f, VL), VL);
+    vfloat32m2_t t2 = __riscv_vfmul_vv_f32m2(t, t, VL);
+    vfloat32m2_t s = __riscv_vfmv_v_f_f32m2(0.11111111f, VL);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(0.14285715f, VL), VL);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(0.2f, VL), VL);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(0.33333334f, VL), VL);
+    s = __riscv_vfmadd_vv_f32m2(s, t2, __riscv_vfmv_v_f_f32m2(1.0f, VL), VL);
+    vfloat32m2_t ts = __riscv_vfmul_vv_f32m2(t, s, VL);
+    return __riscv_vfadd_vv_f32m2(e, __riscv_vfmul_vf_f32m2(ts, 2.8853900817779268f, VL), VL);
+}
+
 static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
                         simt_reg *reg, unsigned char *rn, unsigned char *rmat, size_t VL,
                         const float *ustore)
@@ -96,9 +213,16 @@ static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
         case IR_LOADV: { rn[o->dst]=o->i1; for(int i=0;i<o->i1;i++)__riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vle32_v_f32m2(&varys[(o->i0+i)*SIMT_MAXLANE],VL), VL); break; }
         case IR_LOADU: { int off=p->uni[o->i0].offset; rmat[o->dst]=0;
             if (o->i1>4) {
-                rn[o->dst]=o->i1; rmat[o->dst]=1; for(int i=0;i<o->i1&&i<SIMT_MAXLANE;i++)reg[o->dst].c[0][i]=ustore[off+i]; break; }
+                rn[o->dst]=o->i1; rmat[o->dst]=1; for(int i=0;i<o->i1&&i<16;i++)reg[o->dst].mat[i]=ustore[off+i]; break; }
             rn[o->dst]=o->i1; for(int i=0;i<o->i1;i++)__riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vfmv_v_f_f32m2(ustore[off+i],VL), VL); break; }
         case IR_LOADS: { rn[o->dst]=1; __riscv_vse32_v_f32m2(reg[o->dst].c[0], __riscv_vfmv_v_f_f32m2((float)p->uni[o->i0].unit,VL), VL); break; }
+        case IR_LOADFC: { /* gl_FragCoord: (x+0.5, y+0.5, 0, 1) per lane */
+            rn[o->dst]=4;
+            __riscv_vse32_v_f32m2(reg[o->dst].c[0], __riscv_vle32_v_f32m2(sgl_simt_frag_x, VL), VL);
+            __riscv_vse32_v_f32m2(reg[o->dst].c[1], __riscv_vle32_v_f32m2(sgl_simt_frag_y, VL), VL);
+            __riscv_vse32_v_f32m2(reg[o->dst].c[2], __riscv_vfmv_v_f_f32m2(0.f, VL), VL);
+            __riscv_vse32_v_f32m2(reg[o->dst].c[3], __riscv_vfmv_v_f_f32m2(1.f, VL), VL);
+            break; }
         case IR_SWZ:  { rn[o->dst]=o->swzn; rmat[o->dst]=0; for(int i=0;i<o->swzn;i++)simt_copy_row(reg[o->dst].c[i],reg[o->a].c[o->swz[i]],VL); break; }
         case IR_NEG:  { rn[o->dst]=rn[o->a]; for(int i=0;i<rn[o->a];i++)__riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vfneg_v_f32m2(__riscv_vle32_v_f32m2(reg[o->a].c[i],VL),VL),VL); break; }
         case IR_NOT:  { rn[o->dst]=1; vfloat32m2_t a=__riscv_vle32_v_f32m2(reg[o->a].c[0],VL); vbool16_t m=__riscv_vmfeq_vf_f32m2_b16(a,0.f,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[0], __riscv_vmerge_vvm_f32m2(__riscv_vfmv_v_f_f32m2(0.f,VL),__riscv_vfmv_v_f_f32m2(1.f,VL),m,VL),VL); break; }
@@ -109,13 +233,13 @@ static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
             for(int i=0;i<rcount;i++){ vfloat32m2_t tb=__riscv_vle32_v_f32m2(reg[o->b].c[i<rn[o->b]?i:0],VL), tc=__riscv_vle32_v_f32m2(reg[o->c].c[i<rn[o->c]?i:0],VL); __riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vmerge_vvm_f32m2(tc,tb,m,VL),VL);} break; }
         case IR_BIN:  {
             if (o->i0=='*' && rmat[o->a] && rn[o->a]==16) {
-                const float *M=reg[o->a].c[0]; simt_reg *v=&reg[o->b]; rn[o->dst]=4; rmat[o->dst]=0;
+                const float *M=reg[o->a].mat; simt_reg *v=&reg[o->b]; rn[o->dst]=4; rmat[o->dst]=0;
                 sgl_rvv_mat4xvec4_m2(&reg[o->dst].c[0], &reg[o->dst].c[1], &reg[o->dst].c[2], &reg[o->dst].c[3], M,
                                     __riscv_vle32_v_f32m2(v->c[0], VL), __riscv_vle32_v_f32m2(v->c[1], VL),
                                     __riscv_vle32_v_f32m2(v->c[2], VL), __riscv_vle32_v_f32m2(v->c[3], VL), VL);
                 break; }
             if (o->i0=='*' && rmat[o->a] && rn[o->a]==9) {
-                const float *M=reg[o->a].c[0]; simt_reg *v=&reg[o->b]; rn[o->dst]=3; rmat[o->dst]=0;
+                const float *M=reg[o->a].mat; simt_reg *v=&reg[o->b]; rn[o->dst]=3; rmat[o->dst]=0;
                 sgl_rvv_mat3xvec3_m2(&reg[o->dst].c[0], &reg[o->dst].c[1], &reg[o->dst].c[2], M,
                                     __riscv_vle32_v_f32m2(v->c[0], VL), __riscv_vle32_v_f32m2(v->c[1], VL),
                                     __riscv_vle32_v_f32m2(v->c[2], VL), VL);
@@ -297,6 +421,45 @@ static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
             int ai=o->args[0], bi=o->args[1], m=rn[ai], bn=rn[bi]; simt_reg *a=&reg[ai], *b=&reg[bi]; rn[o->dst]=m;
             for(int i=0;i<m;i++){ vfloat32m2_t x=__riscv_vle32_v_f32m2(a->c[i],VL), y=__riscv_vle32_v_f32m2(b->c[bn==1?0:i],VL);
                 __riscv_vse32_v_f32m2(reg[o->dst].c[i], sgl_rvv_pow_m2(x,y,VL), VL); } break; }
+        case BI_EXP2: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ __riscv_vse32_v_f32m2(reg[o->dst].c[i], sgl_rvv_exp2_m2(__riscv_vle32_v_f32m2(a->c[i],VL),VL), VL); }
+            break; }
+        case BI_LOG2: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ __riscv_vse32_v_f32m2(reg[o->dst].c[i], simt_log2_m2(__riscv_vle32_v_f32m2(a->c[i],VL),VL), VL); }
+            break; }
+        case BI_EXP: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ vfloat32m2_t x=__riscv_vfmul_vf_f32m2(__riscv_vle32_v_f32m2(a->c[i],VL),1.4426950408889634f,VL);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[i], sgl_rvv_exp2_m2(x,VL), VL);} break; }
+        case BI_LOG: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ vfloat32m2_t l=simt_log2_m2(__riscv_vle32_v_f32m2(a->c[i],VL),VL);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vfmul_vf_f32m2(l,0.6931471805599453f,VL), VL);} break; }
+        case BI_RADIANS: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ __riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vfmul_vf_f32m2(__riscv_vle32_v_f32m2(a->c[i],VL),0.017453292519943295f,VL), VL); }
+            break; }
+        case BI_DEGREES: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ __riscv_vse32_v_f32m2(reg[o->dst].c[i], __riscv_vfmul_vf_f32m2(__riscv_vle32_v_f32m2(a->c[i],VL),57.29577951308232f,VL), VL); }
+            break; }
+        case BI_SIN: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ vfloat32m2_t s,cc; simt_sincos_m2(__riscv_vle32_v_f32m2(a->c[i],VL),VL,&s,&cc);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[i], s, VL);} break; }
+        case BI_COS: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ vfloat32m2_t s,cc; simt_sincos_m2(__riscv_vle32_v_f32m2(a->c[i],VL),VL,&s,&cc);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[i], cc, VL);} break; }
+        case BI_TAN: {
+            int ai=o->args[0], m=rn[ai]; simt_reg *a=&reg[ai]; rn[o->dst]=m;
+            for(int i=0;i<m;i++){ vfloat32m2_t s,cc; simt_sincos_m2(__riscv_vle32_v_f32m2(a->c[i],VL),VL,&s,&cc);
+                vbool16_t z=__riscv_vmfeq_vf_f32m2_b16(cc,0.f,VL);
+                vfloat32m2_t t=__riscv_vfdiv_vv_f32m2(s,cc,VL);
+                t=__riscv_vmerge_vvm_f32m2(t,__riscv_vfmv_v_f_f32m2(0.f,VL),z,VL);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[i], t, VL);} break; }
         case BI_TEXTURE2DPROJ: {
             int si=o->args[0], uvi=o->args[1], uvn=rn[uvi]; simt_reg *s=&reg[si], *uv=&reg[uvi];
             int unit=(int)s->c[0][0];
@@ -314,7 +477,9 @@ static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
                 vfloat32m2_t u=__riscv_vfdiv_vv_f32m2(__riscv_vle32_v_f32m2(uv->c[0],VL),q,VL);
                 vfloat32m2_t v=__riscv_vfdiv_vv_f32m2(__riscv_vle32_v_f32m2(uv->c[1],VL),q,VL);
                 vfloat32m2_t r,g,bb,aa;
-                sgl_rvv_sample2d_m2(t, u, v, VL, 1.f / 255.f, t->min_filter, t->wrap, &r,&g,&bb,&aa);
+                /* VM texture2D: u,v are arbitrary register values with no bound
+                 * varying index, so no analytic derivative -> NULL (prior LOD est). */
+                sgl_rvv_sample2d_m2(t, u, v, VL, 1.f / 255.f, t->min_filter, t->wrap, (const sgl_uv_deriv *)0, &r,&g,&bb,&aa);
                 __riscv_vse32_v_f32m2(reg[o->dst].c[0],r,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[1],g,VL);
                 __riscv_vse32_v_f32m2(reg[o->dst].c[2],bb,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[3],aa,VL);
             }
@@ -336,7 +501,30 @@ static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
                 if (sgl_diag_enabled) sgl_dbg_tex2d_rvv += (unsigned long)vl;
                 vfloat32m2_t r,g,b,a;
                 sgl_rvv_sample2d_m2(t, __riscv_vle32_v_f32m2(uv->c[0],VL), __riscv_vle32_v_f32m2(uv->c[1],VL), VL,
-                                    1.f / 255.f, t->min_filter, t->wrap, &r,&g,&b,&a);
+                                    1.f / 255.f, t->min_filter, t->wrap, (const sgl_uv_deriv *)0, &r,&g,&b,&a);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[0],r,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[1],g,VL);
+                __riscv_vse32_v_f32m2(reg[o->dst].c[2],b,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[3],a,VL);
+            }
+            break; }
+        case BI_TEXTURECUBE: {
+            /* RVV cubemap: same helper as the interaction kernel. Separate toggle
+             * from texture2d so iakern can A/B cube alone against the scalar oracle. */
+            extern int glsl_rvv_texturecube_enabled;
+            int si=o->args[0], uvi=o->args[1], uvn=rn[uvi]; simt_reg *s=&reg[si], *uv=&reg[uvi];
+            int unit=(int)s->c[0][0];
+            const sgl_tex *t=(samplers&&unit>=0&&unit<GLSL_MAX_SAMPLERS)?samplers[unit]:0;
+            if (!glsl_rvv_texturecube_enabled || !t || uvn < 3) {
+                if (sgl_diag_enabled) sgl_dbg_tex2d_scalar += (unsigned long)vl;
+                simt_builtin_scalar_fallback(o, vl, reg, rn, samplers);
+            } else {
+                rn[o->dst]=4;
+                if (sgl_diag_enabled) sgl_dbg_tex2d_rvv += (unsigned long)vl;
+                vfloat32m2_t r,g,b,a;
+                sgl_rvv_sample_cube_m2(t,
+                    __riscv_vle32_v_f32m2(uv->c[0],VL),
+                    __riscv_vle32_v_f32m2(uv->c[1],VL),
+                    __riscv_vle32_v_f32m2(uv->c[2],VL),
+                    VL, 1.f / 255.f, &r, &g, &b, &a);
                 __riscv_vse32_v_f32m2(reg[o->dst].c[0],r,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[1],g,VL);
                 __riscv_vse32_v_f32m2(reg[o->dst].c[2],b,VL); __riscv_vse32_v_f32m2(reg[o->dst].c[3],a,VL);
             }
@@ -363,18 +551,11 @@ static void simt_run_ir(glsl_program *p, ir_prog *ir, simt_ctx *cx, int vl,
 
 extern int glsl_link_dump;   /* shader-workload profiling gate (glsl.c) */
 
-int glsl_run_fragment_simt_u(glsl_program *p, const float *varys, int nvaryf, int vl,
+/* Keep the large interpreter register file off the specialized-kernel path. */
+static __attribute__((noinline)) int glsl_run_fragment_vm_u(glsl_program *p, const float *varys, int nvaryf, int vl,
                              const sgl_tex *const samplers[GLSL_MAX_SAMPLERS],
                              const float *ustore, float *out)
 {
-    (void)nvaryf;
-    if (p->fs_kernel) {  /* register-resident specialised kernel (sg_kernels.c) */
-        if (p->fs_kernel(p, varys, vl, samplers, ustore ? ustore : p->ustore, out)) {
-            if (glsl_link_dump) p->dbg_frags_kernel += (unsigned long)vl;  /* Phase 0 workload */
-            return 1;
-        }
-        /* kernel bailed (e.g. a sampler was null) -> fall through to the VM */
-    }
     if (glsl_link_dump) p->dbg_frags_vm += (unsigned long)vl;   /* Phase 0 workload */
     ir_prog *ir=&p->fs_ir;
     simt_reg reg[IR_MAXREG];
@@ -395,6 +576,21 @@ int glsl_run_fragment_simt_u(glsl_program *p, const float *varys, int nvaryf, in
     return 1;
 }
 
+int glsl_run_fragment_simt_u(glsl_program *p, const float *varys, int nvaryf, int vl,
+                             const sgl_tex *const samplers[GLSL_MAX_SAMPLERS],
+                             const float *ustore, float *out)
+{
+    (void)nvaryf;
+    if (p->fs_kernel) {  /* register-resident specialised kernel (sg_kernels.c) */
+        if (p->fs_kernel(p, varys, vl, samplers, ustore ? ustore : p->ustore, out)) {
+            if (glsl_link_dump) p->dbg_frags_kernel += (unsigned long)vl;  /* Phase 0 workload */
+            return 1;
+        }
+        /* kernel bailed (e.g. a sampler was null) -> fall through to the VM */
+    }
+    return glsl_run_fragment_vm_u(p, varys, nvaryf, vl, samplers, ustore, out);
+}
+
 int glsl_run_fragment_simt(glsl_program *p, const float *varys, int nvaryf, int vl,
                            const sgl_tex *const samplers[GLSL_MAX_SAMPLERS], float *out)
 {
@@ -404,7 +600,12 @@ int glsl_run_fragment_simt(glsl_program *p, const float *varys, int nvaryf, int 
 int glsl_run_vertex_simt(glsl_program *p, const float *attrs, int vl,
                          float *clip, float *vary_out)
 {
+    if (p->vs_kernel && p->vs_kernel(p,attrs,0,vl,clip,vary_out)) {
+        extern volatile unsigned long sgl_prof_vs_kernel_batches, sgl_prof_vs_kernel_verts;
+        ++sgl_prof_vs_kernel_batches; sgl_prof_vs_kernel_verts+=(unsigned long)vl; return 1;
+    }
     ir_prog *ir=&p->vs_ir;
+    if (!ir->ok || !ir->simt_ok) return 0;
     simt_reg vreg[IR_MAXREG];
     unsigned char rn[IR_MAXREG];
     unsigned char rmat[IR_MAXREG];
@@ -423,7 +624,12 @@ int glsl_run_vertex_simt_mapped(glsl_program *p, const float *attrs,
                                 const int *loc_map, int vl, float *clip,
                                 float *vary_out)
 {
+    if (p->vs_kernel && p->vs_kernel(p,attrs,loc_map,vl,clip,vary_out)) {
+        extern volatile unsigned long sgl_prof_vs_kernel_batches, sgl_prof_vs_kernel_verts;
+        ++sgl_prof_vs_kernel_batches; sgl_prof_vs_kernel_verts+=(unsigned long)vl; return 1;
+    }
     ir_prog *ir = &p->vs_ir;
+    if (!ir->ok || !ir->simt_ok) return 0;
     simt_reg vreg[IR_MAXREG];
     unsigned char rn[IR_MAXREG];
     unsigned char rmat[IR_MAXREG];
@@ -508,8 +714,19 @@ int glsl_run_vertex_simt_mapped(glsl_program *p, const float *attrs,
 #endif
 
 int glsl_fs_has_kernel(const glsl_program *p){ return p->fs_kernel != 0; }
-int glsl_fs_simt_ok(const glsl_program *p){ return p->fs_ir.ok && p->fs_ir.simt_ok; }
+const char *glsl_kernel_name(const glsl_program *p){ return p ? p->dbg_kernel_name : 0; }
+/* A bound specialised kernel is itself SIMT-safe even when the generic IR is
+ * not (e.g. heatHazeWithMask discard IR fails simt_ok heuristics). */
+int glsl_fs_simt_ok(const glsl_program *p){ return p->fs_kernel || (p->fs_ir.ok && p->fs_ir.simt_ok); }
 int glsl_fs_has_discard(const glsl_program *p){ return p->fs_has_discard; }
+unsigned int glsl_fs_vary_live_mask(const glsl_program *p){ return p->vary_live_mask; }
+int glsl_fs_uses_fragcoord(const glsl_program *p)
+{
+    if (!p->fs_ir.simt_ok) return 1; /* unlowered code: retain conservative setup */
+    for (int i = 0; i < p->fs_ir.ninst; ++i)
+        if (p->fs_ir.inst[i].op == IR_LOADFC) return 1;
+    return 0;
+}
 int glsl_fs_alpha_zero_if_color_zero(const glsl_program *p){ return p->fs_alpha_zero_if_color_zero; }
 int glsl_fs_cost(const glsl_program *p)
 {
@@ -543,4 +760,6 @@ int glsl_fs_cost(const glsl_program *p)
     }
     return cost > 1 ? cost : 1;
 }
-int glsl_vs_simt_ok(const glsl_program *p){ return p->vs_ir.ok && p->vs_ir.simt_ok; }
+/* A specialised VS kernel is itself the vector implementation and may rescue a
+ * program containing an IR operation the generic SIMT VM cannot execute. */
+int glsl_vs_simt_ok(const glsl_program *p){ return p->vs_kernel || (p->vs_ir.ok && p->vs_ir.simt_ok); }

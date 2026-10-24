@@ -116,10 +116,20 @@ int sg_mt_tiles_build(const sgl_pvert *pv, const sg_prim_desc *prims, int nprim,
         }
     }
 
-    for (int t = 0; t < ntiles; ++t) {
-        int b = offsets[t], e = offsets[t + 1];
-        if (e - b > 1)
-            sg_mt_tile_sort_front_to_back(refs + b, e - b, prims);
+    /* Front-to-back reordering is an early-Z win, but it is only SOUND for an
+     * opaque depth-tested draw, where the depth test decides the winner and
+     * submission order cannot be observed. Blending is order-dependent by
+     * definition, and with the depth test off the last primitive wins -- in both
+     * cases reordering changes the rendered result. Doom 3 submits translucent
+     * surfaces, fog and blend lights as multi-triangle draws that hit exactly
+     * this path. (The FrameBin path already preserves submission order
+     * deliberately; this one did not, which is what made the two disagree.) */
+    if (st && st->blend == SGL_BLEND_NONE && st->depth_test) {
+        for (int t = 0; t < ntiles; ++t) {
+            int b = offsets[t], e = offsets[t + 1];
+            if (e - b > 1)
+                sg_mt_tile_sort_front_to_back(refs + b, e - b, prims);
+        }
     }
 
     free(counts);

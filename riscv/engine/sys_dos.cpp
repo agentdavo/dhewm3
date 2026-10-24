@@ -42,6 +42,7 @@
 
 extern "C" {
 #include "boot/runtime.h"   /* timer_ticks, TIMEBASE_HZ, panic, sbi_shutdown */
+#include "boot/bm_pause.h"
 #include "engine/dos_virtio_blk.h"  /* vblk_init / vblk_read / vblk_write     */
 #include "engine/dosfs.h"           /* dosfs_init / dosfs_list (doc 12)       */
 #include "engine/dos_ramfs.h"       /* writable save/config RAM overlay       */
@@ -51,6 +52,10 @@ extern "C" {
 
 extern "C" char __heap_start[];
 extern "C" char __heap_end[];
+
+#ifndef BM_DEMOFLOW
+#define BM_DEMOFLOW 0
+#endif
 
 // ===========================================================================
 // Timing — rdtime CSR (10 MHz on QEMU virt). Backs Sys_MillisecondsPrecise,
@@ -62,24 +67,75 @@ extern "C" void BM_InitTime(void) {
 	bm_epoch_ticks = timer_ticks();
 	// bias epoch back ~1.5 ms so the first Sys_MillisecondsPrecise() > 0
 	// (matches posix_main.cpp Posix_InitTime behaviour).
-	uint64_t bias = (TIMEBASE_HZ / 1000000ULL) * 1500ULL;
+	uint64_t bias = timer_ticks_from_us(1500ULL);
 	bm_epoch_ticks = (bias < bm_epoch_ticks) ? (bm_epoch_ticks - bias) : 0;
 }
 
+// ---------------------------------------------------------------------
+// Deterministic virtual clock (BM_DETERMINISTIC_CLOCK)
+//
+// Frame content in this engine is a function of WALL CLOCK, not frame index:
+// Com_UpdateTicNumber() (Common.cpp) derives com_ticNumber from
+// Sys_MillisecondsPrecise(), and com_frameTime follows from it. So two builds --
+// or even two runs of the SAME build -- at different speeds render different
+// content at the same frame index. Measured 2026-07-26: the same binary run
+// twice diverged from frame 6 (13 of 19 common frames). That is why every
+// cross-run [fbhash] comparison to date was meaningless, and why the FrameBin
+// pixel question stayed open across two handovers.
+//
+// com_fixedTic does NOT fix this: it pins usercmds-per-frame, but the tic number
+// it latches still comes from real time.
+//
+// With this on, virtual time advances by exactly one 60Hz tic per PRESENT, so
+// com_ticNumber advances exactly one tic per rendered frame and frame content
+// becomes a function of frame INDEX. It is driven from present rather than from
+// the frame-end sleep because Common.cpp's vsync branch skips that sleep
+// entirely -- driving it from present keeps both branches correct.
+//
+// NOT for perf builds: engine-reported frame times become fictional. The
+// softgles2 profiler is unaffected -- [rprof] reads timer_ticks() (rdtime).
+#ifndef BM_DETERMINISTIC_CLOCK
+#define BM_DETERMINISTIC_CLOCK 0
+#endif
+#if BM_DETERMINISTIC_CLOCK
+static const double BM_VCLOCK_MS_PER_FRAME = 1000.0 / 60.0;  // one USERCMD tic
+static double       bm_vclock_ms = 1.5;   // small positive epoch, as BM_InitTime
+#endif
+
+// Called once per present from dos_gl_present().
+extern "C" void BM_VClockTick(void) {
+#if BM_DETERMINISTIC_CLOCK
+	bm_vclock_ms += BM_VCLOCK_MS_PER_FRAME;
+#endif
+}
+
 double Sys_MillisecondsPrecise(void) {
+#if BM_DETERMINISTIC_CLOCK
+	return bm_vclock_ms;
+#else
 	uint64_t now = timer_ticks() - bm_epoch_ticks;
-	return (double)now * (1000.0 / (double)TIMEBASE_HZ);
+	return (double)now * (1000.0 / (double)timer_hz());
+#endif
 }
 
 // RISC-V Zihintpause hint (mirrors posix_main.cpp D3_CpuPause rv64 branch).
 static ID_INLINE void BM_CpuPause(void) {
-	__asm__ __volatile__(".insn i 0x0F, 0, x0, x0, 0x010"); // pause
+	bm_pause();
 }
 
 void Sys_SleepUntilPrecise(double targetTimeMS) {
+#if BM_DETERMINISTIC_CLOCK
+	// Return immediately. Virtual time only moves on present, so spinning here
+	// would wait for a clock that cannot advance until this function returns --
+	// a guaranteed deadlock. The deadline is honoured by construction: exactly
+	// one frame length elapses per presented frame.
+	(void)targetTimeMS;
+	return;
+#else
 	while (targetTimeMS - Sys_MillisecondsPrecise() >= 0.01)
 		BM_CpuPause();
 	// TODO: sbi_set_timer + recoverable timer trap to wfi instead of busy-wait.
+#endif
 }
 
 // ===========================================================================
@@ -365,6 +421,16 @@ static idCVar bm_simdTest( "bm_simdTest", "0", CVAR_SYSTEM | CVAR_BOOL,
 	"bare-metal: run idSIMD::Test_f (RVV vs generic differential correctness test), then power off" );
 static idCVar bm_renderProf( "bm_renderProf", "0", CVAR_SYSTEM | CVAR_BOOL,
 	"bare-metal: per-stage softgles2 render profiler (one [rprof] line per frame)" );
+static idCVar bm_sglOverlay( "bm_sglOverlay", "0", CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: draw the softgles2 per-frame stats/fps overlay into the framebuffer" );
+static idCVar bm_sglOverlayScale( "bm_sglOverlayScale", "1", CVAR_SYSTEM | CVAR_INTEGER,
+	"bare-metal: stats overlay pixel scale (1..4)" );
+static idCVar bm_sglOverlayCorner( "bm_sglOverlayCorner", "0", CVAR_SYSTEM | CVAR_INTEGER,
+	"bare-metal: stats overlay corner (0=top-left 1=top-right 2=bottom-left 3=bottom-right)" );
+static idCVar bm_presentGamma( "bm_presentGamma", "0", CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: apply fallback full-frame gamma at virtio-gpu present (normally redundant with r_gammaInShader)" );
+static idCVar bm_presentGammaBrightness( "bm_presentGammaBrightness", "2.0", CVAR_SYSTEM | CVAR_FLOAT,
+	"bare-metal: pre-gamma brightness multiplier for bm_presentGamma fallback" );
 static idCVar bm_sglDbgDraws( "bm_sglDbgDraws", "0", CVAR_SYSTEM | CVAR_BOOL,
 	"bare-metal: enable filtered softgles2 per-draw diagnostics" );
 static idCVar bm_sglDbgFrameFirst( "bm_sglDbgFrameFirst", "-1", CVAR_SYSTEM | CVAR_INTEGER,
@@ -379,6 +445,37 @@ static idCVar bm_sglDbgDetail( "bm_sglDbgDetail", "1", CVAR_SYSTEM | CVAR_INTEGE
 	"bare-metal: softgles2 draw diagnostic detail level: 1 state/attribs, 2 add input min/max" );
 static idCVar bm_iakLightUnity( "bm_iakLightUnity", "0", CVAR_SYSTEM | CVAR_BOOL,
 	"diag: force softgles2 interaction light term to unity (diffuse-only) to isolate the flat-world cause" );
+static idCVar bm_dither( "bm_dither", "1", CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: ordered (Bayer 4x4) dithering at the 8-bit colour store, to break up gradient banding in the light-falloff-lit world (mean-preserving, no brightness shift). Set 0 for exact round-to-nearest quantisation." );
+static idCVar bm_heathazeDeform( "bm_heathazeDeform", "1", CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: enable normal-map glass refraction; 0 samples the screen undistorted for diagnostic comparisons" );
+static idCVar bm_mip( "bm_mip", "1", CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: mip-mapped minification + anisotropic filtering in softgles2. On (default) the sampler picks the LOD from analytic per-batch screen-space UV derivatives (fixes minification shimmer on foreshortened floors/ceilings and honours GL_TEXTURE_MAX_ANISOTROPY_EXT, which Doom sends up to 8). Set 0 for QEMU/TCG perf runs: the guest cache hierarchy is not emulated so the locality win is invisible while the LOD cost is fully counted -- 0 restores the exact level-0 fast path (no derivative work). Drives sgl_mip_enabled / sgl_mip_trilinear_enabled / sgl_lod_deriv_enabled together." );
+/* Default ON in profiling builds. A build configured with BAREMETAL_RENDER_PROF
+ * exists to be measured, and measurement is worthless while the camera rotates
+ * between frames -- so the two should not be independently selectable knobs that
+ * can silently disagree. Capture/survey builds (RENDER_PROF=0) keep the scenic
+ * sweep. Override either way by setting the cvar explicitly. */
+#ifndef BM_RENDER_PROF
+#define BM_RENDER_PROF 0
+#endif
+static idCVar bm_benchVantage( "bm_benchVantage", (BM_RENDER_PROF ? "1" : "0"), CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: benchmark mode. Establish ONE fixed vantage and never move the view again, so every lit frame renders identical geometry. Required for any before/after perf comparison -- bm_scenicWarp rotates the camera 24 degrees per frame, which varies triangle and fragment counts by 2-3x between consecutive frames and makes cross-run medians meaningless. Overrides bm_scenicWarp." );
+static idCVar bm_benchVantageYaw( "bm_benchVantageYaw", "96", CVAR_SYSTEM | CVAR_INTEGER,
+	"bare-metal: yaw in degrees for bm_benchVantage" );
+/* Host debugger mailbox for repeatable visual/performance comparisons. The
+ * debugger stops the guest, writes text, then publishes a new sequence number.
+ * Commands execute on the main thread between frames, never on render workers. */
+extern "C" {
+char bm_debug_command[512];
+volatile unsigned bm_debug_sequence;
+volatile unsigned bm_debug_completed;
+}
+static idCVar bm_benchFreeze( "bm_benchFreeze", (BM_RENDER_PROF ? "1" : "0"), CVAR_SYSTEM | CVAR_BOOL,
+	"bare-metal: with bm_benchVantage, freeze game time (g_stopTime 1) a few frames after the "
+	"vantage settles so entity animation stops and EVERY frame renders identical geometry -- the "
+	"deterministic workload needed to A/B a renderer change without the ~18% frame-to-frame noise "
+	"that md5 actor animation otherwise injects. Rendering (the thing measured) still runs fully." );
 static idCVar bm_scenicWarp( "bm_scenicWarp", "1", CVAR_SYSTEM | CVAR_BOOL,
 	"bare-metal: pin the player at a fixed scenic vantage (setviewpos, frames 8-60) for a static survey; set 0 to let the scripted usercmd walk the level (walk-to-NPC capture)" );
 static idCVar bm_npcCam( "bm_npcCam", "0", CVAR_SYSTEM | CVAR_BOOL,
@@ -387,9 +484,63 @@ extern "C" void sgl_prof_enable( int on );
 extern "C" void sgl_diag_draw_filter_set( int enabled, int frame_first, int frame_last,
 	int draw_first, int draw_last, int detail );
 extern "C" int sgl_dbg_iak_light_unity;
+extern "C" int sgl_dither_enabled;
+extern "C" int sgl_mip_enabled;
+extern "C" int sgl_mip_trilinear_enabled;
+extern "C" int sgl_lod_deriv_enabled;
+extern "C" int sgl_heathaze_deform;
+static void BM_SyncRendererCvars() {
+	sgl_dither_enabled = bm_dither.GetBool() ? 1 : 0;
+	int mip = bm_mip.GetBool() ? 1 : 0;
+	sgl_mip_enabled = mip;
+	sgl_mip_trilinear_enabled = mip;
+	sgl_lod_deriv_enabled = mip;
+	sgl_heathaze_deform = bm_heathazeDeform.GetBool() ? 1 : 0;
+}
+/* Incremented by Session::ExecuteMapChange when a map finishes spawning (the real
+ * "ready to render" point, ~48 rendered loading-screen frames after boot). The
+ * frame loop pins the bench vantage / freezes the world a few frames AFTER this,
+ * so the triggers land post-spawn regardless of how long the load took. */
+volatile int bm_map_spawn_seq = 0;
+extern "C" int dos_present_gamma_enable;
+extern "C" float dos_present_gamma_brightness;
 
 extern "C" int bm_io_stats_enabled(void) {
 	return bm_ioStats.GetBool() ? 1 : 0;
+}
+
+static void BM_SyncPresentGammaCvars() {
+	dos_present_gamma_enable = bm_presentGamma.GetBool() ? 1 : 0;
+	dos_present_gamma_brightness = bm_presentGammaBrightness.GetFloat();
+}
+
+extern "C" {
+	void sgl_overlay_enable( int on );
+	int  sgl_overlay_enabled( void );
+	void sgl_overlay_set_scale( int scale );
+	void sgl_overlay_set_corner( int corner );
+	void sgl_overlay_set_stat( const char *name, long value );
+}
+
+// Drive the softgles2 stats overlay from cvars, and feed it the renderer-level
+// counts softgles2 has no way to know. softgles2 is deliberately kept generic
+// (it is reused outside Doom 3), so "lights" is not a concept it has -- it just
+// displays whatever name/value pairs the host publishes.
+//
+// The renderer counts themselves (lights/entities/views) are published from
+// R_PerformanceCounters() in renderer/RenderSystem.cpp, which is the last code
+// to see them before they are zeroed -- sampling tr.pc from out here reads only
+// zeroes.
+static void BM_SyncOverlayCvars() {
+	const bool want = bm_sglOverlay.GetBool();
+	if ( want != ( sgl_overlay_enabled() != 0 ) ) {
+		sgl_overlay_enable( want ? 1 : 0 );
+	}
+	if ( !want ) {
+		return;
+	}
+	sgl_overlay_set_scale( bm_sglOverlayScale.GetInteger() );
+	sgl_overlay_set_corner( bm_sglOverlayCorner.GetInteger() );
 }
 
 static float BM_AbsFloat( float v ) {
@@ -408,8 +559,8 @@ static float BM_MaxDiff( const float *a, const float *b, int count ) {
 }
 
 static void BM_SIMDBenchOne( const char *name, uint64_t genericTicks, uint64_t simdTicks, uint64_t elements, float maxDiff, volatile float sink ) {
-	uint64_t genericNs = genericTicks * 1000000000ULL / TIMEBASE_HZ;
-	uint64_t simdNs = simdTicks * 1000000000ULL / TIMEBASE_HZ;
+	uint64_t genericNs = timer_ns_from_ticks(genericTicks);
+	uint64_t simdNs = timer_ns_from_ticks(simdTicks);
 	uint64_t genericPs = elements ? ( genericNs * 1000ULL ) / elements : 0;
 	uint64_t simdPs = elements ? ( simdNs * 1000ULL ) / elements : 0;
 	uint64_t speedPct = simdNs ? ( genericNs * 100ULL ) / simdNs : 0;
@@ -592,6 +743,21 @@ static void BM_SDCmp( const char *name, const float *g, const float *r, int n, f
 	Sys_Printf( "[simddiff] %-30s %s  maxdiff=%ld e-6 (tol %ld e-6) @%d\n",
 		name, ok ? "PASS" : "FAIL", (long)( maxd * 1.0e6f ), (long)( tol * 1.0e6f ), bi );
 }
+// Time gen vs rvv over `iters` reps of the given statements (rdtime-backed clock).
+// Reports microseconds and the rvv speedup vs generic. Correctness is checked
+// separately by BM_SDCmp; this only measures. TCG time is an op-count proxy for HW.
+#define BM_TIME( nm, iters, GEN, RVV ) do { \
+	double _t0 = Sys_MillisecondsPrecise(); \
+	for ( int _r = 0; _r < (iters); ++_r ) { GEN; } \
+	double _tg = Sys_MillisecondsPrecise() - _t0; \
+	_t0 = Sys_MillisecondsPrecise(); \
+	for ( int _r = 0; _r < (iters); ++_r ) { RVV; } \
+	double _tr = Sys_MillisecondsPrecise() - _t0; \
+	Sys_Printf( "[simdperf] %-30s gen=%6ld us  rvv=%6ld us  speedup=%ld.%02ldx\n", (nm), \
+		(long)( _tg * 1000.0 ), (long)( _tr * 1000.0 ), \
+		_tr > 0.0 ? (long)( _tg / _tr ) : 0, _tr > 0.0 ? ( (long)( _tg * 100.0 / _tr ) ) % 100 : 0 ); \
+} while ( 0 )
+
 static void BM_SDUnitQuat( float q[4] ) {
 	float x = BM_SDRand(), y = BM_SDRand(), z = BM_SDRand(), w = BM_SDRand() + 1.5f;
 	float inv = 1.0f / __builtin_sqrtf( x*x + y*y + z*z + w*w );
@@ -723,16 +889,62 @@ static void BM_RunSIMDDiffTest( void ) {
 		processor->MixSoundSixSpeakerStereo( rbuf, src2, NS, lastV6, curV6 );
 		BM_SDCmp( "MixSoundSixSpeakerStereo", gbuf, rbuf, NS*6, 1e-4f );
 	}
+	// ---- Dot( float*, idVec3&, idVec3* ) : strided-deinterleave -> vlseg candidate ----
+	{
+		enum { N = 300 };
+		static idVec3 v[N]; static float g[N], r[N];
+		idVec3 c( BM_SDRand(), BM_SDRand(), BM_SDRand() );
+		for ( int i = 0; i < N; i++ ) v[i].Set( BM_SDRand()*10.f, BM_SDRand()*10.f, BM_SDRand()*10.f );
+		generic->Dot( g, c, v, N ); processor->Dot( r, c, v, N );
+		BM_SDCmp( "Dot(vec3,vec3[])", g, r, N, 1e-4f );
+		BM_TIME( "Dot(vec3,vec3[])", 4000, generic->Dot( g, c, v, N ), processor->Dot( r, c, v, N ) );
+	}
+	// ---- ConvertJointMatsToJointQuats : currently scalar fallback -> vectorize ----
+	{
+		enum { NJ = 64 };
+		static idJointQuat srcq[NJ], gq[NJ], rq[NJ]; static idJointMat mats[NJ];
+		for ( int i = 0; i < NJ; i++ ) {
+			float q[4]; BM_SDUnitQuat( q ); srcq[i].q.Set( q[0], q[1], q[2], q[3] );
+			srcq[i].t.Set( BM_SDRand()*10.f, BM_SDRand()*10.f, BM_SDRand()*10.f );
+		}
+		generic->ConvertJointQuatsToJointMats( mats, srcq, NJ );   // known-correct forward transform
+		generic->ConvertJointMatsToJointQuats( gq, mats, NJ );
+		processor->ConvertJointMatsToJointQuats( rq, mats, NJ );
+		BM_SDCmp( "ConvertJointMatsToJointQuats", (const float*)gq, (const float*)rq, NJ*7, 1e-4f );
+		BM_TIME( "ConvertJointMatsToJointQuats", 3000, generic->ConvertJointMatsToJointQuats( gq, mats, NJ ), processor->ConvertJointMatsToJointQuats( rq, mats, NJ ) );
+	}
+	// ---- MatX_MultiplyVecX / MatX_TransposeMultiplyVecX : small sizes scalar, transpose does per-element reductions ----
+	{
+		for ( int sz = 0; sz < 2; sz++ ) {
+			const int R = sz ? 12 : 6, C = sz ? 12 : 6;
+			idMatX m; m.SetSize( R, C );
+			idVecX v; v.SetSize( C ); idVecX gd; gd.SetSize( R ); idVecX rd; rd.SetSize( R );
+			float *mp = m.ToFloatPtr(); for ( int k = 0; k < R*C; k++ ) mp[k] = BM_SDRand();
+			float *vp = v.ToFloatPtr(); for ( int k = 0; k < C; k++ ) vp[k] = BM_SDRand();
+			generic->MatX_MultiplyVecX( gd, m, v ); processor->MatX_MultiplyVecX( rd, m, v );
+			BM_SDCmp( sz?"MatX_MultiplyVecX(12)":"MatX_MultiplyVecX(6)", gd.ToFloatPtr(), rd.ToFloatPtr(), R, 1e-3f );
+			BM_TIME( sz?"MatX_MultiplyVecX(12)":"MatX_MultiplyVecX(6)", 6000, generic->MatX_MultiplyVecX( gd, m, v ), processor->MatX_MultiplyVecX( rd, m, v ) );
+			idVecX v2; v2.SetSize( R ); idVecX gd2; gd2.SetSize( C ); idVecX rd2; rd2.SetSize( C );
+			float *v2p = v2.ToFloatPtr(); for ( int k = 0; k < R; k++ ) v2p[k] = BM_SDRand();
+			generic->MatX_TransposeMultiplyVecX( gd2, m, v2 ); processor->MatX_TransposeMultiplyVecX( rd2, m, v2 );
+			BM_SDCmp( sz?"MatX_TransposeMulVecX(12)":"MatX_TransposeMulVecX(6)", gd2.ToFloatPtr(), rd2.ToFloatPtr(), C, 1e-3f );
+			BM_TIME( sz?"MatX_TransposeMulVecX(12)":"MatX_TransposeMulVecX(6)", 6000, generic->MatX_TransposeMultiplyVecX( gd2, m, v2 ), processor->MatX_TransposeMultiplyVecX( rd2, m, v2 ) );
+		}
+	}
 	Sys_Printf( "[simddiff] ===== %s: %d method(s) FAILED =====\n",
 		bm_sd_fails ? "MISMATCH" : "ALL PASS", bm_sd_fails );
 }
 
+extern "C" void BM_BootMark(const char *stage);
 extern "C" int dhewm3_main(int argc, char **argv) {
 	Sys_InitThreads();   // from sys/threads.cpp (SDL)
+	BM_BootMark("threads-ready");
 
 	// Mount the read-only asset image (virtio-blk -> dosfs) BEFORE common->Init,
 	// so fileSystem->Init() can list + open base/*.pk4 and load default.cfg.
-	if (vblk_init() == 0 && dosfs_init(&vblk_read) == 0) {
+	if (vblk_init() == 0 && vblk_select_dosfs() == 0 && dosfs_init(&vblk_read) == 0) {
+		Sys_Printf("[disk] DOSFS volume start LBA=%llu sectors=%llu\n",
+		    (unsigned long long)vblk_volume_start(), (unsigned long long)vblk_capacity_sectors());
 		Sys_Printf("dosfs: mounted, %d files, %llu sectors on virtio-blk\n",
 			dosfs_entry_count(), (unsigned long long)vblk_capacity_sectors());
 	} else {
@@ -740,6 +952,7 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 	}
 	// The ramfs self-test runs while savefs is still inactive, so its throwaway
 	// file is NOT journalled.
+	BM_BootMark("asset-disk-ready");
 	BM_RamFsSelfTest();
 
 	// Mount + replay the persistent savefs journal (the write-region appended to
@@ -776,7 +989,9 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 		}
 	}
 
+	BM_BootMark("save-replay-ready");
 	common->Init((argc > 1) ? argc - 1 : 0, (argc > 1) ? &argv[1] : NULL);
+	BM_BootMark("engine-init-returned");
 	if ( bm_simdBench.GetBool() ) {
 		BM_RunSIMDBench();
 	}
@@ -785,6 +1000,8 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 		sgl_prof_enable( 1 );
 		glsl_link_dump = 1;   /* also dump each linked FS fingerprint */
 	}
+	BM_SyncPresentGammaCvars();
+	BM_SyncOverlayCvars();
 	sgl_diag_draw_filter_set( bm_sglDbgDraws.GetBool() ? 1 : 0,
 		bm_sglDbgFrameFirst.GetInteger(), bm_sglDbgFrameLast.GetInteger(),
 		bm_sglDbgDrawFirst.GetInteger(), bm_sglDbgDrawLast.GetInteger(),
@@ -792,6 +1009,13 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 	if ( bm_iakLightUnity.GetBool() ) {
 		sgl_dbg_iak_light_unity = 1;
 	}
+	BM_SyncRendererCvars();
+#ifndef BM_SIMDTEST
+#define BM_SIMDTEST 0
+#endif
+#if BM_SIMDTEST
+	bm_simdTest.SetBool( true );   // SIMDTEST build: run the harness at boot, then power off
+#endif
 	if ( bm_simdTest.GetBool() ) {
 		// Differential correctness test of the active SIMD processor (idSIMD_RVV on
 		// RISC-V) vs a fresh idSIMD_Generic: idSIMD::Test_f feeds identical seeded inputs
@@ -806,12 +1030,35 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 	// it far slower. Silence it for the save round-trip (does not touch the argv).
 	cvarSystem->SetCVarInteger("r_glprof", 0);
 #endif
+	int bm_psf = 0;   /* rendered frames since the map finished spawning (see bm_map_spawn_seq) */
+#ifndef BM_BENCH
+#define BM_BENCH 0
+#endif
+#if BM_BENCH
+	Sys_Printf( "[bench] deterministic bench mode: vantage pinned, scripted view off, world freezes post-spawn\n" );
+#endif
 	for (int frame = 0; ; ++frame) {
-		// Per-frame heartbeat: the 768x432 software render is very slow under TCG,
-		// so this shows forward progress vs a hang inside common->Frame(). The host
-		// capture (capture_screendump.sh) watches the render markers and grabs the
-		// virtio-gpu scanout with QEMU `screendump`, then powers off via the monitor.
-		Sys_Printf("[dos] >> frame %d  t=%.0f ms\n", frame, Sys_MillisecondsPrecise());
+		if ( bm_map_spawn_seq > 0 ) ++bm_psf;
+#if BM_BENCH
+		// Deterministic bench (-DBAREMETAL_BENCH=1). Apply the overrides IN the loop,
+		// post-spawn, and REPEATEDLY until the freeze: the boot "+set" commands (incl.
+		// bm_scenicWarp 1 and in_scriptedMove 1) drain from the command buffer over the
+		// first frames, so a one-shot set before the loop is overwritten by them. Once
+		// applied here they win. Forces the fixed vantage + world freeze on, and the
+		// scenic sweep + 3deg/tic scripted yaw (which g_stopTime does NOT gate -- it is
+		// player input, not entity think) off, so every frame renders identical geometry.
+		if ( bm_psf >= 1 && bm_psf <= 11 ) {
+			bm_benchVantage.SetBool( true );
+			bm_benchFreeze.SetBool( true );
+			bm_scenicWarp.SetBool( false );
+			cvarSystem->SetCVarInteger( "in_scriptedMove", 0 );
+			cvarSystem->SetCVarInteger( "in_scriptedFwd", 0 );
+			cvarSystem->SetCVarFloat( "in_scriptedYawPerTic", 0.0f );
+		}
+#endif
+		if ( BM_DEMOFLOW ) {
+			Sys_Printf("[dos] >> frame %d  t=%.0f ms\n", frame, Sys_MillisecondsPrecise());
+		}
 #if !DOS_SAVEFS_SAVETEST
 		// Deterministic loadGame at frame 2 (proven timing) when the save was
 		// replayed — lands us in live gameplay for a guaranteed lit capture. The
@@ -846,7 +1093,28 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 			};
 			int idx = ( ( frame - 1 ) / 4 ) % 4;
 			cmdSystem->BufferCommandText( CMD_EXEC_NOW, npc_views[idx] );
-		} else if ( bm_scenicWarp.GetBool() && frame >= 8 && frame <= 60 ) {
+		} else if ( bm_benchVantage.GetBool() ) {
+			// Benchmark vantage: place the camera ONCE, then leave it alone. Two
+			// things in the scenicWarp path below make frames incomparable --
+			// the yaw advances 24 degrees every frame, and setviewpos teleports
+			// the player, which frees and rebuilds every entity interaction. Both
+			// are fine for a survey capture and fatal for an A/B.
+			// Place the vantage 2 rendered frames AFTER the map spawns (bm_psf, not
+			// the raw loop frame, which counts ~48 loading-screen frames first).
+			if ( bm_psf == 2 ) {
+				char cmd[64];
+				idStr::snPrintf( cmd, sizeof( cmd ), "setviewpos -700 -1380 176 %d\n",
+					bm_benchVantageYaw.GetInteger() );
+				cmdSystem->BufferCommandText( CMD_EXEC_NOW, cmd );
+			}
+			// Freeze the world 8 frames after the vantage is placed (let the
+			// setviewpos-driven interaction rebuild settle first). From here every
+			// frame renders byte-identical geometry -> a deterministic A/B workload.
+			if ( bm_benchFreeze.GetBool() && bm_psf == 10 ) {
+				cmdSystem->BufferCommandText( CMD_EXEC_NOW, "g_stopTime 1\n" );
+				Sys_Printf( "[bench] g_stopTime 1: world frozen for deterministic A/B (psf=%d)\n", bm_psf );
+			}
+		} else if ( bm_scenicWarp.GetBool() && frame >= 1 && frame <= 60 ) {
 			int yaw = ( frame * 24 ) % 360;
 			char cmd[64];
 			const char *pfx = "setviewpos -700 -1380 176 ";
@@ -860,13 +1128,25 @@ extern "C" int dhewm3_main(int argc, char **argv) {
 			cmdSystem->BufferCommandText( CMD_EXEC_NOW, cmd );
 		}
 		common->Frame();
-		// Headless: log the player viewpoint each in-world frame. Confirms the scripted
-		// walk is actually translating (position changes frame-to-frame, not just the
-		// yaw) and harvests "(x y z) yaw" coords for a scenic setviewpos. getviewpos is
-		// an SP cheat command; it no-ops until a live local player exists.
-		if ( frame >= 2 ) {
+		if ( bm_debug_sequence != bm_debug_completed ) {
+			unsigned sequence = bm_debug_sequence;
+			bm_debug_command[sizeof(bm_debug_command) - 1] = 0;
+			cmdSystem->BufferCommandText( CMD_EXEC_APPEND, bm_debug_command );
+			cmdSystem->ExecuteCommandBuffer();
+			bm_debug_completed = sequence;
+			Sys_Printf( "[debug-command] completed=%u\n", sequence );
+		}
+		// Capture modes use getviewpos to harvest deterministic camera locations.
+		// Not in benchmark mode: getviewpos runs a console command every single
+		// frame purely to print coordinates, which is capture-harness overhead we
+		// do not want inside a measured frame.
+		if ( ( bm_npcCam.GetBool() || bm_scenicWarp.GetBool() ) && !bm_benchVantage.GetBool()
+		     && frame >= 2 ) {
 			cmdSystem->BufferCommandText( CMD_EXEC_NOW, "getviewpos\n" );
 		}
+		BM_SyncPresentGammaCvars();
+		BM_SyncOverlayCvars();
+		BM_SyncRendererCvars();
 		if ( bm_ioStats.GetBool() && ( frame < 3 || ( frame > 0 && ( frame % 100 ) == 0 ) ) ) {
 			bm_io_stats_print();
 		}

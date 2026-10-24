@@ -130,6 +130,9 @@
 #define glGetAttribLocation        sgl2_glGetAttribLocation
 #define glGetUniformLocation       sgl2_glGetUniformLocation
 #define glUniform1i                sgl2_glUniform1i
+#define glUniform1f                sgl2_glUniform1f
+#define glUniform2f                sgl2_glUniform2f
+#define glUniform3f                sgl2_glUniform3f
 #define glUniform1iv               sgl2_glUniform1iv
 #define glUniform1fv               sgl2_glUniform1fv
 #define glUniform2iv               sgl2_glUniform2iv
@@ -137,9 +140,14 @@
 #define glUniform3iv               sgl2_glUniform3iv
 #define glUniform3fv               sgl2_glUniform3fv
 #define glUniform4f                sgl2_glUniform4f
+#define glUniform2i                sgl2_glUniform2i
+#define glUniform3i                sgl2_glUniform3i
+#define glUniform4i                sgl2_glUniform4i
 #define glUniform4iv               sgl2_glUniform4iv
 #define glUniform4fv               sgl2_glUniform4fv
 #define glUniformMatrix4fv         sgl2_glUniformMatrix4fv
+#define glUniformMatrix2fv         sgl2_glUniformMatrix2fv
+#define glUniformMatrix3fv         sgl2_glUniformMatrix3fv
 #define glDrawArrays               sgl2_glDrawArrays
 #define glDrawElements             sgl2_glDrawElements
 #define glFlush                    sgl2_glFlush

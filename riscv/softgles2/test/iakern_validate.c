@@ -108,7 +108,7 @@ static void interaction_kernel(const float *varys, int vl,
 
     /* N = normalize(sample(bump, TexBump.xy).xyz * 2 - 1) */
     sgl_rvv_sample2d_m2(samplers[0], IAK_V(0), IAK_V(1), VL, inv255,
-                        samplers[0]->min_filter, samplers[0]->wrap, &r0, &r1, &r2, &r3);
+                        samplers[0]->min_filter, samplers[0]->wrap, (const sgl_uv_deriv *)0, &r0, &r1, &r2, &r3);
     vfloat32m2_t nx = __riscv_vfsub_vf_f32m2(__riscv_vfmul_vf_f32m2(r0, 2.f, VL), 1.f, VL);
     vfloat32m2_t ny = __riscv_vfsub_vf_f32m2(__riscv_vfmul_vf_f32m2(r1, 2.f, VL), 1.f, VL);
     vfloat32m2_t nz = __riscv_vfsub_vf_f32m2(__riscv_vfmul_vf_f32m2(r2, 2.f, VL), 1.f, VL);
@@ -145,12 +145,12 @@ static void interaction_kernel(const float *varys, int vl,
 
     /* diff = sample(diffuse, TexDiff.xy).xyz * diffuseColor.xyz (0.9,0.8,0.7) */
     vfloat32m2_t dr, dg, db, da;
-    sgl_rvv_sample2d_m2(samplers[1], IAK_V(4), IAK_V(5), VL, inv255, samplers[1]->min_filter, samplers[1]->wrap, &dr, &dg, &db, &da);
+    sgl_rvv_sample2d_m2(samplers[1], IAK_V(4), IAK_V(5), VL, inv255, samplers[1]->min_filter, samplers[1]->wrap, (const sgl_uv_deriv *)0, &dr, &dg, &db, &da);
     dr = __riscv_vfmul_vf_f32m2(dr, 0.9f, VL); dg = __riscv_vfmul_vf_f32m2(dg, 0.8f, VL); db = __riscv_vfmul_vf_f32m2(db, 0.7f, VL);
 
     /* sc = sample(specular, TexDiff.xy).xyz * specularColor.xyz (1,1,1) */
     vfloat32m2_t sr, sg, sb, sa;
-    sgl_rvv_sample2d_m2(samplers[2], IAK_V(4), IAK_V(5), VL, inv255, samplers[2]->min_filter, samplers[2]->wrap, &sr, &sg, &sb, &sa);
+    sgl_rvv_sample2d_m2(samplers[2], IAK_V(4), IAK_V(5), VL, inv255, samplers[2]->min_filter, samplers[2]->wrap, (const sgl_uv_deriv *)0, &sr, &sg, &sb, &sa);
 
     /* lp = texture2DProj(lightProj, TexLight).xyz */
     vfloat32m2_t q = IAK_V(11);
@@ -158,11 +158,11 @@ static void interaction_kernel(const float *varys, int vl,
     q = __riscv_vmerge_vvm_f32m2(q, __riscv_vfmv_v_f_f32m2(1.f, VL), qz, VL);
     vfloat32m2_t pu = __riscv_vfdiv_vv_f32m2(IAK_V(8), q, VL), pv = __riscv_vfdiv_vv_f32m2(IAK_V(9), q, VL);
     vfloat32m2_t lpr, lpg, lpb, lpa;
-    sgl_rvv_sample2d_m2(samplers[3], pu, pv, VL, inv255, samplers[3]->min_filter, samplers[3]->wrap, &lpr, &lpg, &lpb, &lpa);
+    sgl_rvv_sample2d_m2(samplers[3], pu, pv, VL, inv255, samplers[3]->min_filter, samplers[3]->wrap, (const sgl_uv_deriv *)0, &lpr, &lpg, &lpb, &lpa);
 
     /* lf = sample(lightFalloff, TexLight.xy).xyz; light = lp * lf */
     vfloat32m2_t fr, fg, fb, fa;
-    sgl_rvv_sample2d_m2(samplers[4], IAK_V(8), IAK_V(9), VL, inv255, samplers[4]->min_filter, samplers[4]->wrap, &fr, &fg, &fb, &fa);
+    sgl_rvv_sample2d_m2(samplers[4], IAK_V(8), IAK_V(9), VL, inv255, samplers[4]->min_filter, samplers[4]->wrap, (const sgl_uv_deriv *)0, &fr, &fg, &fb, &fa);
     vfloat32m2_t lr = __riscv_vfmul_vv_f32m2(lpr, fr, VL), lg = __riscv_vfmul_vv_f32m2(lpg, fg, VL), lb = __riscv_vfmul_vv_f32m2(lpb, fb, VL);
 
     /* out = (diff*NdotL + sc*spec) * light */

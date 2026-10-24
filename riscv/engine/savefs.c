@@ -18,6 +18,7 @@
 #include "engine/savefs_format.h"
 #include "engine/dos_virtio_blk.h"
 #include "engine/dos_ramfs.h"
+#include "boot/dma.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +36,31 @@ static uint64_t g_seq;               /* next record seq (first committed == 1)  
  * (PA==VA on bare metal), mirroring dosfs.c's g_bounce. */
 static uint8_t  g_secbuf[SAVEFS_SECTOR] __attribute__((aligned(64)));  /* scan/read */
 static uint8_t  g_hdrbuf[SAVEFS_SECTOR] __attribute__((aligned(64)));  /* hdr build */
+
+/* Cache-line-isolated allocation for buffers the BLOCK DEVICE writes into.
+ *
+ * These payloads were plain malloc() blocks. This allocator keeps a 16-byte
+ * in-band header immediately before the returned pointer, so the first cache
+ * line of every DMA target also held allocator metadata -- and on a
+ * non-coherent SoC the invalidate that makes the device's data visible discards
+ * that header, corrupting the heap. Over-allocate and hand back a DMA_LINE
+ * aligned, line-rounded interior block instead, stashing the original pointer
+ * just below it (outside the DMA region, in the preceding line). */
+static void *savefs_dma_alloc(size_t n)
+{
+    size_t total = DMA_ROUND(n) + DMA_LINE * 2u;
+    void *raw = malloc(total);
+    uintptr_t p;
+    if (!raw) return 0;
+    p = ((uintptr_t)raw + DMA_LINE * 2u - 1u) & ~(uintptr_t)(DMA_LINE - 1u);
+    ((void **)p)[-1] = raw;          /* lives in the line BEFORE the buffer */
+    return (void *)p;
+}
+
+static void savefs_dma_free(void *p)
+{
+    if (p) free(((void **)p)[-1]);
+}
 
 /* ------------------------------------------------------------------ crc32 *
  * Standard zlib/IEEE CRC-32 (poly 0xEDB88320, init/xorout 0xFFFFFFFF, reflected)
@@ -153,11 +179,11 @@ int savefs_replay(void)
             uint8_t *payload = 0;
             if (lba + 1 + dsec > end) break;                /* truncated tail */
             if (rec.data_len > 0) {
-                payload = (uint8_t *)malloc((size_t)(dsec * SAVEFS_SECTOR));
+                payload = (uint8_t *)savefs_dma_alloc((size_t)(dsec * SAVEFS_SECTOR));
                 if (!payload) break;                        /* OOM: stop cleanly */
-                if (vblk_read(lba + 1, payload, (uint32_t)dsec) != 0) { free(payload); break; }
+                if (vblk_read(lba + 1, payload, (uint32_t)dsec) != 0) { savefs_dma_free(payload); break; }
                 got = crc32_buf(payload, rec.data_len);
-                if (got != rec.data_crc) { free(payload); break; }   /* torn payload */
+                if (got != rec.data_crc) { savefs_dma_free(payload); break; }   /* torn payload */
             }
             {
                 dos_ramfs_file rf;
@@ -170,7 +196,7 @@ int savefs_replay(void)
                     ramfs_full = 1;                         /* cap hit; keep scanning */
                 }
             }
-            if (payload) free(payload);
+            if (payload) savefs_dma_free(payload);
             lba += 1 + dsec;
             seq++;
         } else if (rec.op == SAVEFS_OP_DELETE) {
@@ -211,11 +237,11 @@ int savefs_commit_file(const char *path)
     if (g_head_lba + need > end) { dos_ramfs_close(&rf); return -1; }   /* full: fail-closed */
 
     if (size > 0) {
-        payload = (uint8_t *)malloc((size_t)(dsec * SAVEFS_SECTOR));
+        payload = (uint8_t *)savefs_dma_alloc((size_t)(dsec * SAVEFS_SECTOR));
         if (!payload) { dos_ramfs_close(&rf); return -1; }
         memset(payload, 0, (size_t)(dsec * SAVEFS_SECTOR));
         if (dos_ramfs_read(&rf, payload, size) != (int64_t)size) {
-            free(payload); dos_ramfs_close(&rf); return -1;
+            savefs_dma_free(payload); dos_ramfs_close(&rf); return -1;
         }
     }
     dos_ramfs_close(&rf);
@@ -238,10 +264,10 @@ int savefs_commit_file(const char *path)
 
     /* commit ordering: payload -> FLUSH -> header -> FLUSH (header is the barrier) */
     if (size > 0) {
-        if (vblk_write_blocks(g_head_lba + 1, (uint32_t)dsec, payload) != 0) { free(payload); return -1; }
-        if (vblk_flush() < 0) { free(payload); return -1; }
+        if (vblk_write_blocks(g_head_lba + 1, (uint32_t)dsec, payload) != 0) { savefs_dma_free(payload); return -1; }
+        if (vblk_flush() < 0) { savefs_dma_free(payload); return -1; }
     }
-    if (payload) free(payload);
+    if (payload) savefs_dma_free(payload);
     if (vblk_write_blocks(g_head_lba, 1, g_hdrbuf) != 0) return -1;
     if (vblk_flush() < 0) return -1;
 

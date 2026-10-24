@@ -1,0 +1,2969 @@
++ qemu-system-riscv64  -accel tcg,thread=multi,tb-size=256  -cpu rva23s64,vlen=256,v=true,vext_spec=v1.0,elen=64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zfh=true,zvfh=true,zvfbfmin=true,zvfbfwma=true,zvbc=true,zvkng=true,zvksg=true  -m 4G  -smp 6  -drive /home/djs/dhewm3/build-rv/demo_mars_city1_disk.img  -pin-harts 0..5
++ machine: virt,acpi=off
++ kernel: /home/djs/dhewm3/build-rv/dhewm3
+---------------------------------------------------------------
+[pin] hart/vCPU 0 thread 1211450 (CPU 0/TCG) -> host CPU 0
+[pin] hart/vCPU 1 thread 1211451 (CPU 1/TCG) -> host CPU 1
+[pin] hart/vCPU 2 thread 1211452 (CPU 2/TCG) -> host CPU 2
+[pin] hart/vCPU 3 thread 1211453 (CPU 3/TCG) -> host CPU 3
+[pin] hart/vCPU 4 thread 1211454 (CPU 4/TCG) -> host CPU 4
+[pin] hart/vCPU 5 thread 1211455 (CPU 5/TCG) -> host CPU 5
+
+OpenSBI v1.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name               : riscv-virtio,qemu
+Platform Features           : medeleg
+Platform HART Count         : 6
+Platform IPI Device         : aclint-mswi
+Platform Timer Device       : aclint-mtimer @ 10000000Hz
+Platform Console Device     : uart8250
+Platform HSM Device         : ---
+Platform PMU Device         : ---
+Platform Reboot Device      : syscon-reboot
+Platform Shutdown Device    : syscon-poweroff
+Platform Suspend Device     : ---
+Platform CPPC Device        : ---
+Firmware Base               : 0x80000000
+Firmware Size               : 378 KB
+Firmware RW Offset          : 0x40000
+Firmware RW Size            : 122 KB
+Firmware Heap Offset        : 0x50000
+Firmware Heap Size          : 58 KB (total), 3 KB (reserved), 12 KB (used), 42 KB (free)
+Firmware Scratch Size       : 4096 B (total), 1400 B (used), 2696 B (free)
+Runtime SBI Version         : 3.0
+Standard SBI Extensions     : time,rfnc,ipi,base,hsm,srst,pmu,dbcn,fwft,legacy,dbtr,sse
+Experimental SBI Extensions : none
+
+Domain0 Name                : root
+Domain0 Boot HART           : 5
+Domain0 HARTs               : 0*,1*,2*,3*,4*,5*
+Domain0 Region00            : 0x0000000000100000-0x0000000000100fff M: (I,R,W) S/U: (R,W)
+Domain0 Region01            : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
+Domain0 Region02            : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region03            : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region04            : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region05            : 0x000000000c400000-0x000000000c5fffff M: (I,R,W) S/U: (R,W)
+Domain0 Region06            : 0x000000000c000000-0x000000000c3fffff M: (I,R,W) S/U: (R,W)
+Domain0 Region07            : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
+Domain0 Next Address        : 0x0000000080200000
+Domain0 Next Arg1           : 0x000000017fe00000
+Domain0 Next Mode           : S-mode
+Domain0 SysReset            : yes
+Domain0 SysSuspend          : yes
+
+Boot HART ID                : 5
+Boot HART Domain            : root
+Boot HART Priv Version      : v1.12
+Boot HART Base ISA          : rv64imafdcbvh
+Boot HART ISA Extensions    : smstateen,sscofpmf,sstc,zicntr,zihpm,zicboz,zicbom,svpbmt,sdtrig,svade,smnpm,ssstateen
+Boot HART PMP Count         : 0
+Boot HART PMP Granularity   : 0 bits
+Boot HART PMP Address Bits  : 0
+Boot HART MHPM Info         : 16 (0x0007fff8)
+Boot HART Debug Triggers    : 2 triggers
+Boot HART MIDELEG           : 0x0000000000003666
+Boot HART MEDELEG           : 0x0000000000f4b509
+[doomos-cpu] RVV VLEN=256 bits; e32m1=8 e32m2=16 lanes; SoftGLES batch=16
+bm argv: +set r_mode -1 +set r_customWidth 512 +set r_customHeight 288 +set r_glprof 0 +map game/demo_mars_city1 +set g_bmDeferPrecache 1 +set bm_quietAssetLoads 1 +set bm_ioStats 1 +set bm_simdBench 0 +set bm_renderProf 1 +set g_skipCinematic 1 +set in_scriptedMove 1 +set r_shadows 0 +set in_scriptedYawPerTic 3.0 +set r_gamma 2.0 +set r_brightness 1.3 +set in_scriptedFwd 0 +set bm_iakLightUnity 0 +set bm_scenicWarp 1 +set bm_npcCam 0 +set com_maxCatchupTics 10 +set bm_sglDbgDraws 0 +set bm_sglDbgFrameFirst -1 +set bm_sglDbgFrameLast -1 +set bm_sglDbgDrawFirst -1 +set bm_sglDbgDrawLast -1 +set bm_sglDbgDetail 0
+[dos-thread] boot hart 5; HSM reports 6 hart(s) present (scan max 8)
+dosfs: mounted, 4 files, 1075520 sectors on virtio-blk
+ramfs: rw self-test ok (/home)
+savefs: mounted, 32 records replayed, 63 MiB free
+savefs: no dostest.save record (using +map cinematic fallback)
+WARNING: Couldn't get SDL gamepad support! Gamepads won't work!
+dhewm3 1.5.5.1305 generic-riscv64 Jun 08 2026 13:37:42 using SDL v3.4.10
+SDL video driver: dos
+dhewm3 bare-metal (dOS): 1833 MB heap
+doom using RVV for SIMD processing
+----- Initializing File System -----
+Loaded pk4 /base/demo00.pk4 with checksum 0xfe75bbef
+Current search path:
+/home/base
+//base
+/base/demo00.pk4 (12234 files)
+Addon pk4s:
+----- Initializing Decls -----
+5151 strings read from strings/english.lang
+Couldn't open journal files
+couldn't exec editor.cfg
+execing default.cfg
+execing dhewm.cfg
+execing autoexec.cfg
+5151 strings read from strings/english.lang
+----- Initializing OpenAL -----
+Sound disabled with s_noSound 1 !
+----- Initializing OpenGL -----
+Initializing OpenGL subsystem
+Will create a window with resolution 512x288 (r_mode = -1)
+SDL detected 1 displays: 
+ Display 0 (ID 2) has the following modes:
+  Currently: 800x600 at (0, 0) to (800, 600)
+Will use display 0 (2) because mouse cursor is at (0, 0).
+dvgpu: no virtio-gpu scanout rc=-1; using private framebuffer
+Got a window with resolution 512 x 288
+Requested 8 color bits per chan, 8 alpha 24 depth, 8 stencil and no MSAA
+Got 8 stencil bits, 24 depth bits, color bits: r8 g8 b8 a8 and no MSAA
+Detected keyboard layout as "english"
+OpenGL vendor: GL4ES wrapping dhewm3-riscv
+OpenGL renderer: GL4ES using softgles2 (RVV software rasteriser)
+OpenGL version: 2.1 gl4es wrapper 1.1.7
+...using GL_ARB_multitexture
+...using GL_ARB_texture_env_combine
+...using GL_ARB_texture_cube_map
+...using GL_ARB_texture_env_dot3
+...using GL_ARB_texture_env_add
+...using GL_ARB_texture_non_power_of_two
+...using GL_ARB_texture_compression
+...using GL_EXT_texture_compression_s3tc
+X..GL_ARB_texture_compression_bptc not found
+X..GL_EXT_texture_filter_anisotropic not found
+...using GL_1.4_texture_lod_bias
+X..GL_EXT_shared_texture_palette not found
+X..GL_EXT_texture3D not found
+...using GL_EXT_stencil_wrap
+X..GL_EXT_stencil_two_side not found
+...got GL2.0+ glStencilOpSeparate()
+...using GL_ARB_vertex_buffer_object
+...using GL_ARB_vertex_program
+...using GL_ARB_fragment_program
+...using EXT_depth_bounds_test
+X..GL_ARB_debug_output not found
+ARB2 renderer: Available.
+----- R_ReloadARBPrograms -----
+glprogs/test.vfp
+[demoflow] +64ms ARB program test.vfp
+glprogs/test.vfp
+[demoflow] +34ms ARB program test.vfp
+glprogs/interaction.vfp
+[demoflow] +18ms ARB program interaction.vfp
+glprogs/interaction.vfp
+[demoflow] +17ms ARB program interaction.vfp
+glprogs/bumpyEnvironment.vfp
+[demoflow] +14ms ARB program bumpyEnvironment.vfp
+glprogs/bumpyEnvironment.vfp
+[demoflow] +14ms ARB program bumpyEnvironment.vfp
+glprogs/ambientLight.vfp
+[demoflow] +17ms ARB program ambientLight.vfp
+glprogs/ambientLight.vfp
+[demoflow] +15ms ARB program ambientLight.vfp
+glprogs/shadow.vp
+[demoflow] +8ms ARB program shadow.vp
+glprogs/environment.vfp
+[demoflow] +4ms ARB program environment.vfp
+glprogs/environment.vfp
+[demoflow] +9ms ARB program environment.vfp
+glprogs/arbVP_glasswarp.txt: File not found
+[demoflow] +1ms ARB program arbVP_glasswarp.txt
+glprogs/arbFP_glasswarp.txt: File not found
+[demoflow] +1ms ARB program arbFP_glasswarp.txt
+<internal> soft_particle.vfp
+[demoflow] +5ms ARB program soft_particle.vfp
+<internal> soft_particle.vfp
+[demoflow] +13ms ARB program soft_particle.vfp
+[demoflow] +243ms R_ReloadARBPrograms DONE
+using ARB_vertex_buffer_object memory
+using ARB2 renderSystem
+Will apply r_gamma and r_brightness in shaders (r_gammaInShader 1)
+[frame] frame=1 elapsed=0ms avg=0us/frame
+views:1 draws:0 tris:0 (shdw:0) (vbo:0) image:  0.8 MB
+[sgl-mt] tile-parallel raster: 6 harts (5 workers, 16x4 tiles)
+views:1 draws:2 tris:22 (shdw:0) (vbo:0) image:  0.4 MB
+views:1 draws:2 tris:58 (shdw:0) (vbo:0) image:  1.3 MB
+----- Initializing Game -----
+gamename: baseDOOM-1
+gamedate: Jun 08 2026
+Initializing event system
+...473 event definitions
+Initializing class hierarchy
+...142 classes, 764368 bytes for event callbacks
+Initializing scripts
+Compiled 'script/doom_main.script': 11931 ms
+----- Compile stats -----
+Memory usage:
+     Strings: 79, 10288 bytes
+  Statements: 67783, 2169056 bytes
+   Functions: 2108, 317908 bytes
+   Variables: 170776 bytes
+    Mem used: 3932784 bytes
+ Static data: 3558984 bytes
+   Allocated: 5107916 bytes
+ Thread size: 14056 bytes
+...6 aas types
+views:1 draws:2 tris:30 (shdw:0) (vbo:0) image:  0.4 MB
+----- Initializing Session -----
+WARNING: Couldn't load gui: 'guis/mainmenu.gui'
+bm InitGame: session->Init returned, sysDetect=1
+bm InitGame: execMachineSpec done, before s_restart
+bm s_restart: SetMute(true)
+bm s_restart: ShutdownHW
+bm s_restart: InitHW
+bm s_restart: SetMute(false)
+bm s_restart: done
+bm InitGame: s_restart done
+bm InitGame: returning to Init()
+bm startup command[0]: set r_mode -1
+bm startup command[1]: set r_customWidth 512
+bm startup command[2]: set r_customHeight 288
+bm startup command[3]: set r_glprof 0
+bm startup command[4]: map game/demo_mars_city1
+bm startup command[5]: set g_bmDeferPrecache 1
+bm startup command[6]: set bm_quietAssetLoads 1
+bm startup command[7]: set bm_ioStats 1
+bm startup command[8]: set bm_simdBench 0
+bm startup command[9]: set bm_renderProf 1
+bm startup command[10]: set g_skipCinematic 1
+bm startup command[11]: set in_scriptedMove 1
+bm startup command[12]: set r_shadows 0
+bm startup command[13]: set in_scriptedYawPerTic 3.0
+bm startup command[14]: set r_gamma 2.0
+bm startup command[15]: set r_brightness 1.3
+bm startup command[16]: set in_scriptedFwd 0
+bm startup command[17]: set bm_iakLightUnity 0
+bm startup command[18]: set bm_scenicWarp 1
+bm startup command[19]: set bm_npcCam 0
+bm startup command[20]: set com_maxCatchupTics 10
+bm startup command[21]: set bm_sglDbgDraws 0
+bm startup command[22]: set bm_sglDbgFrameFirst -1
+bm startup command[23]: set bm_sglDbgFrameLast -1
+bm startup command[24]: set bm_sglDbgDrawFirst -1
+bm startup command[25]: set bm_sglDbgDrawLast -1
+bm startup command[26]: set bm_sglDbgDetail 0
+----- Warnings -----
+during dhewm 3 initialization...
+WARNING: Couldn't load gui: 'guis/mainmenu.gui'
+1 warnings
+[rprof-timebase] 10000000 Hz (100 ns/tick) source=dtb
+bm Session_Map_f argc=2 map='game/demo_mars_city1'
+bm map file found: maps/game/demo_mars_city1.map
+bm StartNewGame map='game/demo_mars_city1' devmap=1
+bm MoveToNewMap si_map='game/demo_mars_city1'
+views:2 draws:2 tris:42 (shdw:0) (vbo:0) image:  5.1 MB
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec4 _gl4es_TexCoord_0;
+uniform sampler2D _gl4es_TexSampler_0;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = texture2DProj(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+fColor.rgb *= texColor0.rgb;
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=1 path=overlay ok=1 simt=1 ninst=11 nvaryf=8 nuni=3 vs(ninst=13 sig=fcb37a3e) | tex2d=0 proj=1 cube=0 norm=0 pow=0 dot=0 oth=0
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_TextureMatrix_0 off=16
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[rprof] draws=19 tris=4238 frags=523909 skipxp=0 mt_engaged=9 mt_blits=7 | vertex=60.490ms dispatch=0.000ms raster=0.000ms present=0.091ms total=60.581ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=192MB capacity=1833MB (10%)
+[rprof-vs] simt=19 draws/12714 verts kernel=1 batches/6 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.163ms gather=23.200ms simt=59.700ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.027ms mainbusy=616.002ms wait=2.189ms | frags=523909 | hart busy/tiles h0=615.953ms/1332 h1=614.109ms/1252 h2=614.863ms/1292 h3=615.567ms/1084 h4=617.019ms/1182 h5=613.318ms/1292 | shade=1384.477ms (37%) wrapper=2306.353ms lanes=645000 occ=81%
+[speeds] render:837ms  rf(frontend):0ms  bk(backend):127ms
+views:1 draws:19 tris:4238 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=10 tris=2174 frags=360993 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=27.697ms dispatch=0.000ms raster=0.000ms present=0.005ms total=27.702ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=192MB capacity=1833MB (10%)
+[rprof-vs] simt=10 draws/6522 verts kernel=1 batches/6 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.041ms gather=10.742ms simt=27.482ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.003ms mainbusy=398.566ms wait=1.566ms | frags=360993 | hart busy/tiles h0=398.562ms/424 h1=400.109ms/364 h2=397.835ms/360 h3=399.036ms/368 h4=399.829ms/396 h5=398.176ms/392 | shade=881.661ms (36%) wrapper=1511.889ms lanes=432901 occ=83%
+[fswork] === shader workload (cumulative frags=297222) ===
+[fswork]  id=1 100% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[speeds] render:496ms  rf(frontend):0ms  bk(backend):822ms
+bm ExecuteMapChange si_map='game/demo_mars_city1'
+----- Game Map Shutdown -----
+reloading guis/demo_mainmenu.gui.
+reloading guis/restart.gui.
+reloading guis/gameover.gui.
+reloading guis/msg.gui.
+reloading guis/takeNotes.gui.
+reloading guis/intro.gui.
+views:1 draws:10 tris:2174 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=1 tris=2 frags=110592 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=0.175ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.182ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=1 draws/6 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.020ms gather=0.025ms simt=0.138ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.037ms mainbusy=82.216ms wait=0.574ms | frags=110592 | hart busy/tiles h0=82.158ms/752 h1=80.270ms/332 h2=81.338ms/764 h3=81.376ms/768 h4=82.170ms/784 h5=82.149ms/704 | shade=177.420ms (36%) wrapper=312.043ms lanes=115200 occ=96%
+[speeds] render:137ms  rf(frontend):0ms  bk(backend):485ms
+views:1 draws:1 tris:2 (shdw:0) (vbo:0) image:  0.0 MB
+[rprof] draws=3 tris=12 frags=111381 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.468ms dispatch=0.000ms raster=0.000ms present=0.026ms total=0.494ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/36 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.014ms gather=0.097ms simt=0.385ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.003ms mainbusy=79.383ms wait=1.254ms | frags=111381 | hart busy/tiles h0=79.379ms/404 h1=79.295ms/432 h2=80.621ms/360 h3=79.113ms/416 h4=79.162ms/320 h5=79.099ms/372 | shade=175.398ms (36%) wrapper=301.273ms lanes=116557 occ=95%
+[speeds] render:137ms  rf(frontend):0ms  bk(backend):113ms
+views:1 draws:3 tris:12 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=111597 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.443ms dispatch=0.000ms raster=0.000ms present=0.009ms total=0.453ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.007ms gather=0.112ms simt=0.395ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.240ms mainbusy=78.080ms wait=0.214ms | frags=111597 | hart busy/tiles h0=78.073ms/384 h1=76.308ms/384 h2=78.247ms/356 h3=77.574ms/352 h4=76.613ms/428 h5=76.590ms/400 | shade=165.012ms (35%) wrapper=298.396ms lanes=116864 occ=95%
+[speeds] render:119ms  rf(frontend):0ms  bk(backend):127ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112983 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.597ms dispatch=0.000ms raster=0.000ms present=0.005ms total=0.603ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.019ms gather=0.129ms simt=0.502ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=80.656ms wait=0.001ms | frags=112983 | hart busy/tiles h0=80.652ms/444 h1=79.194ms/388 h2=79.361ms/416 h3=79.165ms/444 h4=79.317ms/296 h5=79.266ms/316 | shade=174.752ms (36%) wrapper=302.205ms lanes=118394 occ=95%
+[speeds] render:130ms  rf(frontend):0ms  bk(backend):114ms
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.556ms dispatch=0.000ms raster=0.000ms present=0.011ms total=0.567ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.009ms gather=0.129ms simt=0.468ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.001ms mainbusy=80.660ms wait=1.245ms | frags=112554 | hart busy/tiles h0=80.655ms/404 h1=80.045ms/356 h2=80.962ms/376 h3=81.857ms/328 h4=80.114ms/456 h5=79.944ms/384 | shade=173.306ms (35%) wrapper=310.273ms lanes=117777 occ=95%
+[speeds] render:121ms  rf(frontend):0ms  bk(backend):126ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.578ms dispatch=0.000ms raster=0.000ms present=0.006ms total=0.584ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.015ms gather=0.111ms simt=0.513ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=83.201ms wait=1.327ms | frags=112554 | hart busy/tiles h0=83.196ms/380 h1=83.065ms/300 h2=84.514ms/344 h3=82.997ms/384 h4=83.104ms/492 h5=83.314ms/404 | shade=179.455ms (35%) wrapper=320.737ms lanes=117777 occ=95%
+[speeds] render:127ms  rf(frontend):0ms  bk(backend):118ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.509ms dispatch=0.000ms raster=0.000ms present=0.005ms total=0.515ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.027ms gather=0.113ms simt=0.397ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=80.971ms wait=1.222ms | frags=112554 | hart busy/tiles h0=80.964ms/356 h1=82.178ms/344 h2=81.735ms/364 h3=80.959ms/468 h4=81.502ms/436 h5=80.822ms/336 | shade=175.516ms (35%) wrapper=312.646ms lanes=117777 occ=95%
+[speeds] render:124ms  rf(frontend):0ms  bk(backend):122ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.566ms dispatch=0.000ms raster=0.000ms present=0.004ms total=0.571ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.009ms gather=0.198ms simt=0.529ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.001ms mainbusy=82.737ms wait=0.373ms | frags=112554 | hart busy/tiles h0=82.732ms/464 h1=81.922ms/296 h2=81.740ms/384 h3=83.098ms/368 h4=82.548ms/444 h5=81.710ms/348 | shade=177.768ms (36%) wrapper=315.984ms lanes=117777 occ=95%
+[fswork] === shader workload (cumulative frags=297222) ===
+[fswork]  id=1 100% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[speeds] render:135ms  rf(frontend):0ms  bk(backend):119ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.574ms dispatch=0.000ms raster=0.000ms present=0.003ms total=0.577ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.010ms gather=0.151ms simt=0.532ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=79.174ms wait=0.652ms | frags=112554 | hart busy/tiles h0=79.171ms/376 h1=78.328ms/400 h2=78.671ms/364 h3=78.803ms/460 h4=79.266ms/324 h5=79.778ms/380 | shade=170.013ms (35%) wrapper=304.004ms lanes=117777 occ=95%
+[speeds] render:123ms  rf(frontend):0ms  bk(backend):131ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.502ms dispatch=0.000ms raster=0.000ms present=0.004ms total=0.507ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.009ms gather=0.173ms simt=0.467ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=82.166ms wait=0.756ms | frags=112554 | hart busy/tiles h0=82.161ms/408 h1=81.814ms/392 h2=81.786ms/428 h3=82.908ms/404 h4=82.428ms/332 h5=82.611ms/340 | shade=178.141ms (36%) wrapper=315.568ms lanes=117777 occ=95%
+[speeds] render:128ms  rf(frontend):0ms  bk(backend):120ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.556ms dispatch=0.000ms raster=0.000ms present=0.502ms total=1.059ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.045ms gather=0.116ms simt=0.412ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=80.183ms wait=1.349ms | frags=112554 | hart busy/tiles h0=80.179ms/440 h1=81.495ms/388 h2=80.246ms/388 h3=80.198ms/360 h4=80.180ms/360 h5=80.262ms/368 | shade=173.371ms (35%) wrapper=309.191ms lanes=117777 occ=95%
+[speeds] render:134ms  rf(frontend):0ms  bk(backend):124ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.525ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.533ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.012ms gather=0.118ms simt=0.451ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=82.561ms wait=0.653ms | frags=112554 | hart busy/tiles h0=82.558ms/344 h1=83.196ms/424 h2=82.314ms/472 h3=82.406ms/412 h4=81.943ms/400 h5=81.971ms/252 | shade=178.347ms (36%) wrapper=316.042ms lanes=117777 occ=95%
+[speeds] render:126ms  rf(frontend):0ms  bk(backend):130ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.374ms dispatch=0.000ms raster=0.000ms present=0.004ms total=0.378ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.007ms gather=0.101ms simt=0.352ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.047ms mainbusy=82.700ms wait=0.791ms | frags=112554 | hart busy/tiles h0=82.695ms/480 h1=82.343ms/388 h2=82.453ms/364 h3=83.165ms/384 h4=82.707ms/360 h5=83.365ms/328 | shade=178.278ms (35%) wrapper=318.454ms lanes=117777 occ=95%
+[speeds] render:120ms  rf(frontend):0ms  bk(backend):122ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.484ms dispatch=0.000ms raster=0.000ms present=0.006ms total=0.491ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.013ms gather=0.113ms simt=0.439ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.007ms mainbusy=84.627ms wait=1.511ms | frags=112554 | hart busy/tiles h0=84.623ms/360 h1=84.624ms/388 h2=84.704ms/416 h3=84.617ms/344 h4=86.103ms/404 h5=84.615ms/392 | shade=183.153ms (35%) wrapper=326.136ms lanes=117777 occ=95%
+[speeds] render:131ms  rf(frontend):0ms  bk(backend):119ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.529ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.537ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.015ms gather=0.117ms simt=0.463ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.021ms mainbusy=84.083ms wait=0.007ms | frags=112554 | hart busy/tiles h0=84.078ms/348 h1=83.713ms/404 h2=83.120ms/412 h3=82.827ms/364 h4=83.076ms/428 h5=82.485ms/348 | shade=179.799ms (36%) wrapper=319.502ms lanes=117777 occ=95%
+[speeds] render:129ms  rf(frontend):0ms  bk(backend):127ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.606ms dispatch=0.000ms raster=0.000ms present=0.004ms total=0.610ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.014ms gather=0.117ms simt=0.478ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.002ms mainbusy=85.531ms wait=0.017ms | frags=112554 | hart busy/tiles h0=85.526ms/412 h1=84.880ms/376 h2=84.369ms/360 h3=83.944ms/356 h4=83.935ms/388 h5=84.021ms/412 | shade=182.895ms (36%) wrapper=323.780ms lanes=117777 occ=95%
+[speeds] render:127ms  rf(frontend):0ms  bk(backend):124ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.434ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.441ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.012ms gather=0.114ms simt=0.394ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.036ms mainbusy=80.143ms wait=1.294ms | frags=112554 | hart busy/tiles h0=80.139ms/428 h1=80.318ms/500 h2=81.200ms/304 h3=81.043ms/400 h4=80.233ms/324 h5=81.428ms/348 | shade=173.677ms (35%) wrapper=310.685ms lanes=117777 occ=95%
+[speeds] render:124ms  rf(frontend):0ms  bk(backend):123ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.611ms dispatch=0.000ms raster=0.000ms present=0.004ms total=0.616ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.012ms gather=0.134ms simt=0.530ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=79.789ms wait=1.453ms | frags=112554 | hart busy/tiles h0=79.782ms/368 h1=81.229ms/360 h2=80.521ms/384 h3=80.474ms/424 h4=79.749ms/424 h5=79.780ms/344 | shade=172.410ms (35%) wrapper=309.127ms lanes=117777 occ=95%
+[fswork] === shader workload (cumulative frags=297222) ===
+[fswork]  id=1 100% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[speeds] render:137ms  rf(frontend):0ms  bk(backend):121ms
+----- Map Initialization -----
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.657ms dispatch=0.000ms raster=0.000ms present=0.042ms total=0.699ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.016ms gather=0.150ms simt=0.589ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.087ms mainbusy=79.303ms wait=1.396ms | frags=112554 | hart busy/tiles h0=79.300ms/376 h1=80.657ms/340 h2=79.264ms/364 h3=79.213ms/412 h4=79.754ms/412 h5=79.279ms/400 | shade=175.620ms (36%) wrapper=301.848ms lanes=117777 occ=95%
+[speeds] render:136ms  rf(frontend):0ms  bk(backend):133ms
+Map: game/demo_mars_city1
+[demoflow] +155ms START rw->InitFromMap (proc/BSP + materials)
+[demoflow] +495ms rw->InitFromMap opened maps/game/demo_mars_city1.proc
+glprogs/heatHaze.vfp
+glprogs/heatHaze.vfp
+glprogs/heatHazeWithMask.vfp
+glprogs/heatHazeWithMask.vfp
+[demoflow] +7301ms rw->InitFromMap parse proc models=476 shadow=260 portalBlocks=1 nodeBlocks=1
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112617 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.615ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.623ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=219MB capacity=1833MB (11%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.016ms gather=0.140ms simt=0.523ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=77.918ms wait=1.357ms | frags=112617 | hart busy/tiles h0=77.915ms/312 h1=77.983ms/372 h2=79.230ms/352 h3=78.002ms/496 h4=77.774ms/376 h5=77.784ms/396 | shade=167.417ms (35%) wrapper=301.273ms lanes=117874 occ=95%
+[speeds] render:122ms  rf(frontend):0ms  bk(backend):131ms
+[demoflow] +1ms rw->InitFromMap CommonChildrenArea areas=56
+[demoflow] +48ms rw->InitFromMap world refs/entities
+[demoflow] +7990ms rw->InitFromMap DONE
+[demoflow] +8151ms DONE rw->InitFromMap (proc/BSP + materials)
+[io] phase=rw.InitFromMap
+[io] vblk read_calls=1270 sectors=51292 ms=734 write_calls=6 write_sectors=18 write_ms=4 flush_calls=6 flush_ms=20
+[io] dosfs pread=17218 requested=17631232 served=17629115 head_bounce=2756 tail_bounce=2762 direct_reads=17218 direct_sectors=31674 cache_hits=36352 cache_misses=49591
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=2762 reads=17200 bytes=17610865 ms=902
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+[demoflow] +8182ms START game->InitFromNewMap
+----- Game Map Init -----
+[demoflow] game.LoadMap ENTER map=maps/game/demo_mars_city1.map same=0
+[demoflow] game.LoadMap mapFile.Parse EXIT dt=3609ms entities=1969
+collision data:
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112671 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.589ms dispatch=0.000ms raster=0.000ms present=0.004ms total=0.594ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=230MB capacity=1833MB (12%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.016ms gather=0.138ms simt=0.522ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=85.605ms wait=0.447ms | frags=112671 | hart busy/tiles h0=85.600ms/388 h1=85.300ms/360 h2=85.303ms/420 h3=84.781ms/444 h4=84.763ms/336 h5=86.011ms/356 | shade=184.369ms (36%) wrapper=327.389ms lanes=117963 occ=95%
+[speeds] render:130ms  rf(frontend):0ms  bk(backend):119ms
+   421 models
+ 30823 vertices (722 KB)
+ 54551 edges (1917 KB)
+ 22257 polygons (1651 KB)
+  4068 brushes (572 KB)
+ 12449 nodes (583 KB)
+ 43444 polygon refs (678 KB)
+ 14219 brush refs (222 KB)
+ 18352 internal edges
+  1461 sharp edges
+     0 contained polygons removed
+     0 polygons merged
+  6348 KB total memory used
+2994 msec to load collision data.
+[demoflow] game.LoadMap collisionModelManager.LoadMap EXIT dt=3157ms
+map bounds are (19640.0, 22168.0, 29496.0)
+max clip sector is (1227.5, 1385.5, 1843.5)
+    2 KB passage memory used to build PVS
+   38 msec to calculate PVS
+   56 areas
+  110 portals
+    9 areas visible on average
+  448 bytes PVS data
+[Load AAS]
+loading maps/game/demo_mars_city1.aas48
+done.
+[Load AAS]
+loading maps/game/demo_mars_city1.aas96
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_guardian
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_mancubus
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_sabaoth
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_cyberdemon
+[demoflow] game.LoadMap AAS init EXIT dt=897ms count=6
+[demoflow] game.LoadMap preCacheExtras EXIT dt=1ms
+[demoflow] game.LoadMap EXIT dt=7953ms
+[demoflow] game.InitFromNewMap LoadMap EXIT dt=7956ms total=7957ms
+[io] phase=game.LoadMap
+[io] vblk read_calls=1355 sectors=56320 ms=778 write_calls=6 write_sectors=18 write_ms=4 flush_calls=6 flush_ms=20
+[io] dosfs pread=19706 requested=20178944 served=20176827 head_bounce=2759 tail_bounce=2765 direct_reads=19706 direct_sectors=36647 cache_hits=41251 cache_misses=54619
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=2765 reads=19688 bytes=20158577 ms=967
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+Entering doom_main()
+Exiting doom_main()
+[demoflow] game.InitFromNewMap InitScriptForMap EXIT dt=10ms total=7997ms
+Spawning entities
+[demoflow] game.SpawnMapEntities worldspawn EXIT dt=19ms
+WARNING: marscity_cinematic_sarge_1 has no AAS file
+WARNING: marscity_cinematic_sarge2_1 has no AAS file
+WARNING: file def/weapon_bfg.def, line 92: Unknown entityDef 'damage_bfg' inherited by 'damage_bfg_cinematic'
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112734 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.702ms dispatch=0.000ms raster=0.000ms present=0.006ms total=0.708ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=230MB capacity=1833MB (12%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.020ms gather=0.173ms simt=0.565ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.001ms mainbusy=81.037ms wait=1.442ms | frags=112734 | hart busy/tiles h0=81.032ms/340 h1=82.457ms/420 h2=81.188ms/376 h3=81.066ms/416 h4=81.341ms/392 h5=81.705ms/360 | shade=175.164ms (35%) wrapper=313.626ms lanes=118072 occ=95%
+[speeds] render:127ms  rf(frontend):0ms  bk(backend):126ms
+WARNING: file def/weapon_bfg.def, line 97: Unknown entityDef 'damage_bfgFreq' inherited by 'damage_bfgfreq_cinematic'
+WARNING: file def/weapon_bfg.def, line 102: Unknown entityDef 'damage_bfgSplash' inherited by 'damage_bfgsplash_cinematic'
+glprogs/heatHazeWithMaskAndVertex.vfp
+glprogs/heatHazeWithMaskAndVertex.vfp
+WARNING: Unknown classname 'weapon_plasmagun' on 'weapon_plasmagun_1'.
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112851 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.678ms dispatch=0.000ms raster=0.000ms present=0.006ms total=0.684ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=234MB capacity=1833MB (12%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.022ms gather=0.150ms simt=0.541ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=83.857ms wait=0.665ms | frags=112851 | hart busy/tiles h0=83.853ms/440 h1=82.610ms/344 h2=84.255ms/392 h3=83.111ms/340 h4=82.873ms/360 h5=84.466ms/428 | shade=180.634ms (36%) wrapper=320.537ms lanes=118195 occ=95%
+[speeds] render:111ms  rf(frontend):0ms  bk(backend):122ms
+removed 2 degenerate triangles
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112887 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.712ms dispatch=0.000ms raster=0.000ms present=0.008ms total=0.720ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=244MB capacity=1833MB (13%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.020ms gather=0.146ms simt=0.647ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=81.215ms wait=0.001ms | frags=112887 | hart busy/tiles h0=81.211ms/352 h1=79.834ms/436 h2=80.370ms/380 h3=80.066ms/348 h4=80.293ms/428 h5=79.886ms/360 | shade=172.590ms (35%) wrapper=309.073ms lanes=118243 occ=95%
+[speeds] render:120ms  rf(frontend):0ms  bk(backend):109ms
+WARNING: marscity_cinematic_player_sarge has no AAS file
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112977 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.597ms dispatch=0.000ms raster=0.000ms present=0.011ms total=0.608ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=270MB capacity=1833MB (14%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.017ms gather=0.157ms simt=0.536ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=88.857ms wait=1.431ms | frags=112977 | hart busy/tiles h0=88.852ms/388 h1=89.152ms/380 h2=88.844ms/456 h3=90.267ms/380 h4=88.932ms/364 h5=88.815ms/336 | shade=193.121ms (36%) wrapper=341.743ms lanes=118332 occ=95%
+[speeds] render:131ms  rf(frontend):0ms  bk(backend):115ms
+...1969 entities spawned, 0 inhibited
+
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112995 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.625ms dispatch=0.000ms raster=0.000ms present=0.006ms total=0.632ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=284MB capacity=1833MB (15%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.051ms gather=0.175ms simt=0.531ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.036ms mainbusy=93.796ms wait=0.017ms | frags=112995 | hart busy/tiles h0=93.781ms/420 h1=92.409ms/368 h2=92.960ms/380 h3=93.255ms/436 h4=92.473ms/292 h5=92.710ms/408 | shade=201.734ms (36%) wrapper=355.855ms lanes=118343 occ=95%
+[speeds] render:139ms  rf(frontend):0ms  bk(backend):126ms
+[demoflow] game.SpawnMapEntities loop EXIT dt=57128ms spawned=1969 inhibited=0 entities=1969
+[demoflow] game.SpawnMapEntities media-cache calls=2170 total=19676ms modelKeys=1067 renderCalls=0 renderMs=0 collisionCalls=981 collisionMs=394 soundKeys=0 soundMs=0 guiKeys=0 guiMs=0
+[io] phase=game.SpawnMapEntities
+[io] vblk read_calls=3898 sectors=173775 ms=2123 write_calls=6 write_sectors=18 write_ms=4 flush_calls=6 flush_ms=20
+[io] dosfs pread=65688 requested=67264512 served=67262395 head_bounce=5888 tail_bounce=5894 direct_reads=65688 direct_sectors=125482 cache_hits=134760 cache_misses=172074
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=5897 reads=65670 bytes=67244145 ms=2870
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+==== Processing events ====
+[demoflow] game.InitFromNewMap MapPopulate EXIT dt=57231ms total=65232ms
+[io] phase=game.MapPopulate
+[io] vblk read_calls=3898 sectors=173775 ms=2123 write_calls=6 write_sectors=18 write_ms=4 flush_calls=6 flush_ms=20
+[io] dosfs pread=65688 requested=67264512 served=67262395 head_bounce=5888 tail_bounce=5894 direct_reads=65688 direct_sectors=125482 cache_hits=134760 cache_misses=172074
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=5897 reads=65670 bytes=67244145 ms=2870
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+[demoflow] game.InitFromNewMap mpGame.Precache EXIT dt=1ms total=66370ms
+[demoflow] game.InitFromNewMap FlushUnusedAnims EXIT dt=12ms total=66384ms
+[demoflow] game.InitFromNewMap EXIT dt=66387ms
+[demoflow] +74573ms DONE game->InitFromNewMap
+[io] phase=game.InitFromNewMap
+[io] vblk read_calls=3906 sectors=174059 ms=2127 write_calls=6 write_sectors=18 write_ms=4 flush_calls=6 flush_ms=20
+[io] dosfs pread=65766 requested=67344384 served=67342267 head_bounce=5914 tail_bounce=5920 direct_reads=65766 direct_sectors=125612 cache_hits=134938 cache_misses=172358
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=5923 reads=65748 bytes=67324017 ms=2876
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+SpawnPlayer: 0
+[demoflow] +80481ms START EndLevelLoad: gl4es texture uploads (software)
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=113049 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.721ms dispatch=0.000ms raster=0.000ms present=0.010ms total=0.732ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=291MB capacity=1833MB (15%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.017ms gather=0.170ms simt=0.656ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=84.993ms wait=1.460ms | frags=113049 | hart busy/tiles h0=84.987ms/444 h1=86.372ms/380 h2=85.361ms/420 h3=85.821ms/312 h4=85.500ms/404 h5=86.395ms/344 | shade=185.780ms (36%) wrapper=328.658ms lanes=118389 occ=95%
+[speeds] render:130ms  rf(frontend):0ms  bk(backend):135ms
+----- idRenderModelManagerLocal::EndLevelLoad -----
+    0 models purged from previous level,   975 models kept.
+----- idImageManager::EndLevelLoad -----
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image: 16.2 MB
+[rprof] draws=4 tris=20 frags=113175 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.745ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.752ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=362MB capacity=1833MB (19%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.056ms gather=0.163ms simt=0.645ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.001ms mainbusy=83.945ms wait=0.005ms | frags=113175 | hart busy/tiles h0=83.938ms/436 h1=82.650ms/396 h2=82.665ms/336 h3=82.724ms/360 h4=83.338ms/424 h5=83.459ms/352 | shade=179.757ms (36%) wrapper=319.018ms lanes=118526 occ=95%
+[fswork] === shader workload (cumulative frags=297222) ===
+[fswork]  id=1 100% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[speeds] render:139ms  rf(frontend):0ms  bk(backend):126ms
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image: 18.2 MB
+[rprof] draws=4 tris=20 frags=113373 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.639ms dispatch=0.000ms raster=0.000ms present=0.005ms total=0.645ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=434MB capacity=1833MB (23%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.061ms gather=0.128ms simt=0.515ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.043ms mainbusy=87.867ms wait=0.278ms | frags=113373 | hart busy/tiles h0=87.861ms/336 h1=86.533ms/412 h2=87.640ms/364 h3=87.859ms/392 h4=87.934ms/408 h5=88.078ms/392 | shade=189.859ms (36%) wrapper=336.048ms lanes=118740 occ=95%
+[speeds] render:132ms  rf(frontend):0ms  bk(backend):134ms
+    0 purged from previous
+  155 kept from previous
+ 1945 new loaded
+all images loaded in  17.7 seconds
+[demoflow] +98367ms DONE EndLevelLoad
+[io] phase=EndLevelLoad
+[io] vblk read_calls=7064 sectors=304741 ms=3774 write_calls=6 write_sectors=18 write_ms=4 flush_calls=6 flush_ms=20
+[io] dosfs pread=125811 requested=128830464 served=128828347 head_bounce=10199 tail_bounce=10205 direct_reads=125811 direct_sectors=241417 cache_hits=257103 cache_misses=303040
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=10210 reads=125793 bytes=128810097 ms=5169
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+ 99824 msec to load game/demo_mars_city1
+[demoflow] +99827ms SKIP GenerateAllInteractions (bare-metal lazy interactions)
+----- Warnings -----
+during game/demo_mars_city1...
+WARNING: file def/weapon_bfg.def, line 102: Unknown entityDef 'damage_bfgSplash' inherited by 'damage_bfgsplash_cinematic'
+WARNING: file def/weapon_bfg.def, line 92: Unknown entityDef 'damage_bfg' inherited by 'damage_bfg_cinematic'
+WARNING: file def/weapon_bfg.def, line 97: Unknown entityDef 'damage_bfgFreq' inherited by 'damage_bfgfreq_cinematic'
+WARNING: Unknown classname 'weapon_plasmagun' on 'weapon_plasmagun_1'.
+4 warnings
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  8.0 MB
+[rprof] draws=4 tris=20 frags=113373 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.727ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.735ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=466MB capacity=1833MB (25%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.062ms gather=0.206ms simt=0.596ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=78.194ms wait=0.001ms | frags=113373 | hart busy/tiles h0=78.190ms/444 h1=76.964ms/392 h2=76.706ms/408 h3=76.657ms/328 h4=76.752ms/360 h5=76.680ms/372 | shade=165.014ms (35%) wrapper=296.937ms lanes=118740 occ=95%
+[speeds] render:119ms  rf(frontend):0ms  bk(backend):126ms
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=113418 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.622ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.630ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=466MB capacity=1833MB (25%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.027ms gather=0.128ms simt=0.467ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.004ms mainbusy=81.118ms wait=0.361ms | frags=113418 | hart busy/tiles h0=81.111ms/384 h1=81.069ms/500 h2=81.460ms/324 h3=80.190ms/392 h4=80.326ms/332 h5=80.438ms/372 | shade=173.995ms (35%) wrapper=310.601ms lanes=118764 occ=95%
+[speeds] render:127ms  rf(frontend):0ms  bk(backend):112ms
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=113463 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.630ms dispatch=0.000ms raster=0.000ms present=0.007ms total=0.638ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=466MB capacity=1833MB (25%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.014ms gather=0.132ms simt=0.561ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=85.356ms wait=1.665ms | frags=113463 | hart busy/tiles h0=85.351ms/440 h1=85.307ms/308 h2=85.831ms/460 h3=85.343ms/376 h4=85.342ms/340 h5=87.006ms/380 | shade=185.274ms (36%) wrapper=328.909ms lanes=118830 occ=95%
+[speeds] render:110ms  rf(frontend):0ms  bk(backend):122ms
+[demoflow] +100209ms map-change COMPLETE -> mapSpawned (ready to render)
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec4 _gl4es_TexCoord_0;
+uniform sampler2D _gl4es_TexSampler_0;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = texture2DProj(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+fColor *= texColor0;
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=2 path=overlay ok=1 simt=1 ninst=9 nvaryf=8 nuni=3 vs(ninst=13 sig=fcb37a3e) | tex2d=0 proj=1 cube=0 norm=0 pow=0 dot=0 oth=0
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_TextureMatrix_0 off=16
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec4 _gl4es_TexCoord_0;
+uniform sampler2D _gl4es_TexSampler_0;
+uniform float _gl4es_AlphaRef;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = texture2DProj(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+fColor *= texColor0;
+if (floor(fColor.a*255.) <= _gl4es_AlphaRef) discard;
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=3 path=overlay_atest ok=1 simt=1 ninst=16 nvaryf=8 nuni=3 vs(ninst=9 sig=e3a18078) | tex2d=0 proj=1 cube=0 norm=0 pow=0 dot=0 oth=1
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[fsdump]   uni  _gl4es_AlphaRef off=16
+[vssrc-interaction] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+attribute highp vec4 _gl4es_Vertex;
+attribute lowp vec4 _gl4es_Color;
+attribute highp vec4 _gl4es_VertexAttrib_8;
+attribute highp vec4 _gl4es_VertexAttrib_9;
+attribute highp vec4 _gl4es_VertexAttrib_10;
+attribute highp vec4 _gl4es_VertexAttrib_11;
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform highp mat4 _gl4es_ModelViewProjectionMatrix;
+uniform vec4 _gl4es_Vertex_ProgramEnv_4;
+uniform vec4 _gl4es_Vertex_ProgramEnv_5;
+uniform vec4 _gl4es_Vertex_ProgramEnv_6;
+uniform vec4 _gl4es_Vertex_ProgramEnv_7;
+uniform vec4 _gl4es_Vertex_ProgramEnv_8;
+uniform vec4 _gl4es_Vertex_ProgramEnv_9;
+uniform vec4 _gl4es_Vertex_ProgramEnv_10;
+uniform vec4 _gl4es_Vertex_ProgramEnv_11;
+uniform vec4 _gl4es_Vertex_ProgramEnv_12;
+uniform vec4 _gl4es_Vertex_ProgramEnv_13;
+uniform vec4 _gl4es_Vertex_ProgramEnv_14;
+uniform vec4 _gl4es_Vertex_ProgramEnv_15;
+uniform vec4 _gl4es_Vertex_ProgramEnv_16;
+uniform vec4 _gl4es_Vertex_ProgramEnv_17;
+
+highp vec4 ftransform() {
+ return _gl4es_ModelViewProjectionMatrix * _gl4es_Vertex;
+}
+precision highp int;
+
+
+struct _structOnlyX { int x; };
+
+void main() {
+	vec4 R0;
+	vec4 R1;
+	vec4 R2;
+	vec4 defaultTexCoord = vec4(0.00000, 0.500000, 0.00000, 1.00000);
+	
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	_gl4es_TexCoord_0.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_0.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_0.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_TexCoord_1 = defaultTexCoord;
+	_gl4es_TexCoord_1.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_10));
+	_gl4es_TexCoord_1.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_11));
+	_gl4es_TexCoord_2 = defaultTexCoord;
+	_gl4es_TexCoord_2.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_9));
+	_gl4es_TexCoord_3.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_6));
+	_gl4es_TexCoord_3.y = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_7));
+	_gl4es_TexCoord_3.w = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_8));
+	_gl4es_TexCoord_4 = defaultTexCoord;
+	_gl4es_TexCoord_4.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_12));
+	_gl4es_TexCoord_4.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_13));
+	_gl4es_TexCoord_5 = defaultTexCoord;
+	_gl4es_TexCoord_5.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_14));
+	_gl4es_TexCoord_5.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_15));
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	R1 = vec4(dot(R0.xyz, R0.xyz));
+	R1 = vec4(inversesqrt(R1.x));
+	R0 = R0 * R1.xxxx;
+	R1 = _gl4es_Vertex_ProgramEnv_5 - _gl4es_Vertex;
+	R2 = vec4(dot(R1.xyz, R1.xyz));
+	R2 = vec4(inversesqrt(R2.x));
+	R1 = R1 * R2.xxxx;
+	R0 = R0 + R1;
+	_gl4es_TexCoord_6.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_6.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_6.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_FrontColor = (_gl4es_Color * _gl4es_Vertex_ProgramEnv_16 + _gl4es_Vertex_ProgramEnv_17);
+	
+	gl_Position = ftransform();
+}
+
+[vssrc-interaction] <<<<<<<<<<
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform sampler2D _gl4es_Sampler2D_2;
+uniform sampler2D _gl4es_Sampler2D_3;
+uniform sampler2D _gl4es_Sampler2D_4;
+uniform sampler2D _gl4es_Sampler2D_5;
+uniform sampler2D _gl4es_Sampler2D_6;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 light;
+	vec4 color;
+	vec4 R1;
+	vec4 R2;
+	vec4 localNormal;
+	vec4 specular;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	specular = vec4(dot(_gl4es_TexCoord_6.xyz, _gl4es_TexCoord_6.xyz));
+	specular = vec4(inversesqrt(specular.x));
+	specular = specular.xxxx * _gl4es_TexCoord_6;
+	light = textureCube(_gl4es_SamplerCube_0, _gl4es_TexCoord_0.xyz);
+	light = (light * scaleTwo + subOne);
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	light = vec4(dot(light.xyz, localNormal.xyz));
+	R1 = texture2DProj(_gl4es_Sampler2D_3, _gl4es_TexCoord_3);
+	light = light * R1;
+	R1 = texture2DProj(_gl4es_Sampler2D_2, _gl4es_TexCoord_2);
+	light = light * R1;
+	R1 = texture2D(_gl4es_Sampler2D_4, _gl4es_TexCoord_4.xy);
+	color = R1 * _gl4es_Fragment_ProgramEnv_0;
+	specular = vec4(dot(specular.xyz, localNormal.xyz));
+	R1 = texture2D(_gl4es_Sampler2D_6, specular.xy);
+	R1 = R1 * _gl4es_Fragment_ProgramEnv_1;
+	R2 = texture2D(_gl4es_Sampler2D_5, _gl4es_TexCoord_5.xy);
+	R2 = R2 + R2;
+	color = (R1 * R2 + color);
+	color = light * color;
+	dhewm3tmpres = color * _gl4es_FrontColor;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=4 path=interaction_gl4es ok=1 simt=1 ninst=133 nvaryf=32 nuni=25 vs(ninst=0 sig=e23c62b5) | tex2d=4 proj=2 cube=1 norm=0 pow=3 dot=3 oth=2
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   vary[3] _gl4es_TexCoord_2 comp=4 off=12
+[fsdump]   vary[4] _gl4es_TexCoord_3 comp=4 off=16
+[fsdump]   vary[5] _gl4es_TexCoord_4 comp=4 off=20
+[fsdump]   vary[6] _gl4es_TexCoord_5 comp=4 off=24
+[fsdump]   vary[7] _gl4es_TexCoord_6 comp=4 off=28
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_4 off=16
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=20
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_6 off=24
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_7 off=28
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_8 off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_9 off=36
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_10 off=40
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_11 off=44
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_12 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_13 off=52
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_14 off=56
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_15 off=60
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_16 off=64
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_17 off=68
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=72
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=76
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=80
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_Sampler2D_2 unit=2
+[fsdump]   uni  _gl4es_Sampler2D_3 unit=3
+[fsdump]   uni  _gl4es_Sampler2D_4 unit=4
+[fsdump]   uni  _gl4es_Sampler2D_5 unit=5
+[fsdump]   uni  _gl4es_Sampler2D_6 unit=6
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+[vssrc-interaction] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+attribute highp vec4 _gl4es_Vertex;
+attribute lowp vec4 _gl4es_Color;
+attribute highp vec4 _gl4es_VertexAttrib_8;
+attribute highp vec4 _gl4es_VertexAttrib_9;
+attribute highp vec4 _gl4es_VertexAttrib_10;
+attribute highp vec4 _gl4es_VertexAttrib_11;
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform highp mat4 _gl4es_ModelViewProjectionMatrix;
+uniform vec4 _gl4es_Vertex_ProgramEnv_4;
+uniform vec4 _gl4es_Vertex_ProgramEnv_5;
+uniform vec4 _gl4es_Vertex_ProgramEnv_6;
+uniform vec4 _gl4es_Vertex_ProgramEnv_7;
+uniform vec4 _gl4es_Vertex_ProgramEnv_8;
+uniform vec4 _gl4es_Vertex_ProgramEnv_9;
+uniform vec4 _gl4es_Vertex_ProgramEnv_10;
+uniform vec4 _gl4es_Vertex_ProgramEnv_11;
+uniform vec4 _gl4es_Vertex_ProgramEnv_12;
+uniform vec4 _gl4es_Vertex_ProgramEnv_13;
+uniform vec4 _gl4es_Vertex_ProgramEnv_14;
+uniform vec4 _gl4es_Vertex_ProgramEnv_15;
+uniform vec4 _gl4es_Vertex_ProgramEnv_16;
+uniform vec4 _gl4es_Vertex_ProgramEnv_17;
+
+highp vec4 ftransform() {
+ return _gl4es_ModelViewProjectionMatrix * _gl4es_Vertex;
+}
+precision highp int;
+
+
+struct _structOnlyX { int x; };
+
+void main() {
+	vec4 R0;
+	vec4 R1;
+	vec4 R2;
+	vec4 defaultTexCoord = vec4(0.00000, 0.500000, 0.00000, 1.00000);
+	
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	_gl4es_TexCoord_0.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_0.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_0.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_TexCoord_1 = defaultTexCoord;
+	_gl4es_TexCoord_1.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_10));
+	_gl4es_TexCoord_1.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_11));
+	_gl4es_TexCoord_2 = defaultTexCoord;
+	_gl4es_TexCoord_2.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_9));
+	_gl4es_TexCoord_3.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_6));
+	_gl4es_TexCoord_3.y = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_7));
+	_gl4es_TexCoord_3.w = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_8));
+	_gl4es_TexCoord_4 = defaultTexCoord;
+	_gl4es_TexCoord_4.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_12));
+	_gl4es_TexCoord_4.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_13));
+	_gl4es_TexCoord_5 = defaultTexCoord;
+	_gl4es_TexCoord_5.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_14));
+	_gl4es_TexCoord_5.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_15));
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	R1 = vec4(dot(R0.xyz, R0.xyz));
+	R1 = vec4(inversesqrt(R1.x));
+	R0 = R0 * R1.xxxx;
+	R1 = _gl4es_Vertex_ProgramEnv_5 - _gl4es_Vertex;
+	R2 = vec4(dot(R1.xyz, R1.xyz));
+	R2 = vec4(inversesqrt(R2.x));
+	R1 = R1 * R2.xxxx;
+	R0 = R0 + R1;
+	_gl4es_TexCoord_6.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_6.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_6.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_FrontColor = (_gl4es_Color * _gl4es_Vertex_ProgramEnv_16 + _gl4es_Vertex_ProgramEnv_17);
+	
+	gl_Position = ftransform();
+}
+
+[vssrc-interaction] <<<<<<<<<<
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform sampler2D _gl4es_Sampler2D_2;
+uniform sampler2D _gl4es_Sampler2D_3;
+uniform sampler2D _gl4es_Sampler2D_4;
+uniform sampler2D _gl4es_Sampler2D_5;
+uniform sampler2D _gl4es_Sampler2D_6;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 light;
+	vec4 color;
+	vec4 R1;
+	vec4 R2;
+	vec4 localNormal;
+	vec4 specular;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	specular = vec4(dot(_gl4es_TexCoord_6.xyz, _gl4es_TexCoord_6.xyz));
+	specular = vec4(inversesqrt(specular.x));
+	specular = specular.xxxx * _gl4es_TexCoord_6;
+	light = textureCube(_gl4es_SamplerCube_0, _gl4es_TexCoord_0.xyz);
+	light = (light * scaleTwo + subOne);
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	light = vec4(dot(light.xyz, localNormal.xyz));
+	R1 = texture2DProj(_gl4es_Sampler2D_3, _gl4es_TexCoord_3);
+	light = light * R1;
+	R1 = texture2DProj(_gl4es_Sampler2D_2, _gl4es_TexCoord_2);
+	light = light * R1;
+	R1 = texture2D(_gl4es_Sampler2D_4, _gl4es_TexCoord_4.xy);
+	color = R1 * _gl4es_Fragment_ProgramEnv_0;
+	specular = vec4(dot(specular.xyz, localNormal.xyz));
+	R1 = texture2D(_gl4es_Sampler2D_6, specular.xy);
+	R1 = R1 * _gl4es_Fragment_ProgramEnv_1;
+	R2 = texture2D(_gl4es_Sampler2D_5, _gl4es_TexCoord_5.xy);
+	R2 = R2 + R2;
+	color = (R1 * R2 + color);
+	color = light * color;
+	dhewm3tmpres = color * _gl4es_FrontColor;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=5 path=interaction_gl4es ok=1 simt=1 ninst=133 nvaryf=32 nuni=25 vs(ninst=0 sig=e23c62b5) | tex2d=4 proj=2 cube=1 norm=0 pow=3 dot=3 oth=2
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   vary[3] _gl4es_TexCoord_2 comp=4 off=12
+[fsdump]   vary[4] _gl4es_TexCoord_3 comp=4 off=16
+[fsdump]   vary[5] _gl4es_TexCoord_4 comp=4 off=20
+[fsdump]   vary[6] _gl4es_TexCoord_5 comp=4 off=24
+[fsdump]   vary[7] _gl4es_TexCoord_6 comp=4 off=28
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_4 off=16
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=20
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_6 off=24
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_7 off=28
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_8 off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_9 off=36
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_10 off=40
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_11 off=44
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_12 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_13 off=52
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_14 off=56
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_15 off=60
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_16 off=64
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_17 off=68
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=72
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=76
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=80
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_Sampler2D_2 unit=2
+[fsdump]   uni  _gl4es_Sampler2D_3 unit=3
+[fsdump]   uni  _gl4es_Sampler2D_4 unit=4
+[fsdump]   uni  _gl4es_Sampler2D_5 unit=5
+[fsdump]   uni  _gl4es_Sampler2D_6 unit=6
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+[vssrc-interaction] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+attribute highp vec4 _gl4es_Vertex;
+attribute lowp vec4 _gl4es_Color;
+attribute highp vec4 _gl4es_VertexAttrib_8;
+attribute highp vec4 _gl4es_VertexAttrib_9;
+attribute highp vec4 _gl4es_VertexAttrib_10;
+attribute highp vec4 _gl4es_VertexAttrib_11;
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform highp mat4 _gl4es_ModelViewProjectionMatrix;
+uniform vec4 _gl4es_Vertex_ProgramEnv_4;
+uniform vec4 _gl4es_Vertex_ProgramEnv_5;
+uniform vec4 _gl4es_Vertex_ProgramEnv_6;
+uniform vec4 _gl4es_Vertex_ProgramEnv_7;
+uniform vec4 _gl4es_Vertex_ProgramEnv_8;
+uniform vec4 _gl4es_Vertex_ProgramEnv_9;
+uniform vec4 _gl4es_Vertex_ProgramEnv_10;
+uniform vec4 _gl4es_Vertex_ProgramEnv_11;
+uniform vec4 _gl4es_Vertex_ProgramEnv_12;
+uniform vec4 _gl4es_Vertex_ProgramEnv_13;
+uniform vec4 _gl4es_Vertex_ProgramEnv_14;
+uniform vec4 _gl4es_Vertex_ProgramEnv_15;
+uniform vec4 _gl4es_Vertex_ProgramEnv_16;
+uniform vec4 _gl4es_Vertex_ProgramEnv_17;
+
+highp vec4 ftransform() {
+ return _gl4es_ModelViewProjectionMatrix * _gl4es_Vertex;
+}
+precision highp int;
+
+
+struct _structOnlyX { int x; };
+
+void main() {
+	vec4 R0;
+	vec4 R1;
+	vec4 R2;
+	vec4 defaultTexCoord = vec4(0.00000, 0.500000, 0.00000, 1.00000);
+	
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	_gl4es_TexCoord_0.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_0.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_0.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_TexCoord_1 = defaultTexCoord;
+	_gl4es_TexCoord_1.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_10));
+	_gl4es_TexCoord_1.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_11));
+	_gl4es_TexCoord_2 = defaultTexCoord;
+	_gl4es_TexCoord_2.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_9));
+	_gl4es_TexCoord_3.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_6));
+	_gl4es_TexCoord_3.y = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_7));
+	_gl4es_TexCoord_3.w = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_8));
+	_gl4es_TexCoord_4 = defaultTexCoord;
+	_gl4es_TexCoord_4.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_12));
+	_gl4es_TexCoord_4.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_13));
+	_gl4es_TexCoord_5 = defaultTexCoord;
+	_gl4es_TexCoord_5.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_14));
+	_gl4es_TexCoord_5.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_15));
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	R1 = vec4(dot(R0.xyz, R0.xyz));
+	R1 = vec4(inversesqrt(R1.x));
+	R0 = R0 * R1.xxxx;
+	R1 = _gl4es_Vertex_ProgramEnv_5 - _gl4es_Vertex;
+	R2 = vec4(dot(R1.xyz, R1.xyz));
+	R2 = vec4(inversesqrt(R2.x));
+	R1 = R1 * R2.xxxx;
+	R0 = R0 + R1;
+	_gl4es_TexCoord_6.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_6.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_6.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_FrontColor = (_gl4es_Color * _gl4es_Vertex_ProgramEnv_16 + _gl4es_Vertex_ProgramEnv_17);
+	
+	gl_Position = ftransform();
+}
+
+[vssrc-interaction] <<<<<<<<<<
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform sampler2D _gl4es_Sampler2D_2;
+uniform sampler2D _gl4es_Sampler2D_3;
+uniform sampler2D _gl4es_Sampler2D_4;
+uniform sampler2D _gl4es_Sampler2D_5;
+uniform sampler2D _gl4es_Sampler2D_6;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 light;
+	vec4 color;
+	vec4 R1;
+	vec4 R2;
+	vec4 localNormal;
+	vec4 specular;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	specular = vec4(dot(_gl4es_TexCoord_6.xyz, _gl4es_TexCoord_6.xyz));
+	specular = vec4(inversesqrt(specular.x));
+	specular = specular.xxxx * _gl4es_TexCoord_6;
+	light = textureCube(_gl4es_SamplerCube_0, _gl4es_TexCoord_0.xyz);
+	light = (light * scaleTwo + subOne);
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	light = vec4(dot(light.xyz, localNormal.xyz));
+	R1 = texture2DProj(_gl4es_Sampler2D_3, _gl4es_TexCoord_3);
+	light = light * R1;
+	R1 = texture2DProj(_gl4es_Sampler2D_2, _gl4es_TexCoord_2);
+	light = light * R1;
+	R1 = texture2D(_gl4es_Sampler2D_4, _gl4es_TexCoord_4.xy);
+	color = R1 * _gl4es_Fragment_ProgramEnv_0;
+	specular = vec4(dot(specular.xyz, localNormal.xyz));
+	R1 = texture2D(_gl4es_Sampler2D_6, specular.xy);
+	R1 = R1 * _gl4es_Fragment_ProgramEnv_1;
+	R2 = texture2D(_gl4es_Sampler2D_5, _gl4es_TexCoord_5.xy);
+	R2 = R2 + R2;
+	color = (R1 * R2 + color);
+	color = light * color;
+	dhewm3tmpres = color * _gl4es_FrontColor;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=6 path=interaction_gl4es ok=1 simt=1 ninst=133 nvaryf=32 nuni=25 vs(ninst=0 sig=e23c62b5) | tex2d=4 proj=2 cube=1 norm=0 pow=3 dot=3 oth=2
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   vary[3] _gl4es_TexCoord_2 comp=4 off=12
+[fsdump]   vary[4] _gl4es_TexCoord_3 comp=4 off=16
+[fsdump]   vary[5] _gl4es_TexCoord_4 comp=4 off=20
+[fsdump]   vary[6] _gl4es_TexCoord_5 comp=4 off=24
+[fsdump]   vary[7] _gl4es_TexCoord_6 comp=4 off=28
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_4 off=16
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=20
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_6 off=24
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_7 off=28
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_8 off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_9 off=36
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_10 off=40
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_11 off=44
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_12 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_13 off=52
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_14 off=56
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_15 off=60
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_16 off=64
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_17 off=68
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=72
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=76
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=80
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_Sampler2D_2 unit=2
+[fsdump]   uni  _gl4es_Sampler2D_3 unit=3
+[fsdump]   uni  _gl4es_Sampler2D_4 unit=4
+[fsdump]   uni  _gl4es_Sampler2D_5 unit=5
+[fsdump]   uni  _gl4es_Sampler2D_6 unit=6
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec4 _gl4es_TexCoord_0;
+uniform lowp vec4 _gl4es_TextureEnvColor_1;
+uniform sampler2D _gl4es_TexSampler_0;
+varying highp vec4 _gl4es_TexCoord_1;
+uniform sampler2D _gl4es_TexSampler_1;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = texture2DProj(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+vec4 texColor1 = texture2DProj(_gl4es_TexSampler_1, _gl4es_TexCoord_1);
+vec4 Arg0, Arg1, Arg2;
+fColor.rgb *= texColor0.rgb;
+Arg0 = fColor;
+Arg1 = _gl4es_TextureEnvColor_1;
+fColor = Arg0 * Arg1;
+fColor = clamp(fColor, 0., 1.);
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=7 path=envcombine ok=1 simt=1 ninst=27 nvaryf=12 nuni=4 vs(ninst=12 sig=f18d8f39) | tex2d=0 proj=2 cube=0 norm=0 pow=0 dot=0 oth=1
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_TextureEnvColor_1 off=16
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[fsdump]   uni  _gl4es_TexSampler_1 unit=0
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 globalEye;
+	vec4 localNormal;
+	vec4 globalNormal;
+	vec4 R0;
+	vec4 R1;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_0.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	R1 = vec4(dot(localNormal.xyz, localNormal.xyz));
+	R1 = vec4(inversesqrt(R1.x));
+	localNormal.xyz = localNormal.xyz * R1.xyz;
+	globalNormal.x = (dot(localNormal.xyz, _gl4es_TexCoord_2.xyz));
+	globalNormal.y = (dot(localNormal.xyz, _gl4es_TexCoord_3.xyz));
+	globalNormal.z = (dot(localNormal.xyz, _gl4es_TexCoord_4.xyz));
+	R0 = vec4(dot(_gl4es_TexCoord_1.xyz, _gl4es_TexCoord_1.xyz));
+	R0 = vec4(inversesqrt(R0.x));
+	globalEye = _gl4es_TexCoord_1 * R0;
+	R0 = vec4(dot(globalEye.xyz, globalNormal.xyz));
+	R0 = R0 * globalNormal;
+	R0 = (R0 * scaleTwo + -globalEye);
+	R0 = textureCube(_gl4es_SamplerCube_0, R0.xyz);
+	dhewm3tmpres.xyz = R0.xyz;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=8 path=VM ok=1 simt=1 ninst=116 nvaryf=24 nuni=8 vs(ninst=0 sig=e23c62b5) | tex2d=1 proj=0 cube=1 norm=0 pow=3 dot=6 oth=3
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   vary[3] _gl4es_TexCoord_2 comp=4 off=12
+[fsdump]   vary[4] _gl4es_TexCoord_3 comp=4 off=16
+[fsdump]   vary[5] _gl4es_TexCoord_4 comp=4 off=20
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=16
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_6 off=20
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_7 off=24
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_8 off=28
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=32
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_0;
+uniform sampler2D _gl4es_Sampler2D_1;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 localNormal;
+	vec4 R0;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	R0 = gl_FragCoord * _gl4es_Fragment_ProgramEnv_1;
+	R0 = clamp(localNormal * _gl4es_TexCoord_2 + R0, 0.00000, 1.00000);
+	R0 = R0 * _gl4es_Fragment_ProgramEnv_0;
+	dhewm3tmpres.xyz = texture2D(_gl4es_Sampler2D_0, R0.xy).xyz;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=9 path=heathaze ok=1 simt=1 ninst=73 nvaryf=8 nuni=10 vs(ninst=0 sig=e23c62b5) | tex2d=2 proj=0 cube=0 norm=0 pow=3 dot=0 oth=2
+[fsdump]   vary[0] _gl4es_TexCoord_1 comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_2 comp=4 off=4
+[fsdump]   uni  _gl4es_TModelViewMatrix off=0
+[fsdump]   uni  _gl4es_TProjectionMatrix off=16
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramLocal_0 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramLocal_1 off=52
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=56
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=60
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=64
+[fsdump]   uni  _gl4es_Sampler2D_0 unit=0
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 toEye;
+	vec4 normal;
+	vec4 R0;
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	R0 = vec4(dot(_gl4es_TexCoord_0.xyz, _gl4es_TexCoord_0.xyz));
+	R0 = vec4(inversesqrt(R0.x));
+	normal = _gl4es_TexCoord_0 * R0;
+	R0 = vec4(dot(_gl4es_TexCoord_1.xyz, _gl4es_TexCoord_1.xyz));
+	R0 = vec4(inversesqrt(R0.x));
+	toEye = _gl4es_TexCoord_1 * R0;
+	R0 = vec4(dot(toEye.xyz, normal.xyz));
+	R0 = R0 * normal;
+	R0 = (R0 * scaleTwo + -toEye);
+	R0 = textureCube(_gl4es_SamplerCube_0, R0.xyz);
+	dhewm3tmpres = R0 * _gl4es_FrontColor;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=10 path=VM ok=1 simt=1 ninst=81 nvaryf=12 nuni=4 vs(ninst=0 sig=e23c62b5) | tex2d=0 proj=0 cube=1 norm=0 pow=3 dot=3 oth=3
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=16
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=20
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+views:6 draws:2181 tris:66245 (shdw:0) (vbo:0) image: 10.4 MB
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec3 _gl4es_TexCoord_0;
+uniform samplerCube _gl4es_TexSampler_0;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = textureCube(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+fColor.rgb *= texColor0.rgb;
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=11 path=modulate_cube ok=1 simt=1 ninst=11 nvaryf=7 nuni=2 vs(ninst=9 sig=d9952bc3) | tex2d=0 proj=0 cube=1 norm=0 pow=0 dot=0 oth=0
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=3 off=4
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[rprof] draws=2293 tris=73534 frags=42689058 skipxp=0 mt_engaged=77 mt_blits=36 | vertex=2032.733ms dispatch=0.000ms raster=0.000ms present=0.007ms total=2032.740ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=471MB capacity=1833MB (25%)
+[rprof-vs] simt=2288 draws/220542 verts kernel=7738 batches/114612 verts scalar=5 draws/40 transformed-verts
+[rprof-vstime] index=12.404ms gather=630.698ms simt=1957.911ms scalar=0.000ms cache=18.271ms
+[rprof-mt] bin=0.000ms release=0.483ms mainbusy=37703.083ms wait=93.535ms | frags=42689058 | hart busy/tiles h0=37702.514ms/20564 h1=37593.500ms/20532 h2=37586.189ms/20381 h3=37619.164ms/20481 h4=37645.569ms/20687 h5=37576.066ms/20540 | shade=81220.287ms (35%) wrapper=144502.716ms lanes=44552290 occ=95%
+[speeds] render:5768ms  rf(frontend):663ms  bk(backend):2510ms
+frame:0 all:182738 gfr:45015 rf:663 bk:2510
+[io] vblk read_calls=7064 sectors=304741 ms=3774 write_calls=10 write_sectors=278 write_ms=7 flush_calls=10 flush_ms=41
+[io] dosfs pread=125811 requested=128830464 served=128828347 head_bounce=10199 tail_bounce=10205 direct_reads=125811 direct_sectors=241417 cache_hits=257103 cache_misses=303040
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=10210 reads=125793 bytes=128810097 ms=5169
+[io] ext=tga opens=2 reads=0 bytes=0 ms=0
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+views:2 draws:116 tris:7309 (shdw:0) (vbo:0) image:  3.2 MB
+[rprof] draws=579 tris=12479 frags=620235 skipxp=0 mt_engaged=17 mt_blits=7 | vertex=321.421ms dispatch=0.000ms raster=0.000ms present=0.010ms total=321.431ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=471MB capacity=1833MB (25%)
+[rprof-vs] simt=578 draws/37431 verts kernel=1141 batches/17052 verts scalar=1 draws/4 transformed-verts
+[rprof-vstime] index=2.909ms gather=98.416ms simt=307.234ms scalar=0.000ms cache=1.376ms
+[rprof-mt] bin=0.000ms release=0.073ms mainbusy=1403.660ms wait=37.804ms | frags=620235 | hart busy/tiles h0=1403.546ms/4316 h1=1381.244ms/4749 h2=1392.450ms/4744 h3=1390.122ms/4580 h4=1405.715ms/3991 h5=1380.326ms/3913 | shade=5356.797ms (64%) wrapper=2996.608ms lanes=815081 occ=76%
+[speeds] render:3629ms  rf(frontend):116ms  bk(backend):5700ms
+frame:1 all:4223 gfr:550 rf:116 bk:5700
+[io] vblk read_calls=7064 sectors=304741 ms=3774 write_calls=10 write_sectors=278 write_ms=7 flush_calls=10 flush_ms=41
+[io] dosfs pread=125811 requested=128830464 served=128828347 head_bounce=10199 tail_bounce=10205 direct_reads=125811 direct_sectors=241417 cache_hits=257103 cache_misses=303040
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=10210 reads=125793 bytes=128810097 ms=5169
+[io] ext=tga opens=2 reads=0 bytes=0 ms=0
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+views:2 draws:579 tris:12479 (shdw:0) (vbo:0) image:  5.6 MB
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_0;
+uniform sampler2D _gl4es_Sampler2D_1;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 localNormal;
+	vec4 R0;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	R0 = gl_FragCoord * _gl4es_Fragment_ProgramEnv_1;
+	R0 = clamp(localNormal * _gl4es_TexCoord_2 + R0, 0.00000, 1.00000);
+	R0 = R0 * _gl4es_Fragment_ProgramEnv_0;
+	dhewm3tmpres.xyz = texture2D(_gl4es_Sampler2D_0, R0.xy).xyz;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=12 path=heathaze ok=1 simt=1 ninst=73 nvaryf=8 nuni=10 vs(ninst=0 sig=e23c62b5) | tex2d=2 proj=0 cube=0 norm=0 pow=3 dot=0 oth=2
+[fsdump]   vary[0] _gl4es_TexCoord_1 comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_2 comp=4 off=4
+[fsdump]   uni  _gl4es_TModelViewMatrix off=0
+[fsdump]   uni  _gl4es_TProjectionMatrix off=16
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramLocal_0 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramLocal_1 off=52
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=56
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=60
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=64
+[fsdump]   uni  _gl4es_Sampler2D_0 unit=0
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[rprof] draws=690 tris=14576 frags=603407 skipxp=0 mt_engaged=11 mt_blits=5 | vertex=391.033ms dispatch=0.000ms raster=0.000ms present=0.006ms total=391.040ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=475MB capacity=1833MB (25%)
+[rprof-vs] simt=685 draws/43698 verts kernel=1465 batches/21309 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=3.788ms gather=115.020ms simt=368.472ms scalar=0.000ms cache=5.784ms
+[rprof-mt] bin=0.000ms release=0.090ms mainbusy=1647.688ms wait=42.061ms | frags=603407 | hart busy/tiles h0=1647.629ms/2312 h1=1638.013ms/2426 h2=1629.481ms/2536 h3=1652.123ms/2604 h4=1655.530ms/2144 h5=1631.706ms/2540 | shade=6219.038ms (63%) wrapper=3635.446ms lanes=826956 occ=72%
+[speeds] render:3825ms  rf(frontend):99ms  bk(backend):3501ms
+frame:2 all:4376 gfr:517 rf: 99 bk:3501
+(-700 -1380 176.5) 78.0
+[io] vblk read_calls=7064 sectors=304741 ms=3774 write_calls=10 write_sectors=278 write_ms=7 flush_calls=10 flush_ms=41
+[io] dosfs pread=125811 requested=128830464 served=128828347 head_bounce=10199 tail_bounce=10205 direct_reads=125811 direct_sectors=241417 cache_hits=257103 cache_misses=303040
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=10210 reads=125793 bytes=128810097 ms=5169
+[io] ext=tga opens=2 reads=0 bytes=0 ms=0
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=2
+views:2 draws:690 tris:14576 (shdw:0) (vbo:0) image:  7.9 MB
+[vssrc-interaction] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+attribute highp vec4 _gl4es_Vertex;
+attribute lowp vec4 _gl4es_Color;
+attribute highp vec4 _gl4es_VertexAttrib_8;
+attribute highp vec4 _gl4es_VertexAttrib_9;
+attribute highp vec4 _gl4es_VertexAttrib_10;
+attribute highp vec4 _gl4es_VertexAttrib_11;
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform highp mat4 _gl4es_ModelViewProjectionMatrix;
+uniform vec4 _gl4es_Vertex_ProgramEnv_4;
+uniform vec4 _gl4es_Vertex_ProgramEnv_5;
+uniform vec4 _gl4es_Vertex_ProgramEnv_6;
+uniform vec4 _gl4es_Vertex_ProgramEnv_7;
+uniform vec4 _gl4es_Vertex_ProgramEnv_8;
+uniform vec4 _gl4es_Vertex_ProgramEnv_9;
+uniform vec4 _gl4es_Vertex_ProgramEnv_10;
+uniform vec4 _gl4es_Vertex_ProgramEnv_11;
+uniform vec4 _gl4es_Vertex_ProgramEnv_12;
+uniform vec4 _gl4es_Vertex_ProgramEnv_13;
+uniform vec4 _gl4es_Vertex_ProgramEnv_14;
+uniform vec4 _gl4es_Vertex_ProgramEnv_15;
+uniform vec4 _gl4es_Vertex_ProgramEnv_16;
+uniform vec4 _gl4es_Vertex_ProgramEnv_17;
+
+highp vec4 ftransform() {
+ return _gl4es_ModelViewProjectionMatrix * _gl4es_Vertex;
+}
+precision highp int;
+
+
+struct _structOnlyX { int x; };
+
+void main() {
+	vec4 R0;
+	vec4 R1;
+	vec4 R2;
+	vec4 defaultTexCoord = vec4(0.00000, 0.500000, 0.00000, 1.00000);
+	
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	_gl4es_TexCoord_0.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_0.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_0.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_TexCoord_1 = defaultTexCoord;
+	_gl4es_TexCoord_1.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_10));
+	_gl4es_TexCoord_1.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_11));
+	_gl4es_TexCoord_2 = defaultTexCoord;
+	_gl4es_TexCoord_2.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_9));
+	_gl4es_TexCoord_3.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_6));
+	_gl4es_TexCoord_3.y = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_7));
+	_gl4es_TexCoord_3.w = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_8));
+	_gl4es_TexCoord_4 = defaultTexCoord;
+	_gl4es_TexCoord_4.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_12));
+	_gl4es_TexCoord_4.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_13));
+	_gl4es_TexCoord_5 = defaultTexCoord;
+	_gl4es_TexCoord_5.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_14));
+	_gl4es_TexCoord_5.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_15));
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	R1 = vec4(dot(R0.xyz, R0.xyz));
+	R1 = vec4(inversesqrt(R1.x));
+	R0 = R0 * R1.xxxx;
+	R1 = _gl4es_Vertex_ProgramEnv_5 - _gl4es_Vertex;
+	R2 = vec4(dot(R1.xyz, R1.xyz));
+	R2 = vec4(inversesqrt(R2.x));
+	R1 = R1 * R2.xxxx;
+	R0 = R0 + R1;
+	_gl4es_TexCoord_6.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_6.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_6.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_FrontColor = (_gl4es_Color * _gl4es_Vertex_ProgramEnv_16 + _gl4es_Vertex_ProgramEnv_17);
+	
+	gl_Position = ftransform();
+}
+
+[vssrc-interaction] <<<<<<<<<<
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform sampler2D _gl4es_Sampler2D_2;
+uniform sampler2D _gl4es_Sampler2D_3;
+uniform sampler2D _gl4es_Sampler2D_4;
+uniform sampler2D _gl4es_Sampler2D_5;
+uniform sampler2D _gl4es_Sampler2D_6;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 light;
+	vec4 color;
+	vec4 R1;
+	vec4 R2;
+	vec4 localNormal;
+	vec4 specular;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	specular = vec4(dot(_gl4es_TexCoord_6.xyz, _gl4es_TexCoord_6.xyz));
+	specular = vec4(inversesqrt(specular.x));
+	specular = specular.xxxx * _gl4es_TexCoord_6;
+	light = textureCube(_gl4es_SamplerCube_0, _gl4es_TexCoord_0.xyz);
+	light = (light * scaleTwo + subOne);
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	light = vec4(dot(light.xyz, localNormal.xyz));
+	R1 = texture2DProj(_gl4es_Sampler2D_3, _gl4es_TexCoord_3);
+	light = light * R1;
+	R1 = texture2DProj(_gl4es_Sampler2D_2, _gl4es_TexCoord_2);
+	light = light * R1;
+	R1 = texture2D(_gl4es_Sampler2D_4, _gl4es_TexCoord_4.xy);
+	color = R1 * _gl4es_Fragment_ProgramEnv_0;
+	specular = vec4(dot(specular.xyz, localNormal.xyz));
+	R1 = texture2D(_gl4es_Sampler2D_6, specular.xy);
+	R1 = R1 * _gl4es_Fragment_ProgramEnv_1;
+	R2 = texture2D(_gl4es_Sampler2D_5, _gl4es_TexCoord_5.xy);
+	R2 = R2 + R2;
+	color = (R1 * R2 + color);
+	color = light * color;
+	dhewm3tmpres = color * _gl4es_FrontColor;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=13 path=interaction_gl4es ok=1 simt=1 ninst=133 nvaryf=32 nuni=25 vs(ninst=0 sig=e23c62b5) | tex2d=4 proj=2 cube=1 norm=0 pow=3 dot=3 oth=2
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   vary[3] _gl4es_TexCoord_2 comp=4 off=12
+[fsdump]   vary[4] _gl4es_TexCoord_3 comp=4 off=16
+[fsdump]   vary[5] _gl4es_TexCoord_4 comp=4 off=20
+[fsdump]   vary[6] _gl4es_TexCoord_5 comp=4 off=24
+[fsdump]   vary[7] _gl4es_TexCoord_6 comp=4 off=28
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_4 off=16
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=20
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_6 off=24
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_7 off=28
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_8 off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_9 off=36
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_10 off=40
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_11 off=44
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_12 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_13 off=52
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_14 off=56
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_15 off=60
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_16 off=64
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_17 off=68
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=72
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=76
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=80
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_Sampler2D_2 unit=2
+[fsdump]   uni  _gl4es_Sampler2D_3 unit=3
+[fsdump]   uni  _gl4es_Sampler2D_4 unit=4
+[fsdump]   uni  _gl4es_Sampler2D_5 unit=5
+[fsdump]   uni  _gl4es_Sampler2D_6 unit=6
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+[rprof] draws=984 tris=19527 frags=621327 skipxp=0 mt_engaged=12 mt_blits=4 | vertex=534.323ms dispatch=0.000ms raster=0.000ms present=0.006ms total=534.329ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=475MB capacity=1833MB (25%)
+[rprof-vs] simt=979 draws/58551 verts kernel=2101 batches/29850 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=4.707ms gather=158.215ms simt=505.256ms scalar=0.000ms cache=5.731ms
+[rprof-mt] bin=0.000ms release=0.099ms mainbusy=1966.481ms wait=58.145ms | frags=621327 | hart busy/tiles h0=1966.397ms/3862 h1=1967.675ms/3404 h2=1967.721ms/3012 h3=1971.626ms/2857 h4=1986.751ms/2573 h5=1977.595ms/2747 | shade=7437.293ms (62%) wrapper=4400.475ms lanes=913963 occ=67%
+[speeds] render:4504ms  rf(frontend):108ms  bk(backend):3715ms
+frame:3 all:5003 gfr:469 rf:108 bk:3715
+(-700 -1380 176.5) 102.0
+views:2 draws:984 tris:19527 (shdw:0) (vbo:0) image:  9.3 MB
+[rprof] draws=1024 tris=25888 frags=625136 skipxp=0 mt_engaged=6 mt_blits=4 | vertex=691.738ms dispatch=0.000ms raster=0.000ms present=0.006ms total=691.745ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=476MB capacity=1833MB (25%)
+[rprof-vs] simt=1019 draws/77634 verts kernel=2831 batches/41391 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=5.285ms gather=209.769ms simt=660.755ms scalar=0.000ms cache=6.948ms
+[rprof-mt] bin=0.000ms release=0.046ms mainbusy=2072.601ms wait=14.499ms | frags=625136 | hart busy/tiles h0=2072.570ms/1620 h1=2074.294ms/1976 h2=2074.982ms/1540 h3=2063.776ms/1735 h4=2065.631ms/1561 h5=2069.974ms/1716 | shade=7450.795ms (59%) wrapper=4970.434ms lanes=958762 occ=65%
+[speeds] render:3620ms  rf(frontend):83ms  bk(backend):4383ms
+frame:4 all:3998 gfr:366 rf: 83 bk:4383
+(-700 -1380 176.5) 126.0
+views:2 draws:1024 tris:25888 (shdw:0) (vbo:0) image:  9.9 MB
+[rprof] draws=1002 tris=30447 frags=624481 skipxp=0 mt_engaged=8 mt_blits=3 | vertex=823.738ms dispatch=0.000ms raster=0.000ms present=0.007ms total=823.746ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=476MB capacity=1833MB (25%)
+[rprof-vs] simt=996 draws/91305 verts kernel=3405 batches/50544 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=5.259ms gather=253.485ms simt=793.235ms scalar=0.000ms cache=6.525ms
+[rprof-mt] bin=0.000ms release=0.070ms mainbusy=2286.056ms wait=42.233ms | frags=624481 | hart busy/tiles h0=2285.967ms/2176 h1=2296.584ms/2640 h2=2287.197ms/2128 h3=2287.430ms/2233 h4=2281.481ms/2932 h5=2301.202ms/1916 | shade=8121.136ms (59%) wrapper=5618.727ms lanes=974387 occ=64%
+[fswork] === shader workload (cumulative frags=10612138) ===
+[fswork]  id=2  79% frags=8452502 (kernel=8452502 vm=0) path=overlay ninst=9 nvaryf=8 nuni=3 draws[op=0 add=59 alpha=181]
+[fswork]  id=4  16% frags=1795767 (kernel=1795767 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=2577 alpha=0]
+[fswork]  id=1   2% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[fswork]  id=3   0% frags=30752 (kernel=30752 vm=0) path=overlay_atest ninst=16 nvaryf=8 nuni=3 draws[op=94 add=0 alpha=0]
+[fswork]  id=7   0% frags=17513 (kernel=17513 vm=0) path=envcombine ninst=27 nvaryf=12 nuni=4 draws[op=0 add=40 alpha=0]
+[fswork]  id=12   0% frags=9687 (kernel=9687 vm=0) path=heathaze ninst=73 nvaryf=8 nuni=10 draws[op=18 add=0 alpha=0]
+[fswork]  id=10   0% frags=8229 (kernel=0 vm=8229) path=VM ninst=81 nvaryf=12 nuni=4 draws[op=0 add=0 alpha=20]
+[fswork]  id=5   0% frags=402 (kernel=402 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=148 alpha=0]
+[fswork]  id=13   0% frags=64 (kernel=64 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=6 alpha=0]
+[speeds] render:4006ms  rf(frontend):94ms  bk(backend):3526ms
+frame:5 all:4382 gfr:368 rf: 94 bk:3526
+(-700 -1380 176.5) 150.0
+views:2 draws:1002 tris:30447 (shdw:0) (vbo:0) image: 10.2 MB
+[rprof] draws=804 tris=30857 frags=652788 skipxp=0 mt_engaged=7 mt_blits=4 | vertex=834.231ms dispatch=0.000ms raster=0.000ms present=0.006ms total=834.238ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=476MB capacity=1833MB (25%)
+[rprof-vs] simt=796 draws/92523 verts kernel=3565 batches/53367 verts scalar=8 draws/32 transformed-verts
+[rprof-vstime] index=4.645ms gather=256.060ms simt=803.943ms scalar=0.000ms cache=9.496ms
+[rprof-mt] bin=0.000ms release=0.042ms mainbusy=2443.889ms wait=12.523ms | frags=652788 | hart busy/tiles h0=2443.849ms/2160 h1=2437.442ms/2044 h2=2443.980ms/1880 h3=2436.820ms/2112 h4=2443.124ms/2209 h5=2438.547ms/2124 | shade=8611.635ms (58%) wrapper=6032.129ms lanes=1046125 occ=62%
+[speeds] render:4148ms  rf(frontend):91ms  bk(backend):3902ms
+frame:6 all:4528 gfr:372 rf: 91 bk:3902
+(-700 -1380 176.5) 174.0
+views:2 draws:804 tris:30857 (shdw:0) (vbo:0) image:  9.0 MB
+[vssrc-interaction] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+attribute highp vec4 _gl4es_Vertex;
+attribute lowp vec4 _gl4es_Color;
+attribute highp vec4 _gl4es_VertexAttrib_8;
+attribute highp vec4 _gl4es_VertexAttrib_9;
+attribute highp vec4 _gl4es_VertexAttrib_10;
+attribute highp vec4 _gl4es_VertexAttrib_11;
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform highp mat4 _gl4es_ModelViewProjectionMatrix;
+uniform vec4 _gl4es_Vertex_ProgramEnv_4;
+uniform vec4 _gl4es_Vertex_ProgramEnv_5;
+uniform vec4 _gl4es_Vertex_ProgramEnv_6;
+uniform vec4 _gl4es_Vertex_ProgramEnv_7;
+uniform vec4 _gl4es_Vertex_ProgramEnv_8;
+uniform vec4 _gl4es_Vertex_ProgramEnv_9;
+uniform vec4 _gl4es_Vertex_ProgramEnv_10;
+uniform vec4 _gl4es_Vertex_ProgramEnv_11;
+uniform vec4 _gl4es_Vertex_ProgramEnv_12;
+uniform vec4 _gl4es_Vertex_ProgramEnv_13;
+uniform vec4 _gl4es_Vertex_ProgramEnv_14;
+uniform vec4 _gl4es_Vertex_ProgramEnv_15;
+uniform vec4 _gl4es_Vertex_ProgramEnv_16;
+uniform vec4 _gl4es_Vertex_ProgramEnv_17;
+
+highp vec4 ftransform() {
+ return _gl4es_ModelViewProjectionMatrix * _gl4es_Vertex;
+}
+precision highp int;
+
+
+struct _structOnlyX { int x; };
+
+void main() {
+	vec4 R0;
+	vec4 R1;
+	vec4 R2;
+	vec4 defaultTexCoord = vec4(0.00000, 0.500000, 0.00000, 1.00000);
+	
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	_gl4es_TexCoord_0.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_0.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_0.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_TexCoord_1 = defaultTexCoord;
+	_gl4es_TexCoord_1.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_10));
+	_gl4es_TexCoord_1.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_11));
+	_gl4es_TexCoord_2 = defaultTexCoord;
+	_gl4es_TexCoord_2.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_9));
+	_gl4es_TexCoord_3.x = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_6));
+	_gl4es_TexCoord_3.y = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_7));
+	_gl4es_TexCoord_3.w = (dot(_gl4es_Vertex, _gl4es_Vertex_ProgramEnv_8));
+	_gl4es_TexCoord_4 = defaultTexCoord;
+	_gl4es_TexCoord_4.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_12));
+	_gl4es_TexCoord_4.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_13));
+	_gl4es_TexCoord_5 = defaultTexCoord;
+	_gl4es_TexCoord_5.x = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_14));
+	_gl4es_TexCoord_5.y = (dot(_gl4es_VertexAttrib_8, _gl4es_Vertex_ProgramEnv_15));
+	R0 = _gl4es_Vertex_ProgramEnv_4 - _gl4es_Vertex;
+	R1 = vec4(dot(R0.xyz, R0.xyz));
+	R1 = vec4(inversesqrt(R1.x));
+	R0 = R0 * R1.xxxx;
+	R1 = _gl4es_Vertex_ProgramEnv_5 - _gl4es_Vertex;
+	R2 = vec4(dot(R1.xyz, R1.xyz));
+	R2 = vec4(inversesqrt(R2.x));
+	R1 = R1 * R2.xxxx;
+	R0 = R0 + R1;
+	_gl4es_TexCoord_6.x = (dot(_gl4es_VertexAttrib_9.xyz, R0.xyz));
+	_gl4es_TexCoord_6.y = (dot(_gl4es_VertexAttrib_10.xyz, R0.xyz));
+	_gl4es_TexCoord_6.z = (dot(_gl4es_VertexAttrib_11.xyz, R0.xyz));
+	_gl4es_FrontColor = (_gl4es_Color * _gl4es_Vertex_ProgramEnv_16 + _gl4es_Vertex_ProgramEnv_17);
+	
+	gl_Position = ftransform();
+}
+
+[vssrc-interaction] <<<<<<<<<<
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying lowp vec4 _gl4es_FrontColor;
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+varying highp vec4 _gl4es_TexCoord_3;
+varying highp vec4 _gl4es_TexCoord_4;
+varying highp vec4 _gl4es_TexCoord_5;
+varying highp vec4 _gl4es_TexCoord_6;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform sampler2D _gl4es_Sampler2D_2;
+uniform sampler2D _gl4es_Sampler2D_3;
+uniform sampler2D _gl4es_Sampler2D_4;
+uniform sampler2D _gl4es_Sampler2D_5;
+uniform sampler2D _gl4es_Sampler2D_6;
+uniform samplerCube _gl4es_SamplerCube_0;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 light;
+	vec4 color;
+	vec4 R1;
+	vec4 R2;
+	vec4 localNormal;
+	vec4 specular;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	specular = vec4(dot(_gl4es_TexCoord_6.xyz, _gl4es_TexCoord_6.xyz));
+	specular = vec4(inversesqrt(specular.x));
+	specular = specular.xxxx * _gl4es_TexCoord_6;
+	light = textureCube(_gl4es_SamplerCube_0, _gl4es_TexCoord_0.xyz);
+	light = (light * scaleTwo + subOne);
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	light = vec4(dot(light.xyz, localNormal.xyz));
+	R1 = texture2DProj(_gl4es_Sampler2D_3, _gl4es_TexCoord_3);
+	light = light * R1;
+	R1 = texture2DProj(_gl4es_Sampler2D_2, _gl4es_TexCoord_2);
+	light = light * R1;
+	R1 = texture2D(_gl4es_Sampler2D_4, _gl4es_TexCoord_4.xy);
+	color = R1 * _gl4es_Fragment_ProgramEnv_0;
+	specular = vec4(dot(specular.xyz, localNormal.xyz));
+	R1 = texture2D(_gl4es_Sampler2D_6, specular.xy);
+	R1 = R1 * _gl4es_Fragment_ProgramEnv_1;
+	R2 = texture2D(_gl4es_Sampler2D_5, _gl4es_TexCoord_5.xy);
+	R2 = R2 + R2;
+	color = (R1 * R2 + color);
+	color = light * color;
+	dhewm3tmpres = color * _gl4es_FrontColor;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=14 path=interaction_gl4es ok=1 simt=1 ninst=133 nvaryf=32 nuni=25 vs(ninst=0 sig=e23c62b5) | tex2d=4 proj=2 cube=1 norm=0 pow=3 dot=3 oth=2
+[fsdump]   vary[0] _gl4es_FrontColor comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   vary[3] _gl4es_TexCoord_2 comp=4 off=12
+[fsdump]   vary[4] _gl4es_TexCoord_3 comp=4 off=16
+[fsdump]   vary[5] _gl4es_TexCoord_4 comp=4 off=20
+[fsdump]   vary[6] _gl4es_TexCoord_5 comp=4 off=24
+[fsdump]   vary[7] _gl4es_TexCoord_6 comp=4 off=28
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_4 off=16
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_5 off=20
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_6 off=24
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_7 off=28
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_8 off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_9 off=36
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_10 off=40
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_11 off=44
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_12 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_13 off=52
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_14 off=56
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_15 off=60
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_16 off=64
+[fsdump]   uni  _gl4es_Vertex_ProgramEnv_17 off=68
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=72
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=76
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=80
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_Sampler2D_2 unit=2
+[fsdump]   uni  _gl4es_Sampler2D_3 unit=3
+[fsdump]   uni  _gl4es_Sampler2D_4 unit=4
+[fsdump]   uni  _gl4es_Sampler2D_5 unit=5
+[fsdump]   uni  _gl4es_Sampler2D_6 unit=6
+[fsdump]   uni  _gl4es_SamplerCube_0 unit=0
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec4 _gl4es_TexCoord_0;
+uniform sampler2D _gl4es_TexSampler_0;
+varying highp vec4 _gl4es_TexCoord_1;
+uniform sampler2D _gl4es_TexSampler_1;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = texture2DProj(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+vec4 texColor1 = texture2DProj(_gl4es_TexSampler_1, _gl4es_TexCoord_1);
+fColor *= texColor0;
+fColor *= texColor1;
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=15 path=envcombine ok=1 simt=1 ninst=15 nvaryf=12 nuni=7 vs(ninst=39 sig=10bc3077) | tex2d=0 proj=2 cube=0 norm=0 pow=0 dot=0 oth=0
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_1 comp=4 off=8
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_ObjectPlaneS_0 off=16
+[fsdump]   uni  _gl4es_ObjectPlaneT_0 off=20
+[fsdump]   uni  _gl4es_ObjectPlaneS_1 off=24
+[fsdump]   uni  _gl4es_ObjectPlaneT_1 off=28
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[fsdump]   uni  _gl4es_TexSampler_1 unit=0
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision highp float;
+#define GL4ES
+varying highp vec4 _gl4es_TexCoord_0;
+varying highp vec4 _gl4es_TexCoord_1;
+varying highp vec4 _gl4es_TexCoord_2;
+uniform vec4 _gl4es_Fragment_ProgramEnv_0;
+uniform vec4 _gl4es_Fragment_ProgramEnv_1;
+uniform vec4 _gl4es_Fragment_ProgramEnv_21;
+uniform sampler2D _gl4es_Sampler2D_0;
+uniform sampler2D _gl4es_Sampler2D_1;
+uniform sampler2D _gl4es_Sampler2D_2;
+float clamp(float f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+float clamp(float f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+float clamp(float f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec2 clamp(vec2 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec2 clamp(vec2 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec2 clamp(vec2 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec3 clamp(vec3 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec3 clamp(vec3 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec3 clamp(vec3 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+vec4 clamp(vec4 f, int a, int b) {
+ return clamp(f, float(a), float(b));
+}
+vec4 clamp(vec4 f, float a, int b) {
+ return clamp(f, a, float(b));
+}
+vec4 clamp(vec4 f, int a, float b) {
+ return clamp(f, float(a), b);
+}
+float pow(float f, int a) {
+ return pow(f, float(a));
+}
+precision highp int;
+
+
+void main() {
+	vec4 dhewm3tmpres;
+	vec4 localNormal;
+	vec4 mask;
+	vec4 R0;
+	vec4 subOne = vec4(-1.00000, -1.00000, -1.00000, -1.00000);
+	vec4 scaleTwo = vec4(2.00000, 2.00000, 2.00000, 2.00000);
+	
+	mask = texture2D(_gl4es_Sampler2D_2, _gl4es_TexCoord_0.xy);
+	mask.xy = mask.xy - vec4(0.0100000, 0.0100000, 0.0100000, 0.0100000).xy;
+	if ((mask.x < 0.00000) || (mask.y < 0.00000) || (mask.z < 0.00000) || (mask.w < 0.00000)) discard;
+	localNormal = texture2D(_gl4es_Sampler2D_1, _gl4es_TexCoord_1.xy);
+	localNormal.x = localNormal.w;
+	localNormal = (localNormal * scaleTwo + subOne);
+	localNormal = localNormal * mask;
+	R0 = gl_FragCoord * _gl4es_Fragment_ProgramEnv_1;
+	R0 = clamp(localNormal * _gl4es_TexCoord_2 + R0, 0.00000, 1.00000);
+	R0 = R0 * _gl4es_Fragment_ProgramEnv_0;
+	dhewm3tmpres.xyz = texture2D(_gl4es_Sampler2D_0, R0.xy).xyz;
+	dhewm3tmpres.xyz = clamp(_gl4es_Fragment_ProgramEnv_21.xyz * dhewm3tmpres.xyz, 0.00000, 1.00000);
+	gl_FragColor.x = (pow(dhewm3tmpres.x, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.y = (pow(dhewm3tmpres.y, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.z = (pow(dhewm3tmpres.z, _gl4es_Fragment_ProgramEnv_21.w));
+	gl_FragColor.w = dhewm3tmpres.w;
+	
+}
+
+[fssrc] <<<<<<<<<<
+[fsdump] id=16 path=VM ok=1 simt=0 ninst=106 nvaryf=12 nuni=11 vs(ninst=0 sig=e23c62b5) | tex2d=3 proj=0 cube=0 norm=0 pow=3 dot=0 oth=2
+[fsdump]   vary[0] _gl4es_TexCoord_0 comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_1 comp=4 off=4
+[fsdump]   vary[2] _gl4es_TexCoord_2 comp=4 off=8
+[fsdump]   uni  _gl4es_TModelViewMatrix off=0
+[fsdump]   uni  _gl4es_TProjectionMatrix off=16
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=32
+[fsdump]   uni  _gl4es_Vertex_ProgramLocal_0 off=48
+[fsdump]   uni  _gl4es_Vertex_ProgramLocal_1 off=52
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_0 off=56
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_1 off=60
+[fsdump]   uni  _gl4es_Fragment_ProgramEnv_21 off=64
+[fsdump]   uni  _gl4es_Sampler2D_0 unit=0
+[fsdump]   uni  _gl4es_Sampler2D_1 unit=1
+[fsdump]   uni  _gl4es_Sampler2D_2 unit=2
+[rprof] draws=841 tris=68271 frags=967290 skipxp=0 mt_engaged=27 mt_blits=8 | vertex=1731.903ms dispatch=0.000ms raster=0.000ms present=0.010ms total=1731.914ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=838 draws/204441 verts kernel=9201 batches/143010 verts scalar=3 draws/119 transformed-verts
+[rprof-vstime] index=5.337ms gather=555.677ms simt=1667.336ms scalar=0.000ms cache=42.004ms
+[rprof-mt] bin=0.000ms release=0.207ms mainbusy=4124.138ms wait=121.254ms | frags=967290 | hart busy/tiles h0=4123.932ms/5011 h1=4132.005ms/5178 h2=4132.739ms/4951 h3=4157.002ms/4960 h4=4146.652ms/6299 h5=4142.924ms/5658 | shade=12359.820ms (49%) wrapper=12475.436ms lanes=1632275 occ=59%
+[speeds] render:10508ms  rf(frontend):425ms  bk(backend):4046ms
+frame:7 all:25081 gfr:14564 rf:425 bk:4046
+(1267 -1501 68.25) 180.0
+views:2 draws:841 tris:68271 (shdw:0) (vbo:0) image:  7.5 MB
+[rprof] draws=801 tris=31792 frags=494855 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=879.415ms dispatch=0.000ms raster=0.000ms present=0.010ms total=879.425ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=795 draws/95340 verts kernel=3648 batches/54951 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=4.799ms gather=275.556ms simt=852.386ms scalar=0.000ms cache=6.894ms
+[rprof-mt] bin=0.000ms release=0.009ms mainbusy=2460.270ms wait=18.687ms | frags=494855 | hart busy/tiles h0=2460.260ms/464 h1=2478.610ms/468 h2=2462.831ms/469 h3=2460.746ms/460 h4=2458.270ms/432 h5=2473.303ms/440 | shade=9069.742ms (61%) wrapper=5724.280ms lanes=859620 occ=57%
+[speeds] render:4209ms  rf(frontend):81ms  bk(backend):10070ms
+frame:8 all:4264 gfr: 46 rf: 81 bk:10070
+(-700 -1380 176.5) 195.0
+views:2 draws:801 tris:31792 (shdw:0) (vbo:0) image:  8.8 MB
+[rprof] draws=483 tris=14285 frags=541332 skipxp=0 mt_engaged=3 mt_blits=2 | vertex=402.547ms dispatch=0.000ms raster=0.000ms present=0.007ms total=402.554ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=477 draws/42819 verts kernel=1513 batches/22554 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=2.532ms gather=124.136ms simt=383.855ms scalar=0.000ms cache=6.979ms
+[rprof-mt] bin=0.000ms release=0.048ms mainbusy=2175.350ms wait=22.431ms | frags=541332 | hart busy/tiles h0=2175.331ms/812 h1=2188.143ms/923 h2=2167.870ms/844 h3=2177.624ms/864 h4=2181.585ms/788 h5=2165.804ms/836 | shade=8410.579ms (64%) wrapper=4645.779ms lanes=788154 occ=68%
+[speeds] render:4061ms  rf(frontend):48ms  bk(backend):4113ms
+frame:9 all:4486 gfr:415 rf: 48 bk:4113
+(-700 -1380 176.5) 246.0
+views:2 draws:483 tris:14285 (shdw:0) (vbo:0) image:  7.0 MB
+[rprof] draws=396 tris=6703 frags=563110 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=198.308ms dispatch=0.000ms raster=0.000ms present=0.019ms total=198.328ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=392 draws/20085 verts kernel=650 batches/9201 verts scalar=4 draws/16 transformed-verts
+[rprof-vstime] index=2.611ms gather=57.056ms simt=180.301ms scalar=0.000ms cache=7.535ms
+[rprof-mt] bin=0.000ms release=0.014ms mainbusy=2186.857ms wait=20.589ms | frags=563110 | hart busy/tiles h0=2186.844ms/476 h1=2193.737ms/480 h2=2182.676ms/450 h3=2199.524ms/464 h4=2201.885ms/404 h5=2197.350ms/472 | shade=8417.382ms (63%) wrapper=4744.636ms lanes=733501 occ=76%
+[speeds] render:3826ms  rf(frontend):23ms  bk(backend):4001ms
+frame:10 all:4168 gfr:332 rf: 23 bk:4001
+(-700 -1380 176.5) 270.0
+views:2 draws:396 tris:6703 (shdw:0) (vbo:0) image:  5.7 MB
+[rprof] draws=262 tris=4393 frags=502160 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=113.889ms dispatch=0.000ms raster=0.000ms present=0.007ms total=113.897ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=262 draws/13179 verts kernel=333 batches/4779 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.253ms gather=34.048ms simt=107.179ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.007ms mainbusy=1714.488ms wait=13.549ms | frags=502160 | hart busy/tiles h0=1714.482ms/360 h1=1700.790ms/380 h2=1714.357ms/392 h3=1728.013ms/388 h4=1695.915ms/396 h5=1696.860ms/388 | shade=6413.379ms (62%) wrapper=3837.041ms lanes=656281 occ=76%
+[speeds] render:3416ms  rf(frontend):16ms  bk(backend):3790ms
+frame:11 all:3773 gfr:351 rf: 16 bk:3790
+(-700 -1380 176.5) 294.0
+views:2 draws:262 tris:4393 (shdw:0) (vbo:0) image:  3.2 MB
+[rprof] draws=223 tris=3594 frags=483026 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=93.704ms dispatch=0.000ms raster=0.000ms present=0.008ms total=93.713ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=223 draws/10782 verts kernel=260 batches/3723 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.274ms gather=27.979ms simt=88.537ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.040ms mainbusy=1345.270ms wait=9.402ms | frags=483026 | hart busy/tiles h0=1345.263ms/396 h1=1332.523ms/364 h2=1335.254ms/368 h3=1345.771ms/392 h4=1354.655ms/408 h5=1334.861ms/376 | shade=4983.387ms (61%) wrapper=3064.942ms lanes=576387 occ=83%
+[speeds] render:3199ms  rf(frontend):15ms  bk(backend):3389ms
+frame:12 all:3564 gfr:359 rf: 15 bk:3389
+(-700 -1380 176.5) 318.0
+views:2 draws:223 tris:3594 (shdw:0) (vbo:0) image:  2.6 MB
+[rprof] draws=135 tris=2845 frags=438268 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=76.046ms dispatch=0.000ms raster=0.000ms present=0.053ms total=76.099ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=135 draws/8535 verts kernel=188 batches/2769 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.830ms gather=23.472ms simt=72.533ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=1268.997ms wait=0.021ms | frags=438268 | hart busy/tiles h0=1268.990ms/376 h1=1250.978ms/416 h2=1263.877ms/380 h3=1267.150ms/384 h4=1262.069ms/368 h5=1249.471ms/380 | shade=4682.198ms (61%) wrapper=2880.340ms lanes=523605 occ=83%
+[speeds] render:2865ms  rf(frontend):9ms  bk(backend):3173ms
+frame:13 all:3218 gfr:345 rf:  9 bk:3173
+(-700 -1380 176.5) 342.0
+views:2 draws:135 tris:2845 (shdw:0) (vbo:0) image:  2.2 MB
+[rprof] draws=136 tris=3079 frags=405061 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=80.874ms dispatch=0.000ms raster=0.000ms present=0.006ms total=80.880ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=136 draws/9237 verts kernel=203 batches/3003 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.918ms gather=25.058ms simt=76.897ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.006ms mainbusy=1102.824ms wait=4.139ms | frags=405061 | hart busy/tiles h0=1102.818ms/400 h1=1106.918ms/392 h2=1084.585ms/388 h3=1092.017ms/380 h4=1088.226ms/360 h5=1086.629ms/384 | shade=4084.432ms (62%) wrapper=2476.763ms lanes=504017 occ=80%
+[speeds] render:2791ms  rf(frontend):10ms  bk(backend):2843ms
+frame:14 all:3143 gfr:340 rf: 10 bk:2843
+(-700 -1380 176.5) 6.0
+views:2 draws:136 tris:3079 (shdw:0) (vbo:0) image:  2.4 MB
+[rprof] draws=165 tris=4388 frags=401349 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=102.935ms dispatch=0.000ms raster=0.000ms present=0.036ms total=102.971ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=165 draws/13164 verts kernel=313 batches/4665 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.968ms gather=31.603ms simt=98.971ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.034ms mainbusy=1223.538ms wait=12.364ms | frags=401349 | hart busy/tiles h0=1223.533ms/404 h1=1221.441ms/356 h2=1234.804ms/400 h3=1235.823ms/392 h4=1225.087ms/376 h5=1223.145ms/376 | shade=4614.436ms (62%) wrapper=2749.399ms lanes=526615 occ=76%
+[fswork] === shader workload (cumulative frags=13989308) ===
+[fswork]  id=2  60% frags=8484945 (kernel=8484945 vm=0) path=overlay ninst=9 nvaryf=8 nuni=3 draws[op=0 add=90 alpha=282]
+[fswork]  id=4  34% frags=4762028 (kernel=4762028 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=4183 alpha=0]
+[fswork]  id=1   2% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[fswork]  id=15   1% frags=237837 (kernel=237837 vm=0) path=envcombine ninst=15 nvaryf=12 nuni=7 draws[op=0 add=0 alpha=116]
+[fswork]  id=7   0% frags=62068 (kernel=62068 vm=0) path=envcombine ninst=27 nvaryf=12 nuni=4 draws[op=0 add=80 alpha=0]
+[fswork]  id=12   0% frags=46398 (kernel=46398 vm=0) path=heathaze ninst=73 nvaryf=8 nuni=10 draws[op=34 add=0 alpha=0]
+[fswork]  id=10   0% frags=39007 (kernel=0 vm=39007) path=VM ninst=81 nvaryf=12 nuni=4 draws[op=0 add=0 alpha=36]
+[fswork]  id=3   0% frags=34257 (kernel=34257 vm=0) path=overlay_atest ninst=16 nvaryf=8 nuni=3 draws[op=145 add=0 alpha=0]
+[fswork]  id=14   0% frags=16271 (kernel=16271 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=23 alpha=0]
+[fswork]  id=5   0% frags=9211 (kernel=9211 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=237 alpha=0]
+[fswork]  id=13   0% frags=64 (kernel=64 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=15 alpha=0]
+[speeds] render:3140ms  rf(frontend):12ms  bk(backend):2771ms
+frame:15 all:3490 gfr:338 rf: 12 bk:2771
+(-700 -1380 176.5) 30.0
+views:2 draws:165 tris:4388 (shdw:0) (vbo:0) image:  3.0 MB
+[rprof] draws=576 tris=12753 frags=464790 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=415.143ms dispatch=0.000ms raster=0.000ms present=0.009ms total=415.152ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=575 draws/38253 verts kernel=1142 batches/17058 verts scalar=1 draws/4 transformed-verts
+[rprof-vstime] index=3.296ms gather=133.432ms simt=397.318ms scalar=0.000ms cache=2.027ms
+[rprof-mt] bin=0.000ms release=0.011ms mainbusy=1677.204ms wait=10.392ms | frags=464790 | hart busy/tiles h0=1677.198ms/348 h1=1684.093ms/348 h2=1683.535ms/380 h3=1678.408ms/396 h4=1686.209ms/412 h5=1687.581ms/420 | shade=6321.724ms (62%) wrapper=3775.302ms lanes=650574 occ=71%
+[speeds] render:3652ms  rf(frontend):49ms  bk(backend):3117ms
+frame:16 all:4074 gfr:414 rf: 49 bk:3117
+(-700 -1380 176.5) 54.0
+views:2 draws:576 tris:12753 (shdw:0) (vbo:0) image:  5.7 MB
+[rprof] draws=687 tris=14974 frags=448852 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=482.953ms dispatch=0.000ms raster=0.000ms present=0.009ms total=482.963ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=682 draws/44892 verts kernel=1467 batches/21333 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=4.008ms gather=151.344ms simt=453.540ms scalar=0.000ms cache=9.596ms
+[rprof-mt] bin=0.000ms release=0.045ms mainbusy=1957.531ms wait=5.768ms | frags=448852 | hart busy/tiles h0=1957.496ms/460 h1=1939.826ms/460 h2=1931.111ms/430 h3=1934.332ms/440 h4=1942.386ms/448 h5=1951.352ms/440 | shade=7483.699ms (64%) wrapper=4172.806ms lanes=668778 occ=67%
+[speeds] render:3967ms  rf(frontend):56ms  bk(backend):3587ms
+frame:17 all:4394 gfr:416 rf: 56 bk:3587
+(-700 -1380 176.5) 78.0
+views:2 draws:687 tris:14974 (shdw:0) (vbo:0) image:  7.9 MB
+[rprof] draws=983 tris=19745 frags=473082 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=659.369ms dispatch=0.000ms raster=0.000ms present=0.008ms total=659.377ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=978 draws/59205 verts kernel=2103 batches/29886 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=6.815ms gather=205.534ms simt=623.677ms scalar=0.000ms cache=6.483ms
+[rprof-mt] bin=0.000ms release=0.014ms mainbusy=2334.966ms wait=19.356ms | frags=473082 | hart busy/tiles h0=2334.948ms/456 h1=2338.543ms/436 h2=2333.186ms/439 h3=2354.280ms/440 h4=2332.370ms/416 h5=2346.495ms/448 | shade=9044.368ms (64%) wrapper=4995.457ms lanes=760198 occ=62%
+[speeds] render:4559ms  rf(frontend):81ms  bk(backend):3892ms
+frame:18 all:4959 gfr:389 rf: 81 bk:3892
+(-700 -1380 176.5) 102.0
+views:2 draws:983 tris:19745 (shdw:0) (vbo:0) image:  9.3 MB
+[rprof] draws=1021 tris=25997 frags=477026 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=891.982ms dispatch=0.000ms raster=0.000ms present=0.008ms total=891.991ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=1016 draws/77961 verts kernel=2834 batches/41448 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=6.639ms gather=290.986ms simt=857.412ms scalar=0.000ms cache=6.750ms
+[rprof-mt] bin=0.000ms release=0.084ms mainbusy=2336.146ms wait=4.417ms | frags=477026 | hart busy/tiles h0=2336.131ms/430 h1=2340.282ms/460 h2=2326.065ms/468 h3=2335.394ms/440 h4=2336.124ms/404 h5=2329.862ms/428 | shade=8847.362ms (63%) wrapper=5156.499ms lanes=805462 occ=59%
+[speeds] render:4226ms  rf(frontend):74ms  bk(backend):4461ms
+frame:19 all:4656 gfr:419 rf: 74 bk:4461
+(-700 -1380 176.5) 126.0
+views:2 draws:1021 tris:25997 (shdw:0) (vbo:0) image:  9.8 MB
+[rprof] draws=1004 tris=30569 frags=477589 skipxp=0 mt_engaged=3 mt_blits=1 | vertex=869.010ms dispatch=0.000ms raster=0.000ms present=0.006ms total=869.016ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=998 draws/91671 verts kernel=3409 batches/50604 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=5.348ms gather=274.483ms simt=838.428ms scalar=0.000ms cache=6.296ms
+[rprof-mt] bin=0.000ms release=0.049ms mainbusy=2370.486ms wait=34.985ms | frags=477589 | hart busy/tiles h0=2370.465ms/521 h1=2390.128ms/468 h2=2385.598ms/460 h3=2375.042ms/460 h4=2372.986ms/500 h5=2392.003ms/480 | shade=8831.957ms (61%) wrapper=5454.266ms lanes=821442 occ=58%
+[speeds] render:4038ms  rf(frontend):72ms  bk(backend):4138ms
+frame:20 all:4391 gfr:343 rf: 72 bk:4138
+(-700 -1380 176.5) 150.0
+views:2 draws:1004 tris:30569 (shdw:0) (vbo:0) image: 10.1 MB
+[rprof] draws=802 tris=30845 frags=496476 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=903.915ms dispatch=0.000ms raster=0.000ms present=0.008ms total=903.923ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=794 draws/92487 verts kernel=3565 batches/53367 verts scalar=8 draws/32 transformed-verts
+[rprof-vstime] index=4.415ms gather=288.579ms simt=874.781ms scalar=0.000ms cache=9.120ms
+[rprof-mt] bin=0.000ms release=0.015ms mainbusy=2547.081ms wait=5.871ms | frags=496476 | hart busy/tiles h0=2547.064ms/480 h1=2527.043ms/444 h2=2521.864ms/468 h3=2538.348ms/496 h4=2539.195ms/508 h5=2520.871ms/511 | shade=9282.772ms (61%) wrapper=5911.615ms lanes=886576 occ=55%
+[speeds] render:4261ms  rf(frontend):58ms  bk(backend):3954ms
+frame:21 all:4604 gfr:333 rf: 58 bk:3954
+(-700 -1380 176.5) 174.0
+views:2 draws:802 tris:30845 (shdw:0) (vbo:0) image:  9.0 MB
+[rprof] draws=795 tris=31988 frags=499637 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=869.737ms dispatch=0.000ms raster=0.000ms present=0.005ms total=869.743ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=789 draws/95928 verts kernel=3638 batches/54858 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=4.855ms gather=270.052ms simt=837.738ms scalar=0.000ms cache=10.929ms
+[rprof-mt] bin=0.000ms release=0.045ms mainbusy=2383.927ms wait=17.458ms | frags=499637 | hart busy/tiles h0=2383.898ms/452 h1=2391.078ms/442 h2=2388.383ms/440 h3=2386.806ms/436 h4=2380.894ms/456 h5=2387.704ms/484 | shade=8770.516ms (61%) wrapper=5548.249ms lanes=862868 occ=57%
+[speeds] render:4161ms  rf(frontend):63ms  bk(backend):4191ms
+frame:22 all:4502 gfr:331 rf: 63 bk:4191
+(-700 -1380 176.5) 198.0
+views:2 draws:795 tris:31988 (shdw:0) (vbo:0) image:  8.7 MB
+[rprof] draws=655 tris=23760 frags=527572 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=639.910ms dispatch=0.000ms raster=0.000ms present=0.013ms total=639.923ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=649 draws/71244 verts kernel=2555 batches/38922 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=3.660ms gather=199.132ms simt=616.294ms scalar=0.000ms cache=7.017ms
+[rprof-mt] bin=0.000ms release=0.013ms mainbusy=2155.994ms wait=25.757ms | frags=527572 | hart busy/tiles h0=2155.980ms/476 h1=2169.534ms/452 h2=2180.665ms/408 h3=2159.847ms/467 h4=2164.160ms/428 h5=2159.609ms/472 | shade=8163.349ms (62%) wrapper=4826.448ms lanes=858684 occ=61%
+[speeds] render:4160ms  rf(frontend):58ms  bk(backend):4087ms
+frame:23 all:4501 gfr:331 rf: 58 bk:4087
+(-700 -1380 176.5) 222.0
+views:2 draws:655 tris:23760 (shdw:0) (vbo:0) image:  8.5 MB
+[rprof] draws=480 tris=14167 frags=541335 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=372.812ms dispatch=0.000ms raster=0.000ms present=0.005ms total=372.818ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=474 draws/42465 verts kernel=1513 batches/22554 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=2.790ms gather=113.094ms simt=354.119ms scalar=0.000ms cache=6.982ms
+[rprof-mt] bin=0.000ms release=0.012ms mainbusy=2116.293ms wait=12.864ms | frags=541335 | hart busy/tiles h0=2116.281ms/476 h1=2118.283ms/472 h2=2129.113ms/464 h3=2120.946ms/444 h4=2108.834ms/428 h5=2121.207ms/479 | shade=8168.370ms (64%) wrapper=4546.296ms lanes=788165 occ=68%
+[speeds] render:3880ms  rf(frontend):42ms  bk(backend):4092ms
+frame:24 all:4202 gfr:311 rf: 42 bk:4092
+(-700 -1380 176.5) 246.0
+views:2 draws:480 tris:14167 (shdw:0) (vbo:0) image:  7.0 MB
+[rprof] draws=399 tris=6893 frags=563110 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=184.098ms dispatch=0.000ms raster=0.000ms present=0.005ms total=184.103ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=395 draws/20655 verts kernel=650 batches/9201 verts scalar=4 draws/16 transformed-verts
+[rprof-vstime] index=2.207ms gather=52.437ms simt=169.073ms scalar=0.000ms cache=5.120ms
+[rprof-mt] bin=0.000ms release=0.045ms mainbusy=2098.255ms wait=7.663ms | frags=563110 | hart busy/tiles h0=2098.241ms/424 h1=2100.496ms/482 h2=2075.653ms/464 h3=2095.884ms/472 h4=2079.988ms/464 h5=2088.160ms/440 | shade=7971.360ms (63%) wrapper=4567.065ms lanes=733501 occ=76%
+[fswork] === shader workload (cumulative frags=17448102) ===
+[fswork]  id=2  48% frags=8508282 (kernel=8508282 vm=0) path=overlay ninst=9 nvaryf=8 nuni=3 draws[op=0 add=148 alpha=477]
+[fswork]  id=4  46% frags=8037006 (kernel=8037006 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=7045 alpha=0]
+[fswork]  id=1   1% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[fswork]  id=15   1% frags=237837 (kernel=237837 vm=0) path=envcombine ninst=15 nvaryf=12 nuni=7 draws[op=0 add=0 alpha=116]
+[fswork]  id=7   0% frags=99736 (kernel=99736 vm=0) path=envcombine ninst=27 nvaryf=12 nuni=4 draws[op=0 add=122 alpha=0]
+[fswork]  id=12   0% frags=97834 (kernel=97834 vm=0) path=heathaze ninst=73 nvaryf=8 nuni=10 draws[op=72 add=0 alpha=0]
+[fswork]  id=10   0% frags=80837 (kernel=0 vm=80837) path=VM ninst=81 nvaryf=12 nuni=4 draws[op=0 add=0 alpha=74]
+[fswork]  id=3   0% frags=53539 (kernel=53539 vm=0) path=overlay_atest ninst=16 nvaryf=8 nuni=3 draws[op=234 add=0 alpha=0]
+[fswork]  id=5   0% frags=19410 (kernel=19410 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=390 alpha=0]
+[fswork]  id=14   0% frags=16271 (kernel=16271 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=23 alpha=0]
+[fswork]  id=13   0% frags=128 (kernel=128 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=25 alpha=0]
+[speeds] render:3638ms  rf(frontend):27ms  bk(backend):3826ms
+frame:25 all:3967 gfr:319 rf: 27 bk:3826
+(-700 -1380 176.5) 270.0
+views:2 draws:399 tris:6893 (shdw:0) (vbo:0) image:  5.8 MB
+[rprof] draws=262 tris=4393 frags=502160 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=108.454ms dispatch=0.000ms raster=0.000ms present=0.006ms total=108.460ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=262 draws/13179 verts kernel=333 batches/4779 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.621ms gather=31.510ms simt=101.741ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.006ms mainbusy=1605.836ms wait=15.654ms | frags=502160 | hart busy/tiles h0=1605.829ms/368 h1=1588.934ms/364 h2=1605.936ms/396 h3=1621.460ms/388 h4=1598.528ms/416 h5=1589.427ms/372 | shade=6011.229ms (62%) wrapper=3598.886ms lanes=656281 occ=76%
+[speeds] render:3272ms  rf(frontend):16ms  bk(backend):3600ms
+frame:26 all:3590 gfr:309 rf: 16 bk:3600
+(-700 -1380 176.5) 294.0
+views:2 draws:262 tris:4393 (shdw:0) (vbo:0) image:  3.2 MB
+[rprof] draws=223 tris=3592 frags=483026 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=86.636ms dispatch=0.000ms raster=0.000ms present=0.006ms total=86.643ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=223 draws/10776 verts kernel=260 batches/3723 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.240ms gather=24.512ms simt=81.050ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.009ms mainbusy=1311.167ms wait=20.085ms | frags=483026 | hart busy/tiles h0=1311.158ms/392 h1=1308.913ms/364 h2=1315.173ms/400 h3=1331.238ms/372 h4=1321.831ms/384 h5=1307.065ms/392 | shade=4909.071ms (62%) wrapper=2986.308ms lanes=576387 occ=83%
+[speeds] render:3052ms  rf(frontend):16ms  bk(backend):3243ms
+frame:27 all:3348 gfr:286 rf: 16 bk:3243
+(-700 -1380 176.5) 318.0
+views:2 draws:223 tris:3592 (shdw:0) (vbo:0) image:  2.6 MB
+[rprof] draws=136 tris=2861 frags=439168 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=64.295ms dispatch=0.000ms raster=0.000ms present=0.005ms total=64.300ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=136 draws/8583 verts kernel=188 batches/2769 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.887ms gather=19.154ms simt=61.009ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.042ms mainbusy=1221.183ms wait=0.001ms | frags=439168 | hart busy/tiles h0=1221.177ms/368 h1=1213.737ms/416 h2=1218.976ms/380 h3=1205.044ms/372 h4=1217.652ms/368 h5=1203.999ms/400 | shade=4483.414ms (61%) wrapper=2797.173ms lanes=525233 occ=83%
+[speeds] render:2745ms  rf(frontend):9ms  bk(backend):3029ms
+frame:28 all:3034 gfr:279 rf:  9 bk:3029
+(-700 -1380 176.5) 342.0
+views:2 draws:136 tris:2861 (shdw:0) (vbo:0) image:  2.3 MB
+[rprof] draws=137 tris=3093 frags=405961 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=68.662ms dispatch=0.000ms raster=0.000ms present=0.013ms total=68.676ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=137 draws/9279 verts kernel=203 batches/3003 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.676ms gather=20.823ms simt=65.383ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.006ms mainbusy=1049.632ms wait=21.961ms | frags=405961 | hart busy/tiles h0=1049.624ms/424 h1=1047.549ms/384 h2=1071.552ms/376 h3=1051.168ms/376 h4=1064.972ms/368 h5=1046.596ms/376 | shade=3930.226ms (62%) wrapper=2401.237ms lanes=505645 occ=80%
+[speeds] render:2502ms  rf(frontend):10ms  bk(backend):2725ms
+frame:29 all:2803 gfr:291 rf: 10 bk:2725
+(-700 -1380 176.5) 6.0
+views:2 draws:137 tris:3093 (shdw:0) (vbo:0) image:  2.5 MB
+[rprof] draws=166 tris=4402 frags=402249 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=98.217ms dispatch=0.000ms raster=0.000ms present=0.005ms total=98.223ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=166 draws/13206 verts kernel=313 batches/4665 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.807ms gather=29.587ms simt=94.115ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=989.401ms wait=12.172ms | frags=402249 | hart busy/tiles h0=989.394ms/372 h1=1001.562ms/384 h2=988.700ms/376 h3=988.402ms/400 h4=992.223ms/396 h5=995.787ms/376 | shade=3700.480ms (62%) wrapper=2255.589ms lanes=528243 occ=76%
+[speeds] render:2554ms  rf(frontend):11ms  bk(backend):2482ms
+frame:30 all:2847 gfr:283 rf: 11 bk:2482
+(-700 -1380 176.5) 30.0
+views:2 draws:166 tris:4402 (shdw:0) (vbo:0) image:  3.1 MB
+[rprof] draws=577 tris=13061 frags=465701 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=324.965ms dispatch=0.000ms raster=0.000ms present=0.012ms total=324.978ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=576 draws/39177 verts kernel=1141 batches/17034 verts scalar=1 draws/4 transformed-verts
+[rprof-vstime] index=2.966ms gather=96.627ms simt=309.599ms scalar=0.000ms cache=1.504ms
+[rprof-mt] bin=0.000ms release=0.039ms mainbusy=1408.568ms wait=14.114ms | frags=465701 | hart busy/tiles h0=1408.558ms/352 h1=1422.653ms/380 h2=1419.691ms/400 h3=1417.855ms/392 h4=1412.200ms/384 h5=1408.369ms/396 | shade=5279.424ms (62%) wrapper=3209.904ms lanes=652237 occ=71%
+[speeds] render:2875ms  rf(frontend):40ms  bk(backend):2534ms
+frame:31 all:3164 gfr:282 rf: 40 bk:2534
+(-700 -1380 176.5) 54.0
+views:2 draws:577 tris:13061 (shdw:0) (vbo:0) image:  5.8 MB
+[rprof] draws=694 tris=15335 frags=449775 skipxp=0 mt_engaged=3 mt_blits=1 | vertex=396.961ms dispatch=0.000ms raster=0.000ms present=0.007ms total=396.969ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=689 draws/45975 verts kernel=1467 batches/21324 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=3.857ms gather=117.670ms simt=373.710ms scalar=0.000ms cache=5.901ms
+[rprof-mt] bin=0.000ms release=0.018ms mainbusy=1669.315ms wait=6.361ms | frags=449775 | hart busy/tiles h0=1669.292ms/480 h1=1635.821ms/432 h2=1643.709ms/456 h3=1651.221ms/452 h4=1640.127ms/493 h5=1651.885ms/492 | shade=6300.609ms (63%) wrapper=3591.447ms lanes=670448 occ=67%
+[speeds] render:3247ms  rf(frontend):46ms  bk(backend):2824ms
+frame:32 all:3546 gfr:293 rf: 46 bk:2824
+(-700 -1380 176.5) 78.0
+views:2 draws:694 tris:15335 (shdw:0) (vbo:0) image:  8.1 MB
+[rprof] draws=994 tris=19893 frags=473997 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=533.902ms dispatch=0.000ms raster=0.000ms present=0.005ms total=533.907ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=989 draws/59649 verts kernel=2101 batches/29862 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=5.308ms gather=157.763ms simt=504.106ms scalar=0.000ms cache=5.522ms
+[rprof-mt] bin=0.000ms release=0.009ms mainbusy=2016.277ms wait=16.571ms | frags=473997 | hart busy/tiles h0=2016.262ms/456 h1=2027.689ms/440 h2=2024.424ms/444 h3=2021.129ms/440 h4=2009.008ms/429 h5=2009.962ms/444 | shade=7757.421ms (64%) wrapper=4351.055ms lanes=761864 occ=62%
+[speeds] render:3740ms  rf(frontend):57ms  bk(backend):3189ms
+frame:33 all:4039 gfr:292 rf: 57 bk:3189
+(-700 -1380 176.5) 102.0
+views:2 draws:994 tris:19893 (shdw:0) (vbo:0) image:  9.4 MB
+[rprof] draws=1026 tris=26058 frags=477954 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=695.137ms dispatch=0.000ms raster=0.000ms present=0.005ms total=695.142ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=1021 draws/78144 verts kernel=2835 batches/41445 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=5.415ms gather=211.024ms simt=664.322ms scalar=0.000ms cache=5.818ms
+[rprof-mt] bin=0.000ms release=0.012ms mainbusy=2089.018ms wait=9.638ms | frags=477954 | hart busy/tiles h0=2089.003ms/432 h1=2089.171ms/428 h2=2085.163ms/448 h3=2082.553ms/444 h4=2094.148ms/444 h5=2088.569ms/452 | shade=7876.824ms (62%) wrapper=4651.784ms lanes=807147 occ=59%
+[speeds] render:3594ms  rf(frontend):61ms  bk(backend):3671ms
+frame:34 all:3894 gfr:289 rf: 61 bk:3671
+(-700 -1380 176.5) 126.0
+views:2 draws:1026 tris:26058 (shdw:0) (vbo:0) image:  9.9 MB
+[rprof] draws=1000 tris=30599 frags=478501 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=813.880ms dispatch=0.000ms raster=0.000ms present=0.009ms total=813.889ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=994 draws/91761 verts kernel=3408 batches/50592 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=5.575ms gather=248.621ms simt=782.329ms scalar=0.000ms cache=6.610ms
+[rprof-mt] bin=0.000ms release=0.045ms mainbusy=2305.634ms wait=22.886ms | frags=478501 | hart busy/tiles h0=2305.621ms/472 h1=2321.722ms/444 h2=2312.902ms/452 h3=2298.322ms/424 h4=2311.410ms/468 h5=2300.110ms/431 | shade=8536.044ms (61%) wrapper=5314.045ms lanes=823156 occ=58%
+[fswork] === shader workload (cumulative frags=20144410) ===
+[fswork]  id=4  52% frags=10629019 (kernel=10629019 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=8877 alpha=0]
+[fswork]  id=2  42% frags=8550004 (kernel=8550004 vm=0) path=overlay ninst=9 nvaryf=8 nuni=3 draws[op=0 add=187 alpha=630]
+[fswork]  id=1   1% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[fswork]  id=15   1% frags=237837 (kernel=237837 vm=0) path=envcombine ninst=15 nvaryf=12 nuni=7 draws[op=0 add=0 alpha=116]
+[fswork]  id=7   0% frags=125867 (kernel=125867 vm=0) path=envcombine ninst=27 nvaryf=12 nuni=4 draws[op=0 add=148 alpha=0]
+[fswork]  id=12   0% frags=107348 (kernel=107348 vm=0) path=heathaze ninst=73 nvaryf=8 nuni=10 draws[op=90 add=0 alpha=0]
+[fswork]  id=10   0% frags=89747 (kernel=0 vm=89747) path=VM ninst=81 nvaryf=12 nuni=4 draws[op=0 add=0 alpha=92]
+[fswork]  id=3   0% frags=71117 (kernel=71117 vm=0) path=overlay_atest ninst=16 nvaryf=8 nuni=3 draws[op=298 add=0 alpha=0]
+[fswork]  id=5   0% frags=19786 (kernel=19786 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=454 alpha=0]
+[fswork]  id=14   0% frags=16271 (kernel=16271 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=23 alpha=0]
+[fswork]  id=13   0% frags=192 (kernel=192 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=31 alpha=0]
+[speeds] render:3951ms  rf(frontend):70ms  bk(backend):3523ms
+frame:35 all:4249 gfr:288 rf: 70 bk:3523
+(-700 -1380 176.5) 150.0
+views:2 draws:1000 tris:30599 (shdw:0) (vbo:0) image: 10.2 MB
+[rprof] draws=802 tris=30857 frags=497389 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=824.744ms dispatch=0.000ms raster=0.000ms present=0.005ms total=824.750ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=794 draws/92523 verts kernel=3565 batches/53367 verts scalar=8 draws/32 transformed-verts
+[rprof-vstime] index=4.259ms gather=253.864ms simt=795.210ms scalar=0.000ms cache=9.197ms
+[rprof-mt] bin=0.000ms release=0.046ms mainbusy=2407.514ms wait=2.962ms | frags=497389 | hart busy/tiles h0=2407.500ms/492 h1=2404.531ms/504 h2=2399.016ms/516 h3=2390.862ms/492 h4=2397.008ms/460 h5=2392.080ms/461 | shade=8799.785ms (61%) wrapper=5591.214ms lanes=888245 occ=55%
+[speeds] render:4014ms  rf(frontend):63ms  bk(backend):3870ms
+frame:36 all:4315 gfr:292 rf: 63 bk:3870
+(-700 -1380 176.5) 174.0
+views:2 draws:802 tris:30857 (shdw:0) (vbo:0) image:  9.1 MB
+[rprof] draws=795 tris=32108 frags=500536 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=855.814ms dispatch=0.000ms raster=0.000ms present=0.008ms total=855.822ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=789 draws/96288 verts kernel=3638 batches/54858 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=3.966ms gather=266.440ms simt=827.941ms scalar=0.000ms cache=8.271ms
+[rprof-mt] bin=0.000ms release=0.012ms mainbusy=2412.124ms wait=6.351ms | frags=500536 | hart busy/tiles h0=2412.110ms/456 h1=2404.832ms/472 h2=2406.907ms/460 h3=2402.335ms/432 h4=2409.430ms/436 h5=2413.740ms/472 | shade=8843.238ms (61%) wrapper=5606.118ms lanes=864408 occ=57%
+[speeds] render:4158ms  rf(frontend):70ms  bk(backend):3942ms
+frame:37 all:4451 gfr:282 rf: 70 bk:3942
+(-700 -1380 176.5) 198.0
+views:2 draws:795 tris:32108 (shdw:0) (vbo:0) image:  8.8 MB
+[rprof] draws=653 tris=23756 frags=528473 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=620.763ms dispatch=0.000ms raster=0.000ms present=0.009ms total=620.773ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=647 draws/71232 verts kernel=2555 batches/38922 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=3.567ms gather=190.534ms simt=598.075ms scalar=0.000ms cache=6.955ms
+[rprof-mt] bin=0.000ms release=0.020ms mainbusy=2217.333ms wait=22.482ms | frags=528473 | hart busy/tiles h0=2217.319ms/409 h1=2227.075ms/496 h2=2215.651ms/448 h3=2239.779ms/472 h4=2228.741ms/424 h5=2220.681ms/472 | shade=8386.768ms (62%) wrapper=4962.479ms lanes=860262 occ=61%
+[speeds] render:4181ms  rf(frontend):55ms  bk(backend):4076ms
+frame:38 all:4470 gfr:283 rf: 55 bk:4076
+(-700 -1380 176.5) 222.0
+views:2 draws:653 tris:23756 (shdw:0) (vbo:0) image:  8.5 MB
+[rprof] draws=482 tris=14147 frags=542234 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=376.618ms dispatch=0.000ms raster=0.000ms present=0.005ms total=376.623ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=476 draws/42405 verts kernel=1512 batches/22548 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=2.548ms gather=112.775ms simt=357.663ms scalar=0.000ms cache=6.926ms
+[rprof-mt] bin=0.000ms release=0.011ms mainbusy=2072.132ms wait=8.505ms | frags=542234 | hart busy/tiles h0=2072.115ms/476 h1=2066.683ms/468 h2=2078.096ms/484 h3=2059.777ms/464 h4=2073.286ms/444 h5=2073.652ms/445 | shade=7953.993ms (64%) wrapper=4469.619ms lanes=789790 occ=68%
+[speeds] render:3821ms  rf(frontend):44ms  bk(backend):4115ms
+frame:39 all:4104 gfr:274 rf: 44 bk:4115
+(-700 -1380 176.5) 246.0
+views:2 draws:482 tris:14147 (shdw:0) (vbo:0) image:  7.1 MB
+[rprof] draws=400 tris=6989 frags=564010 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=188.028ms dispatch=0.000ms raster=0.000ms present=0.006ms total=188.034ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=396 draws/20943 verts kernel=650 batches/9201 verts scalar=4 draws/16 transformed-verts
+[rprof-vstime] index=2.343ms gather=53.776ms simt=172.517ms scalar=0.000ms cache=4.901ms
+[rprof-mt] bin=0.000ms release=0.011ms mainbusy=2153.003ms wait=22.990ms | frags=564010 | hart busy/tiles h0=2152.993ms/440 h1=2156.651ms/480 h2=2167.752ms/476 h3=2160.383ms/440 h4=2174.002ms/448 h5=2150.712ms/480 | shade=8230.360ms (63%) wrapper=4732.135ms lanes=735129 occ=76%
+[speeds] render:3614ms  rf(frontend):24ms  bk(backend):3762ms
+frame:40 all:3899 gfr:279 rf: 24 bk:3762
+(-700 -1380 176.5) 270.0
+views:2 draws:400 tris:6989 (shdw:0) (vbo:0) image:  5.9 MB
+[rprof] draws=263 tris=4407 frags=503060 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=119.298ms dispatch=0.000ms raster=0.000ms present=0.007ms total=119.305ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=263 draws/13221 verts kernel=333 batches/4779 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.876ms gather=35.483ms simt=111.489ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.006ms mainbusy=1830.086ms wait=26.282ms | frags=503060 | hart busy/tiles h0=1830.079ms/384 h1=1830.765ms/408 h2=1815.550ms/380 h3=1856.332ms/384 h4=1826.486ms/388 h5=1819.266ms/360 | shade=6937.549ms (63%) wrapper=4040.931ms lanes=657909 occ=76%
+[speeds] render:3660ms  rf(frontend):17ms  bk(backend):3578ms
+frame:41 all:3983 gfr:317 rf: 17 bk:3578
+(-700 -1380 176.5) 294.0
+views:2 draws:263 tris:4407 (shdw:0) (vbo:0) image:  3.2 MB
+[rprof] draws=224 tris=3608 frags=483926 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=94.868ms dispatch=0.000ms raster=0.000ms present=0.007ms total=94.876ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=224 draws/10824 verts kernel=260 batches/3723 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.191ms gather=28.287ms simt=89.707ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.005ms mainbusy=1530.621ms wait=15.074ms | frags=483926 | hart busy/tiles h0=1530.614ms/396 h1=1520.833ms/380 h2=1545.676ms/356 h3=1536.406ms/396 h4=1521.000ms/372 h5=1532.570ms/404 | shade=5725.825ms (62%) wrapper=3461.276ms lanes=578015 occ=83%
+[speeds] render:3506ms  rf(frontend):15ms  bk(backend):3635ms
+frame:42 all:3832 gfr:320 rf: 15 bk:3635
+(-700 -1380 176.5) 318.0
+views:2 draws:224 tris:3608 (shdw:0) (vbo:0) image:  2.6 MB
+[rprof] draws=136 tris=2861 frags=439168 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=66.541ms dispatch=0.000ms raster=0.000ms present=0.048ms total=66.589ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=136 draws/8583 verts kernel=188 batches/2769 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.779ms gather=20.174ms simt=63.113ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.006ms mainbusy=1385.768ms wait=0.001ms | frags=439168 | hart busy/tiles h0=1385.762ms/372 h1=1385.145ms/372 h2=1362.435ms/376 h3=1360.065ms/376 h4=1383.265ms/380 h5=1383.259ms/428 | shade=5095.635ms (61%) wrapper=3164.299ms lanes=525233 occ=83%
+[speeds] render:3114ms  rf(frontend):12ms  bk(backend):3481ms
+frame:43 all:3426 gfr:303 rf: 12 bk:3481
+(-700 -1380 176.5) 342.0
+views:2 draws:136 tris:2861 (shdw:0) (vbo:0) image:  2.3 MB
+[rprof] draws=137 tris=3093 frags=405961 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=80.504ms dispatch=0.000ms raster=0.000ms present=0.009ms total=80.514ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=137 draws/9279 verts kernel=203 batches/3003 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=1.406ms gather=23.744ms simt=75.691ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.052ms mainbusy=1211.308ms wait=0.001ms | frags=405961 | hart busy/tiles h0=1211.298ms/380 h1=1196.702ms/388 h2=1190.733ms/352 h3=1195.051ms/420 h4=1209.608ms/384 h5=1188.436ms/380 | shade=4491.704ms (62%) wrapper=2700.127ms lanes=505645 occ=80%
+[speeds] render:2818ms  rf(frontend):10ms  bk(backend):3091ms
+frame:44 all:3157 gfr:334 rf: 10 bk:3091
+(-700 -1380 176.5) 6.0
+views:2 draws:137 tris:3093 (shdw:0) (vbo:0) image:  2.5 MB
+[rprof] draws=166 tris=4400 frags=402249 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=110.719ms dispatch=0.000ms raster=0.000ms present=0.006ms total=110.725ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=166 draws/13200 verts kernel=313 batches/4665 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.934ms gather=34.181ms simt=106.422ms scalar=0.000ms cache=0.000ms
+[rprof-mt] bin=0.000ms release=0.006ms mainbusy=1130.125ms wait=2.870ms | frags=402249 | hart busy/tiles h0=1130.120ms/396 h1=1122.063ms/384 h2=1117.538ms/360 h3=1116.354ms/404 h4=1132.983ms/376 h5=1123.918ms/384 | shade=4224.863ms (62%) wrapper=2518.114ms lanes=528243 occ=76%
+[fswork] === shader workload (cumulative frags=23212897) ===
+[fswork]  id=4  58% frags=13536075 (kernel=13536075 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=10271 alpha=0]
+[fswork]  id=2  36% frags=8586527 (kernel=8586527 vm=0) path=overlay ninst=9 nvaryf=8 nuni=3 draws[op=0 add=224 alpha=739]
+[fswork]  id=1   1% frags=297222 (kernel=297222 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=2]
+[fswork]  id=15   1% frags=237837 (kernel=237837 vm=0) path=envcombine ninst=15 nvaryf=12 nuni=7 draws[op=0 add=0 alpha=116]
+[fswork]  id=7   0% frags=163317 (kernel=163317 vm=0) path=envcombine ninst=27 nvaryf=12 nuni=4 draws[op=0 add=178 alpha=0]
+[fswork]  id=12   0% frags=149421 (kernel=149421 vm=0) path=heathaze ninst=73 nvaryf=8 nuni=10 draws[op=110 add=0 alpha=0]
+[fswork]  id=10   0% frags=122647 (kernel=0 vm=122647) path=VM ninst=81 nvaryf=12 nuni=4 draws[op=0 add=0 alpha=112]
+[fswork]  id=3   0% frags=73779 (kernel=73779 vm=0) path=overlay_atest ninst=16 nvaryf=8 nuni=3 draws[op=333 add=0 alpha=0]
+[fswork]  id=5   0% frags=29609 (kernel=29609 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=543 alpha=0]
+[fswork]  id=14   0% frags=16271 (kernel=16271 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=23 alpha=0]
+[fswork]  id=13   0% frags=192 (kernel=192 vm=0) path=interaction_gl4es ninst=133 nvaryf=32 nuni=25 draws[op=0 add=35 alpha=0]
+[speeds] render:2937ms  rf(frontend):11ms  bk(backend):2800ms
+frame:45 all:3282 gfr:343 rf: 11 bk:2800
+(-700 -1380 176.5) 30.0
+views:2 draws:166 tris:4400 (shdw:0) (vbo:0) image:  3.1 MB
+[rprof] draws=578 tris=13052 frags=465704 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=387.594ms dispatch=0.000ms raster=0.000ms present=0.007ms total=387.601ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=577 draws/39150 verts kernel=1142 batches/17061 verts scalar=1 draws/4 transformed-verts
+[rprof-vstime] index=3.613ms gather=121.731ms simt=370.850ms scalar=0.000ms cache=1.383ms
+[rprof-mt] bin=0.000ms release=0.003ms mainbusy=1592.175ms wait=4.985ms | frags=465704 | hart busy/tiles h0=1592.169ms/336 h1=1592.002ms/360 h2=1584.889ms/380 h3=1597.131ms/404 h4=1591.152ms/416 h5=1591.279ms/408 | shade=5958.472ms (62%) wrapper=3590.152ms lanes=652252 occ=71%
+[speeds] render:3337ms  rf(frontend):71ms  bk(backend):2916ms
+frame:46 all:3646 gfr:298 rf: 71 bk:2916
+(-700 -1380 176.5) 54.0
+views:2 draws:578 tris:13052 (shdw:0) (vbo:0) image:  5.8 MB
+[rprof] draws=688 tris=15217 frags=449769 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=430.920ms dispatch=0.000ms raster=0.000ms present=0.006ms total=430.926ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=683 draws/45621 verts kernel=1467 batches/21342 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=3.861ms gather=130.666ms simt=407.734ms scalar=0.000ms cache=5.591ms
+[rprof-mt] bin=0.000ms release=0.013ms mainbusy=1815.220ms wait=33.450ms | frags=449769 | hart busy/tiles h0=1815.208ms/456 h1=1840.819ms/452 h2=1822.483ms/476 h3=1840.371ms/444 h4=1830.114ms/416 h5=1825.043ms/452 | shade=7027.965ms (64%) wrapper=3946.075ms lanes=670443 occ=67%
+[speeds] render:3688ms  rf(frontend):46ms  bk(backend):3257ms
+frame:47 all:4022 gfr:326 rf: 46 bk:3257
+(-700 -1380 176.5) 78.0
+views:2 draws:688 tris:15217 (shdw:0) (vbo:0) image:  8.0 MB
+[rprof] draws=984 tris=19823 frags=473992 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=607.223ms dispatch=0.000ms raster=0.000ms present=0.007ms total=607.230ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=979 draws/59439 verts kernel=2103 batches/29886 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=5.786ms gather=184.160ms simt=574.309ms scalar=0.000ms cache=6.060ms
+[rprof-mt] bin=0.000ms release=0.008ms mainbusy=2226.763ms wait=6.630ms | frags=473992 | hart busy/tiles h0=2226.753ms/472 h1=2213.631ms/437 h2=2215.178ms/428 h3=2207.531ms/436 h4=2211.944ms/400 h5=2213.416ms/480 | shade=8557.711ms (64%) wrapper=4730.744ms lanes=761853 occ=62%
+[speeds] render:4166ms  rf(frontend):62ms  bk(backend):3631ms
+frame:48 all:4506 gfr:333 rf: 62 bk:3631
+(-700 -1380 176.5) 102.0
+views:2 draws:984 tris:19823 (shdw:0) (vbo:0) image:  9.4 MB
+[rprof] draws=1022 tris=26094 frags=477951 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=769.115ms dispatch=0.000ms raster=0.000ms present=0.008ms total=769.124ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=1017 draws/78252 verts kernel=2834 batches/41445 verts scalar=5 draws/20 transformed-verts
+[rprof-vstime] index=5.802ms gather=236.333ms simt=734.470ms scalar=0.000ms cache=7.462ms
+[rprof-mt] bin=0.000ms release=0.101ms mainbusy=2359.976ms wait=27.174ms | frags=477951 | hart busy/tiles h0=2359.960ms/440 h1=2361.410ms/432 h2=2361.335ms/456 h3=2382.798ms/456 h4=2356.377ms/420 h5=2371.444ms/444 | shade=8941.896ms (63%) wrapper=5251.429ms lanes=807139 occ=59%
+[speeds] render:3991ms  rf(frontend):77ms  bk(backend):4093ms
+frame:49 all:4302 gfr:304 rf: 77 bk:4093
+(-700 -1380 176.5) 126.0
+views:2 draws:1022 tris:26094 (shdw:0) (vbo:0) image:  9.9 MB
+[rprof] draws=1002 tris=30700 frags=478505 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=867.991ms dispatch=0.000ms raster=0.000ms present=0.010ms total=868.001ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=996 draws/92064 verts kernel=3408 batches/50601 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=5.483ms gather=267.676ms simt=833.750ms scalar=0.000ms cache=8.320ms
+[rprof-mt] bin=0.000ms release=0.014ms mainbusy=2602.535ms wait=27.827ms | frags=478505 | hart busy/tiles h0=2602.521ms/451 h1=2613.277ms/424 h2=2619.137ms/468 h3=2622.409ms/460 h4=2613.825ms/468 h5=2611.001ms/420 | shade=9693.265ms (61%) wrapper=5988.906ms lanes=823121 occ=58%
+[speeds] render:4312ms  rf(frontend):84ms  bk(backend):3904ms
+frame:50 all:4634 gfr:316 rf: 84 bk:3904
+(-700 -1380 176.5) 150.0
+views:2 draws:1002 tris:30700 (shdw:0) (vbo:0) image: 10.2 MB
+[rprof] draws=803 tris=30859 frags=497379 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=951.172ms dispatch=0.000ms raster=0.000ms present=0.011ms total=951.184ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=795 draws/92529 verts kernel=3565 batches/53367 verts scalar=8 draws/32 transformed-verts
+[rprof-vstime] index=9.100ms gather=300.636ms simt=912.292ms scalar=0.000ms cache=13.039ms
+[rprof-mt] bin=0.000ms release=0.037ms mainbusy=2840.067ms wait=21.191ms | frags=497379 | hart busy/tiles h0=2840.052ms/453 h1=2855.869ms/492 h2=2841.518ms/500 h3=2848.756ms/480 h4=2851.821ms/512 h5=2847.455ms/488 | shade=10452.121ms (61%) wrapper=6633.353ms lanes=888249 occ=55%
+[speeds] render:4686ms  rf(frontend):63ms  bk(backend):4220ms
+frame:51 all:5037 gfr:342 rf: 63 bk:4220
+(-700 -1380 176.5) 174.0
+views:2 draws:803 tris:30859 (shdw:0) (vbo:0) image:  9.1 MB
+[rprof] draws=796 tris=32130 frags=500531 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=1000.616ms dispatch=0.000ms raster=0.000ms present=0.006ms total=1000.622ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=790 draws/96354 verts kernel=3639 batches/54864 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=5.216ms gather=320.360ms simt=969.727ms scalar=0.000ms cache=8.530ms
+[rprof-mt] bin=0.000ms release=0.010ms mainbusy=2634.764ms wait=12.041ms | frags=500531 | hart busy/tiles h0=2634.746ms/456 h1=2638.343ms/460 h2=2638.073ms/476 h3=2631.430ms/484 h4=2626.670ms/444 h5=2624.819ms/408 | shade=9652.539ms (61%) wrapper=6141.545ms lanes=864399 occ=57%
+[speeds] render:4673ms  rf(frontend):66ms  bk(backend):4612ms
+frame:52 all:5056 gfr:371 rf: 66 bk:4612
+(-700 -1380 176.5) 198.0
+views:2 draws:796 tris:32130 (shdw:0) (vbo:0) image:  8.8 MB
+[rprof] draws=653 tris=23786 frags=528483 skipxp=0 mt_engaged=2 mt_blits=1 | vertex=721.139ms dispatch=0.000ms raster=0.000ms present=0.005ms total=721.145ms | present copy_gamma=0.000ms xfer=0.000ms flush=0.000ms
+[rprof-heap] committed=478MB capacity=1833MB (26%)
+[rprof-vs] simt=647 draws/71322 verts kernel=2555 batches/38922 verts scalar=6 draws/24 transformed-verts
+[rprof-vstime] index=3.711ms gather=230.848ms simt=696.775ms scalar=0.000ms cache=7.348ms
+[rprof-mt] bin=0.000ms release=0.019ms mainbusy=2502.390ms wait=21.402ms | frags=528483 | hart busy/tiles h0=2502.377ms/440 h1=2510.538ms/420 h2=2497.831ms/500 h3=2501.380ms/452 h4=2496.371ms/433 h5=2514.779ms/476 | shade=9480.388ms (63%) wrapper=5542.890ms lanes=860295 occ=61%
+[speeds] render:4784ms  rf(frontend):61ms  bk(backend):4598ms
+frame:53 all:5087 gfr:295 rf: 61 bk:4598
+(-700 -1380 176.5) 222.0
+views:2 draws:653 tris:23786 (shdw:0) (vbo:0) image:  8.5 MB
+qemu-system-riscv64: terminating on signal 15 from pid 1211441 (bash)

@@ -64,6 +64,7 @@
 // --- our bare-metal runtime + softgles2 bridge -------------------------------
 extern "C" {
 #include "boot/runtime.h"          // timer_ticks, TIMEBASE_HZ, panic, sbi_shutdown
+#include "boot/bm_pause.h"
 #include "libc/libc.h"             // vprintf, malloc, memset, strcmp (riscv/libc)
 
 // softgles2 framebuffer + the gl4es bridge (riscv/gl4es-bridge/bridge.h).
@@ -90,16 +91,20 @@ extern "C" char __heap_end[];
 
 // RISC-V Zihintpause hint (mirrors posix_main.cpp:436-438 D3_CpuPause for rv64).
 static ID_INLINE void BM_CpuPause(void) {
-	__asm__ __volatile__(".insn i 0x0F, 0, x0, x0, 0x010"); // pause
+	bm_pause();
 }
 
 // =====================================================================
 // 3. Timing — rdtime
 // =====================================================================
-static uint64_t bm_timebase_hz = TIMEBASE_HZ;   // 10 MHz on QEMU virt
+static uint64_t bm_timebase_hz = TIMEBASE_HZ;   // compile-time fallback only
 static uint64_t bm_epoch_ticks = 0;
 
 extern "C" void BM_InitTime(void) {
+	// Take the DTB-discovered timebase. Left at the compile-time TIMEBASE_HZ,
+	// every Doom 3 frame time and every Sys_MillisecondsPrecise() would be wrong
+	// by the ratio of the real timebase on any part not clocking mtime at 10 MHz.
+	bm_timebase_hz = timer_hz();
 	bm_epoch_ticks = timer_ticks();
 	// bias epoch back ~1.5ms so the first Sys_MillisecondsPrecise() > 0
 	// (matches POSIX behaviour, posix_main.cpp:481-491).
@@ -118,12 +123,13 @@ extern "C" void BM_CoopYield(void);
 
 void Sys_Sleep(int msec) {
 	if (msec <= 0) { BM_CpuPause(); return; }
-	double target = Sys_MillisecondsPrecise() + (double)msec;
 	BM_CoopYield();                       // a sleep is a good time to run the tic
-	while (Sys_MillisecondsPrecise() < target)
-		BM_CpuPause();
-	// TODO: wire sbi_set_timer + recoverable timer trap so we can wfi instead
-	//       of burning a hart (doc 15 §16.3).
+	// Park rather than spin. bm_wait_until() arms the S-mode timer (Sstc's
+	// stimecmp where the DTB advertises it, else SBI TIME) and then `wfi`, which
+	// under QEMU MTTCG genuinely hands the host core back -- BM_CpuPause() is a
+	// nop there and gave it back to nobody. Arming before parking is what makes
+	// the wake guaranteed; a bare `wfi` with sie.STIE clear halts forever.
+	bm_wait_until(timer_ticks() + timer_ticks_from_us((uint64_t)msec * 1000ull));
 }
 
 void Sys_SleepUntilPrecise(double targetTimeMS) {

@@ -314,6 +314,12 @@ void glUniform1i(GLint location, GLint v0)
     if (location == 1) C.sampler_unit = v0;
 }
 
+void glUniform1f(GLint location, GLfloat v0) { glUniform1fv(location, 1, &v0); }
+void glUniform2f(GLint location, GLfloat v0, GLfloat v1)
+{ GLfloat v[2] = { v0, v1 }; glUniform2fv(location, 1, v); }
+void glUniform3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2)
+{ GLfloat v[3] = { v0, v1, v2 }; glUniform3fv(location, 1, v); }
+
 void glUniform1iv(GLint location, GLsizei count, const GLint *value)
 {
     if (!value || count <= 0) return;
@@ -402,6 +408,13 @@ void glUniform4f(GLint location, GLfloat a, GLfloat b, GLfloat c, GLfloat d)
     (void)location; (void)a; (void)b; (void)c; (void)d;
 }
 
+void glUniform2i(GLint location, GLint v0, GLint v1)
+{ GLint v[2] = { v0, v1 }; glUniform2iv(location, 1, v); }
+void glUniform3i(GLint location, GLint v0, GLint v1, GLint v2)
+{ GLint v[3] = { v0, v1, v2 }; glUniform3iv(location, 1, v); }
+void glUniform4i(GLint location, GLint v0, GLint v1, GLint v2, GLint v3)
+{ GLint v[4] = { v0, v1, v2, v3 }; glUniform4iv(location, 1, v); }
+
 void glUniform4iv(GLint location, GLsizei count, const GLint *value)
 {
     if (!value || count <= 0) return;
@@ -431,16 +444,32 @@ void glUniform4fv(GLint location, GLsizei count, const GLfloat *value)
 
 void glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value)
 {
-    (void)count;
-    if (!value) return;
+    if (count < 0) { set_err(GL_INVALID_VALUE); return; }
+    if (transpose != GL_FALSE) { set_err(GL_INVALID_VALUE); return; }
+    if (!value || count == 0) return;
     glsl_program *gp = cur_gp();
     if (gp) {
-        if (!transpose) glsl_uniform(gp, location, value, 16);
-        else { float t[16]; for (int r = 0; r < 4; ++r) for (int c = 0; c < 4; ++c) t[c * 4 + r] = value[r * 4 + c]; glsl_uniform(gp, location, t, 16); }
+        for (GLsizei i = 0; i < count; ++i)
+            glsl_uniform(gp, location + i, value + (size_t)i * 16, 16);
         return;
     }
     if (location != 0) return;
-    if (!transpose) memcpy(C.mvp, value, sizeof(C.mvp));
-    else for (int r = 0; r < 4; ++r) for (int c = 0; c < 4; ++c) C.mvp[c * 4 + r] = value[r * 4 + c];
+    memcpy(C.mvp, value, sizeof(C.mvp));
     C.mvp_set = 1;
 }
+
+static void uniform_matrix_small(GLint location, GLsizei count, GLboolean transpose,
+                                 const GLfloat *value, int dim)
+{
+    if (!value || count < 0) { if (count < 0) set_err(GL_INVALID_VALUE); return; }
+    if (transpose != GL_FALSE) { set_err(GL_INVALID_VALUE); return; }
+    glsl_program *gp = cur_gp();
+    if (!gp || location < 0 || count == 0) return;
+    for (GLsizei i = 0; i < count; ++i)
+        glsl_uniform(gp, location + i, value + (size_t)i * dim * dim, dim * dim);
+}
+
+void glUniformMatrix2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value)
+{ uniform_matrix_small(location, count, transpose, value, 2); }
+void glUniformMatrix3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value)
+{ uniform_matrix_small(location, count, transpose, value, 3); }

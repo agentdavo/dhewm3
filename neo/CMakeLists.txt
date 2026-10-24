@@ -135,10 +135,130 @@ if(BAREMETAL)
 	if(NOT BAREMETAL_RENDER_PROF MATCHES "^[01]$")
 		message(FATAL_ERROR "BAREMETAL_RENDER_PROF must be 0 or 1")
 	endif()
+	set(BAREMETAL_BENCH "0" CACHE STRING "bare-metal DETERMINISTIC BENCH mode: pin the camera to a fixed vantage and freeze game time (g_stopTime) a few frames after the map spawns, so every frame renders identical geometry -> reliable renderer A/B (kills the ~18% frame-to-frame noise from md5 actor animation + scenicWarp). Not for captures/gameplay.")
+	if(NOT BAREMETAL_BENCH MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_BENCH must be 0 or 1")
+	endif()
+	# On-screen stats/fps HUD, drawn into the framebuffer at present. Only sets
+	# the BOOT DEFAULT of bm_sglOverlay -- the cvar is live, so it can be toggled
+	# from the console without a rebuild. Off by default: it turns the render
+	# profiler on to source its counters, and it paints over the frame, so it
+	# must never be on for a capture or an [fbhash] A/B.
+	set(BAREMETAL_SGL_OVERLAY "0" CACHE STRING "bare-metal demo: boot with the softgles2 stats/fps overlay enabled")
+	if(NOT BAREMETAL_SGL_OVERLAY MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_SGL_OVERLAY must be 0 or 1")
+	endif()
+	# FrameBin A/B controls. FrameBin defers programmable draws and clears to a
+	# per-tile replay at flush; it is meant to be PIXEL-IDENTICAL to immediate
+	# mode, so the way to validate it is to build it both ways and compare frame
+	# digests from otherwise identical runs:
+	#   -DBAREMETAL_FRAMEBIN=1 -DBAREMETAL_FB_HASH=1   (deferred)
+	#   -DBAREMETAL_FRAMEBIN=0 -DBAREMETAL_FB_HASH=1   (immediate, the reference)
+	# then diff the [fbhash] lines.
+	set(BAREMETAL_FRAMEBIN "1" CACHE STRING "bare-metal: defer draws into per-tile bins (0 = immediate mode)")
+	if(NOT BAREMETAL_FRAMEBIN MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_FRAMEBIN must be 0 or 1")
+	endif()
+	# Post-transform vertex dedupe. Supposed to be pixel-neutral (the transform is
+	# a pure function of index and uniforms, so computing once and copying gives
+	# the same bits), so it is validated the same way FrameBin is: build both, diff
+	# the [fbhash] lines.
+	set(BAREMETAL_VS_DEDUP "1" CACHE STRING "bare-metal: dedupe indices before the SIMT vertex transform (0 = off)")
+	if(NOT BAREMETAL_VS_DEDUP MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_VS_DEDUP must be 0 or 1")
+	endif()
+	set(BAREMETAL_FB_HASH "0" CACHE STRING "bare-metal: print an [fbhash] digest of every presented frame")
+	if(NOT BAREMETAL_FB_HASH MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_FB_HASH must be 0 or 1")
+	endif()
+	# Fixed game timestep. WITHOUT this, frame content is a function of wall-clock
+	# time, so two builds that run at different speeds render DIFFERENT content at
+	# the same frame index and a digest comparison between them is meaningless --
+	# it reports a difference that is really just "one arm was faster". Measured:
+	# a FrameBin A/B on the animated menu matched for the static opening frames and
+	# then diverged the moment animation started, which is indistinguishable from a
+	# real rendering bug until you control the clock.
+	# Defaults ON whenever frame hashing is on, because the two are only useful
+	# together.
+	set(BAREMETAL_FIXED_TIC "${BAREMETAL_FB_HASH}" CACHE STRING "bare-metal: com_fixedTic (fixes usercmds/frame; NOT sufficient for deterministic frames on its own)")
+	# Makes frame content a function of frame INDEX rather than wall clock, which
+	# is what a cross-run [fbhash] comparison needs -- com_fixedTic alone does not
+	# achieve it (com_ticNumber still comes from real time). Engine-reported frame
+	# times become fictional under this, so leave it off for perf runs.
+	set(BAREMETAL_DETERMINISTIC_CLOCK "${BAREMETAL_FB_HASH}" CACHE STRING "bare-metal: virtual clock advancing one tic per presented frame")
+	if(NOT BAREMETAL_DETERMINISTIC_CLOCK MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_DETERMINISTIC_CLOCK must be 0 or 1")
+	endif()
+	# Directory-wide, NOT target_compile_definitions(bm_boot ...): the clock lives
+	# in riscv/engine/sys_dos.cpp, which is part of src_sys_base -> the engine
+	# BINARY, not bm_boot. Defining it only on bm_boot compiles sys_dos.cpp with
+	# the fallback 0 and the feature silently does nothing -- which is exactly
+	# what happened on the first attempt, and the only symptom was a weak
+	# BM_VClockTick resolving to a null pointer at the call site.
+	add_compile_definitions("BM_DETERMINISTIC_CLOCK=${BAREMETAL_DETERMINISTIC_CLOCK}")
+	# Directory-wide (not bm_boot-scoped) for the same reason as the clock above:
+	# the bench trigger lives in riscv/engine/sys_dos.cpp, part of the engine BINARY.
+	add_compile_definitions("BM_BENCH=${BAREMETAL_BENCH}")
+	# SIMD correctness+timing micro-bench: boots pre-map, runs idSIMD_RVV vs
+	# idSIMD_Generic diff + timing, powers off. Directory-wide (sys_dos.cpp).
+	set(BAREMETAL_SIMDTEST "0" CACHE STRING "bare-metal: run the idSIMD_RVV vs idSIMD_Generic correctness+timing harness at boot, then power off")
+	if(NOT BAREMETAL_SIMDTEST MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_SIMDTEST must be 0 or 1")
+	endif()
+	add_compile_definitions("BM_SIMDTEST=${BAREMETAL_SIMDTEST}")
+	# Quality preset the bare-metal init pins (framework/Common.cpp forces this
+	# twice, since the large detected heap would otherwise classify as Ultra and
+	# the second pass would re-clobber any cfg/+set). 0=Low (default, cheapest for
+	# the software rasteriser), 3=Ultra (full-res uncompressed textures). Higher
+	# specs cost RAM/load-time and per-frame sample bandwidth; anisotropy/MSAA the
+	# preset requests are no-ops in softgles2. Directory-wide (Common.cpp is engine).
+	set(BAREMETAL_MACHINE_SPEC "0" CACHE STRING "bare-metal com_machineSpec pinned at init: 0=Low 1=Medium 2=High 3=Ultra")
+	if(NOT BAREMETAL_MACHINE_SPEC MATCHES "^[0-3]$")
+		message(FATAL_ERROR "BAREMETAL_MACHINE_SPEC must be 0..3")
+	endif()
+	add_compile_definitions("BM_MACHINE_SPEC=${BAREMETAL_MACHINE_SPEC}")
+	if(NOT BAREMETAL_FIXED_TIC MATCHES "^[01]$")
+		message(FATAL_ERROR "BAREMETAL_FIXED_TIC must be 0 or 1")
+	endif()
+	# Framebuffer resolution ladder for TCG iteration. Width should be a multiple
+	# of SGL_SIMT_LANES (VLEN/16); height a multiple of SGL_MT_TILE_H (lanes/4).
+	# Defaults keep the shipping 768x432 (16:9, VLEN=1024 / 64-lane aligned).
+	set(BAREMETAL_FB_WIDTH "768" CACHE STRING "bare-metal demo: r_customWidth (SIMT-aligned)")
+	set(BAREMETAL_FB_HEIGHT "432" CACHE STRING "bare-metal demo: r_customHeight (MT-tile-aligned)")
+	if(NOT BAREMETAL_FB_WIDTH MATCHES "^[0-9]+$" OR NOT BAREMETAL_FB_HEIGHT MATCHES "^[0-9]+$")
+		message(FATAL_ERROR "BAREMETAL_FB_WIDTH/HEIGHT must be positive integers")
+	endif()
+	# Supersampled anti-aliasing. BAREMETAL_FB_WIDTH/HEIGHT are the DISPLAY
+	# resolution (the virtio-gpu scanout); with SSAA>1 the engine renders at
+	# render-res = display * SSAA and dos_present.c box-downsamples back to the
+	# display size. BM_FB_WIDTH/HEIGHT (which drive r_customWidth/Height and the
+	# GL context size) therefore carry the supersampled render size, and BM_SSAA
+	# carries the factor so the payload knows how much to shrink at present.
+	# SSAA=1 is bit-identical to the old behaviour (render == display).
+	set(BAREMETAL_SSAA "1" CACHE STRING "bare-metal demo: supersampling factor (1..4)")
+	if(NOT BAREMETAL_SSAA MATCHES "^[1-4]$")
+		message(FATAL_ERROR "BAREMETAL_SSAA must be 1..4")
+	endif()
+	math(EXPR BM_RENDER_WIDTH "${BAREMETAL_FB_WIDTH} * ${BAREMETAL_SSAA}")
+	math(EXPR BM_RENDER_HEIGHT "${BAREMETAL_FB_HEIGHT} * ${BAREMETAL_SSAA}")
+	# dhewm3 overwrites CMAKE_*_FLAGS_RELWITHDEBINFO further down and drops CMake's
+	# usual -DNDEBUG, so the shipped bare-metal ELF carries ~2900 live assert()
+	# call sites (idList/idVec3/idMat3 bounds checks inlined all over the frame and
+	# game-tick paths). Restore it for the bare-metal image only -- desktop dhewm3
+	# keeps upstream behaviour. Verified there are no asserts with side effects
+	# (assignment or ++/--) in neo/ outside the vendored libs, so this removes
+	# checks and nothing else. -g is unaffected; DWARF is still emitted.
+	add_compile_definitions(NDEBUG)
+
 	get_filename_component(BAREMETAL_RISCV_DIR "${BAREMETAL_RISCV_DIR}" ABSOLUTE)
 	set(BM_SDL3_INCLUDE "${BAREMETAL_RISCV_DIR}/sdl3/include")
 	set(BM_SDL3_LIB     "${BAREMETAL_RISCV_DIR}/sdl3/libSDL3-riscv.a")
-	set(BM_GL4ES_LIB    "${BAREMETAL_RISCV_DIR}/gl4es/lib/libGL-riscv.a")
+	if(BM_VECTOR)
+		set(BM_GL4ES_LIB "${BAREMETAL_RISCV_DIR}/gl4es/lib/libGL-riscv.a")
+	else()
+		# Scalar target: must not pick up the vector archive (see build-gl4es.sh).
+		set(BM_GL4ES_LIB "${BAREMETAL_RISCV_DIR}/gl4es/lib/libGL-riscv-scalar.a")
+	endif()
 	set(BM_GL4ES_INCLUDE "${BAREMETAL_RISCV_DIR}/gl4es/include")
 	set(BM_SGL_DIR      "${BAREMETAL_RISCV_DIR}/softgles2")
 	set(BM_BRIDGE_DIR   "${BAREMETAL_RISCV_DIR}/gl4es-bridge")
@@ -1425,6 +1545,15 @@ include_directories(${CMAKE_BINARY_DIR})
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_library(idlib STATIC ${src_idlib})
+if(BAREMETAL)
+	# Re-enable FMA contraction for idlib on the bare-metal target. The top-level
+	# -ffp-contract=off is upstream's guard for desktop demo/physics determinism
+	# (gcc PR100839); bare-metal DoomOS records no demos and replays no netgames,
+	# and this is the library behind every matrix/vector/plane operation in map
+	# load and the game tick. Scoped to BAREMETAL so desktop dhewm3 keeps
+	# upstream's determinism guarantee untouched.
+	target_compile_options(idlib PRIVATE -ffp-contract=fast)
+endif()
 if(SDL3 AND NOT BAREMETAL)
 	target_link_libraries(idlib SDL3::Headers) # so it can use SDL_Endian.h
 	# (BAREMETAL adds the prebuilt SDL3 headers via include_directories instead.)
@@ -1468,7 +1597,9 @@ if(BAREMETAL)
 		"${BM_BOOT_DIR}/sbi.c"
 		"${BM_BOOT_DIR}/trap.c"
 		"${BM_BOOT_DIR}/irq.c"
+		"${BM_BOOT_DIR}/fdt.c"
 		"${BM_ENGINE_DIR}/engine_kmain.c"
+		"${BM_ENGINE_DIR}/texture_jobs.c"
 		"${BM_ENGINE_DIR}/dos_syscalls.c"
 		"${BM_ENGINE_DIR}/dos_hart_entry.S"
 		"${BM_ENGINE_DIR}/dos_thread.c"
@@ -1478,6 +1609,14 @@ if(BAREMETAL)
 		"${BM_ENGINE_DIR}/savefs.c"           # persistent append-only journal (doc 13)
 	)
 	target_include_directories(bm_boot PRIVATE "${BAREMETAL_RISCV_DIR}")
+	# runtime.c runs BEFORE .bss is live, so it must not execute vector code:
+	# GCC autovectorised bm_zero_range()'s byte-alignment head loop into a
+	# 30-instruction RVV early-break sequence (vid.v, vand/vmseq/vmor.mm, vcpop.m)
+	# that ran before the region it is about to zero exists. Harmless in practice
+	# because __bss_start is aligned, but it means _cstart issues vector
+	# instructions on the strength of OpenSBI having left sstatus.VS on.
+	set_source_files_properties("${BM_BOOT_DIR}/runtime.c"
+		PROPERTIES COMPILE_OPTIONS "-fno-tree-vectorize")
 	target_compile_definitions(bm_boot PRIVATE
 		"BM_DEFER_PRECACHE=${BAREMETAL_DEFER_PRECACHE}"
 		"BM_QUIET_ASSET_LOADS=${BAREMETAL_QUIET_ASSET_LOADS}"
@@ -1485,6 +1624,12 @@ if(BAREMETAL)
 		"BM_SIMD_BENCH=${BAREMETAL_SIMD_BENCH}"
 		"BM_BOOT_TO_MENU=${BAREMETAL_BOOT_TO_MENU}"
 		"BM_RENDER_PROF=${BAREMETAL_RENDER_PROF}"
+		"BM_SGL_OVERLAY=${BAREMETAL_SGL_OVERLAY}"
+		"BM_FIXED_TIC=${BAREMETAL_FIXED_TIC}"
+		"BM_DETERMINISTIC_CLOCK=${BAREMETAL_DETERMINISTIC_CLOCK}"
+		"BM_FB_WIDTH=${BM_RENDER_WIDTH}"
+		"BM_FB_HEIGHT=${BM_RENDER_HEIGHT}"
+		"BM_SSAA=${BAREMETAL_SSAA}"
 	)
 
 	# 2) softgles2 software-rasteriser backend, namespaced to sgl2_* (so it backs
@@ -1507,10 +1652,12 @@ if(BAREMETAL)
 		"${BM_SGL_DIR}/src/sg_mt_sched.c"
 		"${BM_SGL_DIR}/src/sg_state.c"
 		"${BM_SGL_DIR}/src/sg_vertex.c"
+		"${BM_SGL_DIR}/src/sg_vs_range.c"
 		"${BM_SGL_DIR}/src/sg_frag.c"
 		"${BM_SGL_DIR}/src/sg_frame.c"
 		"${BM_SGL_DIR}/src/sg_framebin.c"
 		"${BM_SGL_DIR}/src/sg_prof.c"
+		"${BM_SGL_DIR}/src/sg_overlay.c"
 		"${BM_SGL_DIR}/src/sg_buffer.c"
 		"${BM_SGL_DIR}/src/sg_texture.c"
 		"${BM_SGL_DIR}/src/sg_framebuffer.c"
@@ -1518,9 +1665,33 @@ if(BAREMETAL)
 		"${BM_SGL_DIR}/src/sg_draw.c"
 		"${BM_SGL_DIR}/src/sg_clip.c"
 	)
+	option(BAREMETAL_RASTER_PARETO "Sample RVV raster stages (diagnostic build only)" OFF)
+	set_source_files_properties("${BM_SGL_DIR}/src/sg_raster.c" "${BM_SGL_DIR}/src/sg_prof.c"
+		PROPERTIES COMPILE_DEFINITIONS "SGL_PARETO=$<BOOL:${BAREMETAL_RASTER_PARETO}>")
+	# Re-enable FMA contraction for the software renderer only. The top-level
+	# add_compile_options(-ffp-contract=off) above is upstream dhewm3's guard for
+	# demo/physics determinism, but it lands on every target including this one,
+	# where it costs real throughput: sg_raster.c compiles 89 FMA instructions
+	# with contraction off against 128 with it on (+44%), and that file is the
+	# per-fragment raster wrapper. softgles2 has no determinism contract with the
+	# engine -- it consumes vertices and produces pixels. Target options are
+	# emitted after directory options, so this wins.
+	# NOTE: this can perturb the kernel-vs-VM bit-exactness gates (iakernrun,
+	# ovkrun, atestrv); both sides are built with the same flag so they should
+	# stay consistent, but re-run them after changing this.
 	target_compile_options(bm_sgl PRIVATE
-		-DSGL_BAREMETAL -fno-tree-loop-distribute-patterns -fno-math-errno
+		-DSGL_BAREMETAL -ffp-contract=fast -fno-tree-loop-distribute-patterns -fno-math-errno
 		-include "${BM_BRIDGE_DIR}/sgl2_names.h")
+	# A huge minimum disables the dedupe without a second code path to keep in
+	# sync -- the guard it already has becomes permanently false.
+	if(BAREMETAL_VS_DEDUP)
+		set(BM_VS_DEDUP_MIN 64)
+	else()
+		set(BM_VS_DEDUP_MIN 0x7FFFFFFF)
+	endif()
+	target_compile_definitions(bm_sgl PRIVATE
+		"SGL_FRAMEBIN_DEFAULT=${BAREMETAL_FRAMEBIN}"
+		"SGL_VS_DEDUP_MIN_VERTS=${BM_VS_DEDUP_MIN}")
 	target_include_directories(bm_sgl PRIVATE
 		"${BAREMETAL_RISCV_DIR}" "${BM_SGL_DIR}/include" "${BM_SGL_DIR}/src"
 		"${BM_BRIDGE_DIR}" "${BM_GL4ES_INCLUDE}")
@@ -1533,9 +1704,11 @@ if(BAREMETAL)
 		"${BM_DOS_DIR}/dos_virtio_gpu.c"
 	)
 	target_compile_options(bm_bridge PRIVATE -DSGL_BAREMETAL)
+	target_compile_definitions(bm_bridge PRIVATE
+		"BM_FB_HASH=${BAREMETAL_FB_HASH}" "BM_SSAA=${BAREMETAL_SSAA}")
 	target_include_directories(bm_bridge PRIVATE
 		"${BAREMETAL_RISCV_DIR}" "${BM_DOS_DIR}" "${BM_SGL_DIR}/include"
-		"${BM_BRIDGE_DIR}" "${BM_GL4ES_INCLUDE}")
+		"${BM_SGL_DIR}/src" "${BM_BRIDGE_DIR}" "${BM_GL4ES_INCLUDE}")
 
 	# 4) dOS OpenAL ABI shim -> miniaudio device-less mixer -> serial PCM sink.
 	# The virtio-snd backend is selected later by compiling dos_audio.c with
@@ -1602,6 +1775,32 @@ if(BAREMETAL)
 	# Use --start-group/--end-group around the archives so the link order between
 	# idlib, the engine objects (the exe's own objects come first automatically),
 	# SDL3, gl4es, softgles2, the bridge, the boot CRT and newlib is irrelevant.
+	option(BAREMETAL_SHIM_PROFILE "Diagnostic GL boundary timing and gl4es allocation ownership" OFF)
+	if(BAREMETAL_SHIM_PROFILE)
+		find_package(Python3 REQUIRED COMPONENTS Interpreter)
+		set(SHIM_PROFILE_DIR "${CMAKE_CURRENT_BINARY_DIR}/shim-profile")
+		set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+			"${BM_BRIDGE_DIR}/generate_profile.py" "${BM_BRIDGE_DIR}/bridge.c"
+			"${BM_SGL_DIR}/include/sgl_gl.h" "${BM_GL4ES_INCLUDE}/GL/glext.h"
+			"${CMAKE_CURRENT_SOURCE_DIR}/renderer/qgl_proc.h" "${CMAKE_CURRENT_SOURCE_DIR}/renderer/qgl.h")
+		execute_process(COMMAND "${Python3_EXECUTABLE}" "${BM_BRIDGE_DIR}/generate_profile.py"
+			"${SHIM_PROFILE_DIR}" RESULT_VARIABLE SHIM_GEN_RESULT)
+		if(NOT SHIM_GEN_RESULT EQUAL 0)
+			message(FATAL_ERROR "Failed to generate shim profile wrappers")
+		endif()
+		include("${SHIM_PROFILE_DIR}/profile_link.cmake")
+		add_custom_command(OUTPUT "${SHIM_PROFILE_DIR}/libGL-profile.a"
+			COMMAND "${CMAKE_OBJCOPY}" "--redefine-syms=${SHIM_PROFILE_DIR}/profile_alloc.syms"
+				"${BM_GL4ES_LIB}" "${SHIM_PROFILE_DIR}/libGL-profile.a"
+			DEPENDS "${BM_GL4ES_LIB}" "${SHIM_PROFILE_DIR}/profile_alloc.syms" VERBATIM)
+		add_custom_target(shim_profile_archive DEPENDS "${SHIM_PROFILE_DIR}/libGL-profile.a")
+		add_dependencies(${DHEWM3BINARY} shim_profile_archive)
+		set(BM_GL4ES_LIB "${SHIM_PROFILE_DIR}/libGL-profile.a")
+		target_sources(bm_bridge PRIVATE "${BM_BRIDGE_DIR}/profile.c"
+			"${SHIM_PROFILE_DIR}/profile_front.c" "${SHIM_PROFILE_DIR}/profile_driver.c")
+		target_compile_definitions(bm_bridge PRIVATE BM_SHIM_PROFILE=1)
+		target_link_libraries(${DHEWM3BINARY} ${SHIM_WRAP_FLAGS})
+	endif()
 	target_link_libraries(${DHEWM3BINARY}
 		-Wl,--start-group
 		idlib

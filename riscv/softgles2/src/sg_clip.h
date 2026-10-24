@@ -29,6 +29,19 @@
 int sgl_clip_near_tri(const float in_pos[3][4], const float *const in_vary[3],
                       int nvary, float out_pos[4][4], float *out_vary);
 
+/* Max output vertices from the guard-band frustum clip (triangle vs 5 planes). */
+#define SGL_CLIP_MAXV 8
+
+/* Guard-band frustum clip: near plane + the four side planes at |x|,|y| <= guard*w
+ * (guard >= 1 leaves all in-viewport geometry untouched). Bounds the projected
+ * screen coordinates of grazing triangles (tiny positive w) so the rasteriser
+ * does not lose edge-function precision and paint garbage. Output is a convex
+ * polygon of 0 or 3..SGL_CLIP_MAXV vertices (consume as a fan). Same linear
+ * clip-space interpolation contract as sgl_clip_near_tri. */
+int sgl_clip_frustum_tri(const float in_pos[3][4], const float *const in_vary[3],
+                         int nvary, float out_pos[SGL_CLIP_MAXV][4], float *out_vary,
+                         float guard);
+
 /* True if a clip-space vertex is behind the near plane (z + w < 0), i.e. the
  * triangle that contains it needs clipping. */
 static inline int sgl_clip_vert_behind_near(const float clip[4])

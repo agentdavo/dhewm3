@@ -171,8 +171,14 @@ int sg_mt_prog_dispatch(const sg_draw_packet *draw, GLenum mode, GLsizei count,
         float cw = maxx - minx, ch = maxy - miny;
         if (cw < 0.f) cw = 0.f;
         if (ch < 0.f) ch = 0.f;
-        if ((long)cw * (long)ch < SGL_MT_MIN_COVER_PX)
+        if ((long)cw * (long)ch < SGL_MT_MIN_COVER_PX) {
+            /* The dominant rejection: this is where a 122-vertex Doom 3 draw
+             * that covers less than 16384px goes single-hart. Counted in
+             * primitives so [rprof-mtrej] ranks it against the later gates. */
+            sgl_dbg_mt_reject[MTR_SMALL]++;
+            sgl_dbg_mt_reject_prims[MTR_SMALL] += (unsigned long)(count / 3);
             return 0;
+        }
         cover_admit = 1;   /* low-vertex/high-coverage draw the fix newly admits */
     }
 
@@ -183,6 +189,7 @@ int sg_mt_prog_dispatch(const sg_draw_packet *draw, GLenum mode, GLsizei count,
     int *tile_offsets = 0, *tile_refs = 0;
     int nprim = prims ? sg_mt_prim_build(mode, count, prims) : 0;
     if (!prims || nprim <= 0) {
+        sgl_dbg_mt_reject[MTR_NOPRIM]++;
         free(prims);
         return 0;
     }
@@ -207,6 +214,7 @@ int sg_mt_prog_dispatch(const sg_draw_packet *draw, GLenum mode, GLsizei count,
     ) : -1;
 
     if (bin_refs < 0) {
+        sgl_dbg_mt_reject[MTR_NOREFS]++;
         free(prims);
         return 0;
     }

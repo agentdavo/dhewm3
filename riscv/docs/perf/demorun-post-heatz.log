@@ -1,0 +1,490 @@
++ qemu-system-riscv64  -accel tcg,thread=multi,tb-size=256  -cpu rva23s64,vlen=256,v=true,vext_spec=v1.0,elen=64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zfh=true,zvfh=true,zvfbfmin=true,zvfbfwma=true,zvbc=true,zvkng=true,zvksg=true  -m 4G  -smp 6  -drive /home/djs/dhewm3/build-rv/demo_mars_city1_disk.img  -pin-harts 0..5
++ machine: virt,acpi=off
++ kernel: /home/djs/dhewm3/build-rv/dhewm3
+---------------------------------------------------------------
+[pin] hart/vCPU 0 thread 1708771 (CPU 0/TCG) -> host CPU 0
+[pin] hart/vCPU 1 thread 1708772 (CPU 1/TCG) -> host CPU 1
+[pin] hart/vCPU 2 thread 1708773 (CPU 2/TCG) -> host CPU 2
+[pin] hart/vCPU 3 thread 1708775 (CPU 3/TCG) -> host CPU 3
+[pin] hart/vCPU 4 thread 1708776 (CPU 4/TCG) -> host CPU 4
+[pin] hart/vCPU 5 thread 1708777 (CPU 5/TCG) -> host CPU 5
+
+OpenSBI v1.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name               : riscv-virtio,qemu
+Platform Features           : medeleg
+Platform HART Count         : 6
+Platform IPI Device         : aclint-mswi
+Platform Timer Device       : aclint-mtimer @ 10000000Hz
+Platform Console Device     : uart8250
+Platform HSM Device         : ---
+Platform PMU Device         : ---
+Platform Reboot Device      : syscon-reboot
+Platform Shutdown Device    : syscon-poweroff
+Platform Suspend Device     : ---
+Platform CPPC Device        : ---
+Firmware Base               : 0x80000000
+Firmware Size               : 378 KB
+Firmware RW Offset          : 0x40000
+Firmware RW Size            : 122 KB
+Firmware Heap Offset        : 0x50000
+Firmware Heap Size          : 58 KB (total), 3 KB (reserved), 12 KB (used), 42 KB (free)
+Firmware Scratch Size       : 4096 B (total), 1400 B (used), 2696 B (free)
+Runtime SBI Version         : 3.0
+Standard SBI Extensions     : time,rfnc,ipi,base,hsm,srst,pmu,dbcn,fwft,legacy,dbtr,sse
+Experimental SBI Extensions : none
+
+Domain0 Name                : root
+Domain0 Boot HART           : 0
+Domain0 HARTs               : 0*,1*,2*,3*,4*,5*
+Domain0 Region00            : 0x0000000000100000-0x0000000000100fff M: (I,R,W) S/U: (R,W)
+Domain0 Region01            : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
+Domain0 Region02            : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region03            : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region04            : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region05            : 0x000000000c400000-0x000000000c5fffff M: (I,R,W) S/U: (R,W)
+Domain0 Region06            : 0x000000000c000000-0x000000000c3fffff M: (I,R,W) S/U: (R,W)
+Domain0 Region07            : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
+Domain0 Next Address        : 0x0000000080200000
+Domain0 Next Arg1           : 0x000000017fe00000
+Domain0 Next Mode           : S-mode
+Domain0 SysReset            : yes
+Domain0 SysSuspend          : yes
+
+Boot HART ID                : 0
+Boot HART Domain            : root
+Boot HART Priv Version      : v1.12
+Boot HART Base ISA          : rv64imafdcbvh
+Boot HART ISA Extensions    : smstateen,sscofpmf,sstc,zicntr,zihpm,zicboz,zicbom,svpbmt,sdtrig,svade,smnpm,ssstateen
+Boot HART PMP Count         : 0
+Boot HART PMP Granularity   : 0 bits
+Boot HART PMP Address Bits  : 0
+Boot HART MHPM Info         : 16 (0x0007fff8)
+Boot HART Debug Triggers    : 2 triggers
+Boot HART MIDELEG           : 0x0000000000003666
+Boot HART MEDELEG           : 0x0000000000f4b509
+[doomos-cpu] RVV VLEN=256 bits; e32m1=8 e32m2=16 lanes; SoftGLES batch=16
+bm argv: +set r_mode -1 +set r_customWidth 512 +set r_customHeight 288 +set r_glprof 0 +map game/demo_mars_city1 +set g_bmDeferPrecache 1 +set bm_quietAssetLoads 1 +set bm_ioStats 1 +set bm_simdBench 0 +set bm_renderProf 1 +set g_skipCinematic 1 +set in_scriptedMove 1 +set r_shadows 0 +set in_scriptedYawPerTic 3.0 +set r_gamma 2.0 +set r_brightness 1.3 +set in_scriptedFwd 0 +set bm_iakLightUnity 0 +set bm_scenicWarp 1 +set bm_npcCam 0 +set com_maxCatchupTics 10 +set bm_sglDbgDraws 0 +set bm_sglDbgFrameFirst -1 +set bm_sglDbgFrameLast -1 +set bm_sglDbgDrawFirst -1 +set bm_sglDbgDrawLast -1 +set bm_sglDbgDetail 0
+[dos-thread] boot hart 0; HSM reports 6 hart(s) present (scan max 8)
+dosfs: mounted, 4 files, 1075520 sectors on virtio-blk
+ramfs: rw self-test ok (/home)
+savefs: mounted, 18 records replayed, 63 MiB free
+savefs: no dostest.save record (using +map cinematic fallback)
+WARNING: Couldn't get SDL gamepad support! Gamepads won't work!
+dhewm3 1.5.5.1305 generic-riscv64 Jun 08 2026 13:37:42 using SDL v3.4.10
+SDL video driver: dos
+dhewm3 bare-metal (dOS): 1833 MB heap
+doom using RVV for SIMD processing
+----- Initializing File System -----
+Loaded pk4 /base/demo00.pk4 with checksum 0xfe75bbef
+Current search path:
+/home/base
+//base
+/base/demo00.pk4 (12234 files)
+Addon pk4s:
+----- Initializing Decls -----
+5151 strings read from strings/english.lang
+Couldn't open journal files
+couldn't exec editor.cfg
+execing default.cfg
+execing dhewm.cfg
+execing autoexec.cfg
+5151 strings read from strings/english.lang
+----- Initializing OpenAL -----
+Sound disabled with s_noSound 1 !
+----- Initializing OpenGL -----
+Initializing OpenGL subsystem
+Will create a window with resolution 512x288 (r_mode = -1)
+SDL detected 1 displays: 
+ Display 0 (ID 2) has the following modes:
+  Currently: 800x600 at (0, 0) to (800, 600)
+Will use display 0 (2) because mouse cursor is at (0, 0).
+dvgpu: no virtio-gpu scanout rc=-1; using private framebuffer
+Got a window with resolution 512 x 288
+Requested 8 color bits per chan, 8 alpha 24 depth, 8 stencil and no MSAA
+Got 8 stencil bits, 24 depth bits, color bits: r8 g8 b8 a8 and no MSAA
+Detected keyboard layout as "english"
+OpenGL vendor: GL4ES wrapping dhewm3-riscv
+OpenGL renderer: GL4ES using softgles2 (RVV software rasteriser)
+OpenGL version: 2.1 gl4es wrapper 1.1.7
+...using GL_ARB_multitexture
+...using GL_ARB_texture_env_combine
+...using GL_ARB_texture_cube_map
+...using GL_ARB_texture_env_dot3
+...using GL_ARB_texture_env_add
+...using GL_ARB_texture_non_power_of_two
+...using GL_ARB_texture_compression
+...using GL_EXT_texture_compression_s3tc
+X..GL_ARB_texture_compression_bptc not found
+X..GL_EXT_texture_filter_anisotropic not found
+...using GL_1.4_texture_lod_bias
+X..GL_EXT_shared_texture_palette not found
+X..GL_EXT_texture3D not found
+...using GL_EXT_stencil_wrap
+X..GL_EXT_stencil_two_side not found
+...got GL2.0+ glStencilOpSeparate()
+...using GL_ARB_vertex_buffer_object
+...using GL_ARB_vertex_program
+...using GL_ARB_fragment_program
+...using EXT_depth_bounds_test
+X..GL_ARB_debug_output not found
+ARB2 renderer: Available.
+----- R_ReloadARBPrograms -----
+glprogs/test.vfp
+[demoflow] +211ms ARB program test.vfp
+glprogs/test.vfp
+[demoflow] +123ms ARB program test.vfp
+glprogs/interaction.vfp
+[demoflow] +63ms ARB program interaction.vfp
+glprogs/interaction.vfp
+[demoflow] +62ms ARB program interaction.vfp
+glprogs/bumpyEnvironment.vfp
+[demoflow] +39ms ARB program bumpyEnvironment.vfp
+glprogs/bumpyEnvironment.vfp
+[demoflow] +40ms ARB program bumpyEnvironment.vfp
+glprogs/ambientLight.vfp
+[demoflow] +63ms ARB program ambientLight.vfp
+glprogs/ambientLight.vfp
+[demoflow] +39ms ARB program ambientLight.vfp
+glprogs/shadow.vp
+[demoflow] +28ms ARB program shadow.vp
+glprogs/environment.vfp
+[demoflow] +16ms ARB program environment.vfp
+glprogs/environment.vfp
+[demoflow] +39ms ARB program environment.vfp
+glprogs/arbVP_glasswarp.txt: File not found
+[demoflow] +2ms ARB program arbVP_glasswarp.txt
+glprogs/arbFP_glasswarp.txt: File not found
+[demoflow] +2ms ARB program arbFP_glasswarp.txt
+<internal> soft_particle.vfp
+[demoflow] +16ms ARB program soft_particle.vfp
+<internal> soft_particle.vfp
+[demoflow] +48ms ARB program soft_particle.vfp
+[demoflow] +798ms R_ReloadARBPrograms DONE
+using ARB_vertex_buffer_object memory
+using ARB2 renderSystem
+Will apply r_gamma and r_brightness in shaders (r_gammaInShader 1)
+[frame] frame=1 elapsed=0ms avg=0us/frame
+views:1 draws:0 tris:0 (shdw:0) (vbo:0) image:  0.8 MB
+[sgl-mt] tile-parallel raster: 6 harts (5 workers, 16x4 tiles)
+views:1 draws:2 tris:22 (shdw:0) (vbo:0) image:  0.4 MB
+views:1 draws:2 tris:58 (shdw:0) (vbo:0) image:  1.3 MB
+----- Initializing Game -----
+gamename: baseDOOM-1
+gamedate: Jun 08 2026
+Initializing event system
+...473 event definitions
+Initializing class hierarchy
+...142 classes, 764368 bytes for event callbacks
+Initializing scripts
+Compiled 'script/doom_main.script': 52008 ms
+----- Compile stats -----
+Memory usage:
+     Strings: 79, 10288 bytes
+  Statements: 67783, 2169056 bytes
+   Functions: 2108, 317908 bytes
+   Variables: 170776 bytes
+    Mem used: 3932784 bytes
+ Static data: 3558984 bytes
+   Allocated: 5107916 bytes
+ Thread size: 14056 bytes
+...6 aas types
+views:1 draws:2 tris:30 (shdw:0) (vbo:0) image:  0.4 MB
+----- Initializing Session -----
+WARNING: Couldn't load gui: 'guis/mainmenu.gui'
+bm InitGame: session->Init returned, sysDetect=1
+bm InitGame: execMachineSpec done, before s_restart
+bm s_restart: SetMute(true)
+bm s_restart: ShutdownHW
+bm s_restart: InitHW
+bm s_restart: SetMute(false)
+bm s_restart: done
+bm InitGame: s_restart done
+bm InitGame: returning to Init()
+bm startup command[0]: set r_mode -1
+bm startup command[1]: set r_customWidth 512
+bm startup command[2]: set r_customHeight 288
+bm startup command[3]: set r_glprof 0
+bm startup command[4]: map game/demo_mars_city1
+bm startup command[5]: set g_bmDeferPrecache 1
+bm startup command[6]: set bm_quietAssetLoads 1
+bm startup command[7]: set bm_ioStats 1
+bm startup command[8]: set bm_simdBench 0
+bm startup command[9]: set bm_renderProf 1
+bm startup command[10]: set g_skipCinematic 1
+bm startup command[11]: set in_scriptedMove 1
+bm startup command[12]: set r_shadows 0
+bm startup command[13]: set in_scriptedYawPerTic 3.0
+bm startup command[14]: set r_gamma 2.0
+bm startup command[15]: set r_brightness 1.3
+bm startup command[16]: set in_scriptedFwd 0
+bm startup command[17]: set bm_iakLightUnity 0
+bm startup command[18]: set bm_scenicWarp 1
+bm startup command[19]: set bm_npcCam 0
+bm startup command[20]: set com_maxCatchupTics 10
+bm startup command[21]: set bm_sglDbgDraws 0
+bm startup command[22]: set bm_sglDbgFrameFirst -1
+bm startup command[23]: set bm_sglDbgFrameLast -1
+bm startup command[24]: set bm_sglDbgDrawFirst -1
+bm startup command[25]: set bm_sglDbgDrawLast -1
+bm startup command[26]: set bm_sglDbgDetail 0
+----- Warnings -----
+during dhewm 3 initialization...
+WARNING: Couldn't load gui: 'guis/mainmenu.gui'
+1 warnings
+bm Session_Map_f argc=2 map='game/demo_mars_city1'
+bm map file found: maps/game/demo_mars_city1.map
+bm StartNewGame map='game/demo_mars_city1' devmap=1
+bm MoveToNewMap si_map='game/demo_mars_city1'
+views:2 draws:2 tris:42 (shdw:0) (vbo:0) image:  5.1 MB
+[fssrc] >>>>>>>>>>
+#version 100
+#extension GL_EXT_shader_non_constant_global_initializers : enable
+precision mediump float;
+#define GL4ES
+precision mediump int;
+// FPE_Shader generated
+varying vec4 Color;
+varying highp vec4 _gl4es_TexCoord_0;
+uniform sampler2D _gl4es_TexSampler_0;
+void main() {
+vec4 fColor = Color;
+vec4 texColor0 = texture2DProj(_gl4es_TexSampler_0, _gl4es_TexCoord_0);
+fColor.rgb *= texColor0.rgb;
+gl_FragColor = fColor;
+}
+[fssrc] <<<<<<<<<<
+[fsdump] id=1 path=overlay ok=1 simt=1 ninst=11 nvaryf=8 nuni=3 vs(ninst=13 sig=fcb37a3e) | tex2d=0 proj=1 cube=0 norm=0 pow=0 dot=0 oth=0
+[fsdump]   vary[0] Color comp=4 off=0
+[fsdump]   vary[1] _gl4es_TexCoord_0 comp=4 off=4
+[fsdump]   uni  _gl4es_ModelViewProjectionMatrix off=0
+[fsdump]   uni  _gl4es_TextureMatrix_0 off=16
+[fsdump]   uni  _gl4es_TexSampler_0 unit=0
+[rprof] draws=19 tris=4238 frags=523909 skipxp=0 mt_engaged=9 mt_blits=7 | vertex=158.5ms dispatch=1884.3ms raster=1602.7ms present=0.5ms total=3646.1ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=19 draws/12714 verts kernel=1 batches/6 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.2ms simt=157.5ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=56.0ms release=0.0ms mainbusy=1746.6ms wait=60.0ms | frags=523909 | hart busy/tiles h0=1746.3ms/1524 h1=1745.1ms/1628 h2=1763.6ms/1217 h3=1741.4ms/1180 h4=1728.9ms/1276 h5=1753.5ms/1232 | shade=4817.7ms (45%) wrapper=5661.2ms lanes=649962 occ=80%
+[speeds] render:3953ms  rf(frontend):0ms  bk(backend):502ms
+bm ExecuteMapChange si_map='game/demo_mars_city1'
+----- Game Map Shutdown -----
+reloading guis/demo_mainmenu.gui.
+reloading guis/restart.gui.
+reloading guis/gameover.gui.
+reloading guis/msg.gui.
+reloading guis/takeNotes.gui.
+reloading guis/intro.gui.
+views:1 draws:19 tris:4238 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=1 tris=2 frags=110592 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.1ms dispatch=263.1ms raster=0.0ms present=0.0ms total=263.3ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=1 draws/6 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.1ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=5.4ms release=0.0ms mainbusy=240.7ms wait=16.9ms | frags=110592 | hart busy/tiles h0=240.7ms/372 h1=254.6ms/264 h2=241.7ms/340 h3=236.8ms/220 h4=233.8ms/260 h5=243.9ms/344 | shade=525.4ms (36%) wrapper=926.2ms lanes=115200 occ=96%
+[fswork] === shader workload (cumulative frags=148992) ===
+[fswork]  id=1 100% frags=148992 (kernel=148992 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=1]
+[speeds] render:379ms  rf(frontend):0ms  bk(backend):3878ms
+views:1 draws:1 tris:2 (shdw:0) (vbo:0) image:  0.0 MB
+[rprof] draws=3 tris=18 frags=111597 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.7ms dispatch=298.1ms raster=37.8ms present=0.0ms total=336.7ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.5ms release=0.0ms mainbusy=292.0ms wait=5.4ms | frags=111597 | hart busy/tiles h0=292.0ms/364 h1=288.2ms/244 h2=289.7ms/272 h3=293.2ms/340 h4=289.1ms/232 h5=295.3ms/348 | shade=641.6ms (36%) wrapper=1106.1ms lanes=117070 occ=95%
+[speeds] render:421ms  rf(frontend):0ms  bk(backend):311ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.7ms dispatch=289.1ms raster=36.4ms present=0.0ms total=326.3ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=274.8ms wait=13.8ms | frags=112554 | hart busy/tiles h0=274.8ms/376 h1=285.5ms/260 h2=274.2ms/264 h3=281.5ms/272 h4=275.2ms/284 h5=277.9ms/344 | shade=648.8ms (38%) wrapper=1020.5ms lanes=117979 occ=95%
+[speeds] render:385ms  rf(frontend):0ms  bk(backend):395ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=2.3ms dispatch=270.2ms raster=44.4ms present=0.0ms total=317.0ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=2.2ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.4ms release=0.0ms mainbusy=257.4ms wait=12.4ms | frags=112554 | hart busy/tiles h0=257.4ms/328 h1=265.9ms/332 h2=260.7ms/276 h3=251.6ms/244 h4=260.5ms/392 h5=250.4ms/228 | shade=649.6ms (42%) wrapper=897.0ms lanes=117979 occ=95%
+[speeds] render:338ms  rf(frontend):0ms  bk(backend):369ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.6ms dispatch=259.1ms raster=63.6ms present=0.0ms total=323.4ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.5ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.5ms release=0.0ms mainbusy=245.5ms wait=13.0ms | frags=112554 | hart busy/tiles h0=245.5ms/340 h1=255.5ms/272 h2=247.6ms/248 h3=248.7ms/296 h4=253.2ms/384 h5=247.1ms/260 | shade=509.0ms (33%) wrapper=988.7ms lanes=117979 occ=95%
+[speeds] render:351ms  rf(frontend):0ms  bk(backend):333ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.6ms dispatch=273.9ms raster=57.4ms present=0.0ms total=332.0ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.4ms release=0.0ms mainbusy=273.3ms wait=0.0ms | frags=112554 | hart busy/tiles h0=273.3ms/308 h1=267.9ms/276 h2=252.1ms/240 h3=252.3ms/312 h4=255.5ms/252 h5=256.0ms/412 | shade=546.7ms (35%) wrapper=1010.5ms lanes=117979 occ=95%
+[speeds] render:349ms  rf(frontend):0ms  bk(backend):350ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.4ms dispatch=270.9ms raster=33.8ms present=0.0ms total=305.3ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.4ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=255.8ms wait=14.6ms | frags=112554 | hart busy/tiles h0=255.8ms/352 h1=266.0ms/356 h2=260.8ms/268 h3=264.5ms/252 h4=254.5ms/228 h5=254.8ms/344 | shade=660.0ms (42%) wrapper=896.6ms lanes=117979 occ=95%
+[speeds] render:337ms  rf(frontend):0ms  bk(backend):348ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.7ms dispatch=272.7ms raster=51.5ms present=0.0ms total=324.9ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=262.1ms wait=10.0ms | frags=112554 | hart busy/tiles h0=262.1ms/424 h1=260.6ms/324 h2=261.5ms/248 h3=268.7ms/228 h4=267.6ms/264 h5=261.0ms/312 | shade=619.2ms (39%) wrapper=962.5ms lanes=117979 occ=95%
+[speeds] render:351ms  rf(frontend):0ms  bk(backend):328ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.5ms dispatch=270.1ms raster=56.7ms present=0.0ms total=327.4ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.5ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.5ms release=0.0ms mainbusy=255.5ms wait=13.9ms | frags=112554 | hart busy/tiles h0=255.5ms/352 h1=260.5ms/404 h2=252.3ms/240 h3=268.0ms/256 h4=255.6ms/268 h5=259.6ms/280 | shade=585.1ms (37%) wrapper=966.5ms lanes=117979 occ=95%
+[fswork] === shader workload (cumulative frags=148992) ===
+[fswork]  id=1 100% frags=148992 (kernel=148992 vm=0) path=overlay ninst=11 nvaryf=8 nuni=3 draws[op=0 add=0 alpha=1]
+[speeds] render:392ms  rf(frontend):0ms  bk(backend):350ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.7ms dispatch=288.0ms raster=51.0ms present=0.0ms total=339.8ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=4.6ms release=0.0ms mainbusy=280.0ms wait=3.2ms | frags=112554 | hart busy/tiles h0=280.0ms/340 h1=281.0ms/336 h2=280.6ms/272 h3=278.0ms/240 h4=283.3ms/256 h5=280.4ms/356 | shade=567.6ms (33%) wrapper=1115.9ms lanes=117979 occ=95%
+[speeds] render:377ms  rf(frontend):0ms  bk(backend):391ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.6ms dispatch=249.6ms raster=59.9ms present=0.0ms total=310.3ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=248.5ms wait=0.6ms | frags=112554 | hart busy/tiles h0=248.5ms/340 h1=248.1ms/324 h2=247.1ms/236 h3=247.2ms/268 h4=247.3ms/344 h5=248.9ms/288 | shade=604.0ms (40%) wrapper=883.3ms lanes=117979 occ=95%
+[speeds] render:340ms  rf(frontend):0ms  bk(backend):367ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.5ms dispatch=249.2ms raster=34.3ms present=0.0ms total=284.2ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.4ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.5ms release=0.0ms mainbusy=240.8ms wait=7.8ms | frags=112554 | hart busy/tiles h0=240.8ms/332 h1=243.2ms/360 h2=243.3ms/276 h3=244.4ms/228 h4=242.6ms/328 h5=240.8ms/276 | shade=629.1ms (43%) wrapper=826.2ms lanes=117979 occ=95%
+[speeds] render:316ms  rf(frontend):0ms  bk(backend):339ms
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=3 tris=18 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.4ms dispatch=266.4ms raster=38.5ms present=0.0ms total=305.4ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=3 draws/54 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.4ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.4ms release=0.0ms mainbusy=259.9ms wait=6.0ms | frags=112554 | hart busy/tiles h0=259.9ms/312 h1=256.7ms/360 h2=257.1ms/236 h3=261.3ms/244 h4=264.5ms/388 h5=254.9ms/260 | shade=537.5ms (34%) wrapper=1017.0ms lanes=117979 occ=95%
+[speeds] render:328ms  rf(frontend):0ms  bk(backend):311ms
+----- Map Initialization -----
+views:1 draws:3 tris:18 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112554 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=7.0ms dispatch=322.4ms raster=54.1ms present=8.7ms total=392.4ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=191MB capacity=1833MB (10%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=6.9ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=315.2ms wait=6.8ms | frags=112554 | hart busy/tiles h0=315.2ms/268 h1=316.9ms/336 h2=303.2ms/296 h3=299.5ms/268 h4=303.0ms/364 h5=312.0ms/268 | shade=782.4ms (42%) wrapper=1067.5ms lanes=117979 occ=95%
+[speeds] render:421ms  rf(frontend):0ms  bk(backend):321ms
+Map: game/demo_mars_city1
+[demoflow] +471ms START rw->InitFromMap (proc/BSP + materials)
+[demoflow] +1779ms rw->InitFromMap opened maps/game/demo_mars_city1.proc
+glprogs/heatHaze.vfp
+glprogs/heatHaze.vfp
+glprogs/heatHazeWithMask.vfp
+glprogs/heatHazeWithMask.vfp
+[demoflow] +25186ms rw->InitFromMap parse proc models=476 shadow=260 portalBlocks=1 nodeBlocks=1
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112617 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.7ms dispatch=285.5ms raster=56.4ms present=0.0ms total=342.7ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=219MB capacity=1833MB (11%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=285.0ms wait=0.0ms | frags=112617 | hart busy/tiles h0=285.0ms/360 h1=261.4ms/300 h2=262.9ms/360 h3=260.8ms/252 h4=262.6ms/272 h5=265.0ms/256 | shade=640.4ms (40%) wrapper=957.5ms lanes=118105 occ=95%
+[speeds] render:363ms  rf(frontend):0ms  bk(backend):414ms
+[demoflow] +1ms rw->InitFromMap CommonChildrenArea areas=56
+[demoflow] +154ms rw->InitFromMap world refs/entities
+[demoflow] +27523ms rw->InitFromMap DONE
+[demoflow] +27997ms DONE rw->InitFromMap (proc/BSP + materials)
+[io] phase=rw.InitFromMap
+[io] vblk read_calls=1242 sectors=50960 ms=2987 write_calls=6 write_sectors=18 write_ms=10 flush_calls=6 flush_ms=33
+[io] dosfs pread=17218 requested=17631232 served=17629115 head_bounce=2756 tail_bounce=2762 direct_reads=17218 direct_sectors=31674 cache_hits=36352 cache_misses=49591
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=2762 reads=17200 bytes=17610865 ms=3800
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=3
+[demoflow] +28038ms START game->InitFromNewMap
+----- Game Map Init -----
+[demoflow] game.LoadMap ENTER map=maps/game/demo_mars_city1.map same=0
+[demoflow] game.LoadMap mapFile.Parse EXIT dt=13229ms entities=1969
+collision data:
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112671 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=0.6ms dispatch=317.5ms raster=40.8ms present=0.0ms total=359.1ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=230MB capacity=1833MB (12%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.6ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.3ms release=0.0ms mainbusy=282.9ms wait=33.9ms | frags=112671 | hart busy/tiles h0=282.8ms/376 h1=282.0ms/276 h2=277.2ms/316 h3=304.4ms/276 h4=289.6ms/308 h5=293.1ms/248 | shade=623.7ms (36%) wrapper=1105.6ms lanes=118231 occ=95%
+[speeds] render:370ms  rf(frontend):0ms  bk(backend):347ms
+   421 models
+ 30823 vertices (722 KB)
+ 54551 edges (1917 KB)
+ 22257 polygons (1651 KB)
+  4068 brushes (572 KB)
+ 12449 nodes (583 KB)
+ 43444 polygon refs (678 KB)
+ 14219 brush refs (222 KB)
+ 18352 internal edges
+  1461 sharp edges
+     0 contained polygons removed
+     0 polygons merged
+  6348 KB total memory used
+11329 msec to load collision data.
+[demoflow] game.LoadMap collisionModelManager.LoadMap EXIT dt=11726ms
+map bounds are (19640.0, 22168.0, 29496.0)
+max clip sector is (1227.5, 1385.5, 1843.5)
+    2 KB passage memory used to build PVS
+  107 msec to calculate PVS
+   56 areas
+  110 portals
+    9 areas visible on average
+  448 bytes PVS data
+[Load AAS]
+loading maps/game/demo_mars_city1.aas48
+done.
+[Load AAS]
+loading maps/game/demo_mars_city1.aas96
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_guardian
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_mancubus
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_sabaoth
+[Load AAS]
+loading maps/game/demo_mars_city1.aas_cyberdemon
+[demoflow] game.LoadMap AAS init EXIT dt=3153ms count=6
+[demoflow] game.LoadMap preCacheExtras EXIT dt=6ms
+[demoflow] game.LoadMap EXIT dt=28910ms
+[demoflow] game.InitFromNewMap LoadMap EXIT dt=28926ms total=28926ms
+[io] phase=game.LoadMap
+[io] vblk read_calls=1327 sectors=55988 ms=3247 write_calls=6 write_sectors=18 write_ms=10 flush_calls=6 flush_ms=33
+[io] dosfs pread=19706 requested=20178944 served=20176827 head_bounce=2759 tail_bounce=2765 direct_reads=19706 direct_sectors=36647 cache_hits=41251 cache_misses=54619
+[io] ext=other opens=8 reads=3 bytes=263 ms=0
+[io] ext=pk4 opens=2765 reads=19688 bytes=20158577 ms=4374
+[io] ext=cfg opens=3 reads=25 bytes=24503 ms=3
+Entering doom_main()
+Exiting doom_main()
+[demoflow] game.InitFromNewMap InitScriptForMap EXIT dt=21ms total=28954ms
+Spawning entities
+[demoflow] game.SpawnMapEntities worldspawn EXIT dt=34ms
+WARNING: marscity_cinematic_sarge_1 has no AAS file
+WARNING: marscity_cinematic_sarge2_1 has no AAS file
+WARNING: file def/weapon_bfg.def, line 92: Unknown entityDef 'damage_bfg' inherited by 'damage_bfg_cinematic'
+views:1 draws:4 tris:20 (shdw:0) (vbo:0) image:  0.1 MB
+[rprof] draws=4 tris=20 frags=112734 skipxp=0 mt_engaged=1 mt_blits=1 | vertex=6.7ms dispatch=283.8ms raster=54.8ms present=0.0ms total=345.4ms | present copy_gamma=0.0ms xfer=0.0ms flush=0.0ms
+[rprof-heap] committed=230MB capacity=1833MB (12%)
+[rprof-vs] simt=4 draws/60 verts kernel=0 batches/0 verts scalar=0 draws/0 transformed-verts
+[rprof-vstime] index=0.0ms simt=0.9ms scalar=0.0ms cache=0.0ms
+[rprof-mt] bin=0.6ms release=0.0ms mainbusy=269.4ms wait=13.6ms | frags=112734 | hart busy/tiles h0=269.4ms/296 h1=261.7ms/344 h2=271.0ms/340 h3=272.2ms/292 h4=265.6ms/240 h5=275.6ms/288 | shade=606.2ms (37%) wrapper=1009.5ms lanes=118275 occ=95%
+[speeds] render:382ms  rf(frontend):0ms  bk(backend):369ms
+WARNING: file def/weapon_bfg.def, line 97: Unknown entityDef 'damage_bfgFreq' inherited by 'damage_bfgfreq_cinematic'
+WARNING: file def/weapon_bfg.def, line 102: Unknown entityDef 'damage_bfgSplash' inherited by 'damage_bfgsplash_cinematic'
+glprogs/heatHazeWithMaskAndVertex.vfp
+glprogs/heatHazeWithMaskAndVertex.vfp
+qemu-system-riscv64: terminating on signal 15 from pid 1708731 (bash)

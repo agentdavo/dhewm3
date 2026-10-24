@@ -42,8 +42,14 @@ sgl_framebuffer *sgl_fb_create_ex(int w, int h, unsigned flags)
     fb->w = w;
     fb->h = h;
     size_t n = (size_t)w * (size_t)h;
-    if (flags & SGL_FB_COLOR)
+    if (flags & SGL_FB_COLOR) {
         fb->color = (uint32_t *)sgl_alloc_aligned_bytes(n * sizeof(uint32_t), SGL_FB_ALIGN, &fb->color_alloc);
+        /* Zero it: Doom 3 does not color-clear the 3D view every frame and softgles2
+         * swaps front/back at present, so any pixel a surface never writes (e.g. the
+         * sky opening the skybox stage fails to rasterise) would otherwise show raw
+         * heap/stale junk as high-frequency noise. Zeroing makes such regions black. */
+        if (fb->color) memset(fb->color, 0, n * sizeof(uint32_t));
+    }
     if (flags & SGL_FB_DEPTH)
         fb->depth = (float *)sgl_alloc_aligned_bytes(n * sizeof(float), SGL_FB_ALIGN, &fb->depth_alloc);
     if (flags & SGL_FB_STENCIL)
@@ -65,7 +71,8 @@ sgl_framebuffer *sgl_fb_create(int w, int h)
 void sgl_fb_destroy(sgl_framebuffer *fb)
 {
     if (!fb) return;
-    free(fb->color_alloc ? fb->color_alloc : fb->color);
+    if (!fb->color_external)
+        free(fb->color_alloc ? fb->color_alloc : fb->color);
     free(fb->depth_alloc ? fb->depth_alloc : fb->depth);
     free(fb->stencil_alloc ? fb->stencil_alloc : fb->stencil);
     free(fb);
@@ -80,10 +87,22 @@ void sgl_fb_swap_storage(sgl_framebuffer *a, sgl_framebuffer *b)
     void *owner = a->color_alloc; a->color_alloc = b->color_alloc; b->color_alloc = owner;
     owner = a->depth_alloc; a->depth_alloc = b->depth_alloc; b->depth_alloc = owner;
     owner = a->stencil_alloc; a->stencil_alloc = b->stencil_alloc; b->stencil_alloc = owner;
+    uint8_t ext = a->color_external; a->color_external = b->color_external; b->color_external = ext;
     uint32_t cc = a->clear_color; a->clear_color = b->clear_color; b->clear_color = cc;
     float cd = a->clear_depth; a->clear_depth = b->clear_depth; b->clear_depth = cd;
     uint8_t cs = a->clear_stencil; a->clear_stencil = b->clear_stencil; b->clear_stencil = cs;
     uint8_t cv = a->clear_valid; a->clear_valid = b->clear_valid; b->clear_valid = cv;
+}
+
+void sgl_fb_bind_external_color(sgl_framebuffer *fb, uint32_t *color)
+{
+    if (!fb) return;
+    if (!fb->color_external)
+        free(fb->color_alloc ? fb->color_alloc : fb->color);
+    fb->color = color;
+    fb->color_alloc = 0;
+    fb->color_external = color ? 1u : 0u;
+    fb->clear_valid = 0;
 }
 
 void sgl_present_copy(sgl_framebuffer *dst, const sgl_framebuffer *src)
@@ -252,5 +271,82 @@ void sgl_dump_ascii(const sgl_framebuffer *fb, int cols, int rows)
             putchar(ramp[idx]);
         }
         putchar('\n');
+    }
+}
+
+/* Box-downsample an s*s block average from a render-res RGBA8 buffer (src,
+ * sw*sh, little-endian 0xAABBGGRR) into an output-res buffer (dst, dw*dh).
+ * dw*s must equal the covered width; edge blocks are clamped to src bounds. */
+void sgl_downsample_rgba_box(const uint32_t *src, int sw, int sh,
+                                uint32_t *dst, int dw, int dh, int s)
+{
+#if SG_FB_RVV
+    /* Four 8-bit samples fit in each 16-bit half of these packed sums.
+     * Average R/B and G/A together, preserving scalar round-to-nearest. */
+    if (s == 2 && sw == dw * 2 && sh == dh * 2) {
+        const uint32_t mask = 0x00ff00ffu;
+        for (int y = 0; y < dh; ++y) {
+            const uint32_t *top = src + (size_t)(y * 2) * sw;
+            const uint32_t *bottom = top + sw;
+            for (int x = 0; x < dw;) {
+                size_t vl = __riscv_vsetvl_e32m4((size_t)(dw - x));
+                vuint32m4x2_t t = __riscv_vlseg2e32_v_u32m4x2(top + x * 2, vl);
+                vuint32m4x2_t b = __riscv_vlseg2e32_v_u32m4x2(bottom + x * 2, vl);
+                vuint32m4_t p0 = __riscv_vget_v_u32m4x2_u32m4(t, 0);
+                vuint32m4_t p1 = __riscv_vget_v_u32m4x2_u32m4(t, 1);
+                vuint32m4_t p2 = __riscv_vget_v_u32m4x2_u32m4(b, 0);
+                vuint32m4_t p3 = __riscv_vget_v_u32m4x2_u32m4(b, 1);
+                vuint32m4_t result = __riscv_vmv_v_x_u32m4(0, vl);
+                for (int shift = 0; shift <= 8; shift += 8) {
+#define CH(P) __riscv_vand_vx_u32m4(__riscv_vsrl_vx_u32m4((P), shift, vl), mask, vl)
+                    vuint32m4_t sum = __riscv_vadd_vv_u32m4(
+                        __riscv_vadd_vv_u32m4(CH(p0), CH(p1), vl),
+                        __riscv_vadd_vv_u32m4(CH(p2), CH(p3), vl), vl);
+#undef CH
+                    sum = __riscv_vand_vx_u32m4(__riscv_vsrl_vx_u32m4(
+                        __riscv_vadd_vx_u32m4(sum, 0x00020002u, vl), 2, vl), mask, vl);
+                    result = __riscv_vor_vv_u32m4(result,
+                        __riscv_vsll_vx_u32m4(sum, shift, vl), vl);
+                }
+                __riscv_vse32_v_u32m4(dst + (size_t)y * dw + x, result, vl);
+                x += (int)vl;
+            }
+        }
+        return;
+    }
+#endif
+    const uint32_t inv = (uint32_t)(s * s);
+    int oy;
+    for (oy = 0; oy < dh; ++oy) {
+        int by0 = oy * s;
+        int ox;
+        for (ox = 0; ox < dw; ++ox) {
+            int bx0 = ox * s;
+            uint32_t r = 0, g = 0, b = 0, a = 0;
+            int jy;
+            for (jy = 0; jy < s; ++jy) {
+                int sy = by0 + jy;
+                const uint32_t *row;
+                int jx;
+                if (sy >= sh) sy = sh - 1;
+                row = src + (size_t)sy * sw;
+                for (jx = 0; jx < s; ++jx) {
+                    int sx = bx0 + jx;
+                    uint32_t px;
+                    if (sx >= sw) sx = sw - 1;
+                    px = row[sx];
+                    r += (px      ) & 0xffu;
+                    g += (px >>  8) & 0xffu;
+                    b += (px >> 16) & 0xffu;
+                    a += (px >> 24) & 0xffu;
+                }
+            }
+            r = (r + inv / 2) / inv;
+            g = (g + inv / 2) / inv;
+            b = (b + inv / 2) / inv;
+            a = (a + inv / 2) / inv;
+            dst[(size_t)oy * dw + ox] =
+                r | (g << 8) | (b << 16) | (a << 24);
+        }
     }
 }

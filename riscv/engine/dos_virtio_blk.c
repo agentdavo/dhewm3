@@ -16,8 +16,10 @@
  * programmed in start.S). Memory ordering via __sync_synchronize().
  */
 #include "engine/dos_virtio_blk.h"
+#include "engine/dos_disk_layout.h"
 #include "boot/irq.h"
 #include "boot/runtime.h"
+#include "boot/virtio_mmio.h"
 #include <string.h>
 
 /* ------------------------------------------------------------------ *
@@ -27,6 +29,11 @@
 #define VIRT_MMIO_STRIDE   0x1000UL
 #define VIRT_MMIO_SLOTS    8
 #define VIRTIO_ID_BLOCK    2
+
+/* Bounded park slice for the completion wait. Long enough that a healthy read
+ * is woken by its interrupt rather than by this timer, short enough that a lost
+ * interrupt costs latency instead of the machine. */
+#define VBLK_WAIT_SLICE_US 2000
 
 /* ------------------------------------------------------------------ *
  *  virtio-MMIO transport registers (modern / version 2, doc 10 §2)   *
@@ -132,13 +139,15 @@ _Static_assert(sizeof(struct virtq_used_elem) ==  8, "used_elem must be 8B");
 /* ------------------------------------------------------------------ *
  *  MMIO accessors                                                     *
  * ------------------------------------------------------------------ */
+/* Now fenced -- see boot/virtio_mmio.h. `volatile` alone was a compiler barrier
+ * only, so e.g. QUEUE_SEL-then-QUEUE_NUM_MAX could architecturally be reordered. */
 static inline uint32_t mmio_rd(uintptr_t base, uint32_t off)
 {
-    return *(volatile uint32_t *)(base + off);
+    return virtio_mmio_rd(base, off);
 }
 static inline void mmio_wr(uintptr_t base, uint32_t off, uint32_t v)
 {
-    *(volatile uint32_t *)(base + off) = v;
+    virtio_mmio_wr(base, off, v);
 }
 
 /* ------------------------------------------------------------------ *
@@ -211,7 +220,14 @@ static void vblk_wait_used(void)
 
     os_irq_enable(g_irq_source);
     while (g_q.last_used == g_q.used->idx) {
-        asm volatile("wfi" ::: "memory");
+        /* Park with a DEADLINE, never bare. A bare `wfi` here depended on the
+         * completion interrupt actually arriving: if it is ever lost, masked or
+         * mis-routed the hart halts forever with no diagnostic, mid-asset-load.
+         * The loop condition is the used ring, not the interrupt -- the device
+         * updates used->idx regardless -- so waking on a timer turns a permanent
+         * hang into a poll that still completes. The interrupt remains the
+         * expected wakeup; the deadline is only the net. */
+        bm_wait_until(timer_ticks() + timer_ticks_from_us(VBLK_WAIT_SLICE_US));
         __sync_synchronize();
     }
     __sync_synchronize();
@@ -344,6 +360,26 @@ int vblk_init(void)
 
 uint64_t vblk_capacity_sectors(void) { return g_capacity; }
 
+static uint64_t g_volume_lba;
+static int g_volume_selected;
+uint64_t vblk_volume_start(void) { return g_volume_lba; }
+
+int vblk_select_dosfs(void)
+{
+    uint8_t sector[512] __attribute__((aligned(64)));
+    uint64_t start = 0, size = 0;
+    if (g_volume_selected) return 0;
+    if (vblk_read_blocks(0, 1, sector)) return -1;
+    int rc = dos_disk_volume(sector, g_capacity, &start, &size);
+    if (rc) return rc;
+    if (start && (vblk_read_blocks(start, 1, sector) || disk_le32(sector) != 0x53464f44u))
+        return -7;
+    g_volume_lba = start;
+    g_capacity = size;
+    g_volume_selected = 1;
+    return 0;
+}
+
 /* ================================================================== *
  *  descriptor allocation (depth-1 synchronous: trivial free-list)     *
  * ================================================================== */
@@ -371,13 +407,14 @@ int vblk_read_blocks(uint64_t lba, uint32_t count, void *buf)
     int ok;
 
     if (!g_base || count == 0 || buf == 0) return -1;
+    if (count > UINT32_MAX / VIRTIO_BLK_SECTOR_SIZE || lba >= g_capacity || count > g_capacity - lba) return -1;
     if (g_q.num_free < 3) return -1;            /* depth-1: should never happen */
     t0 = timer_ticks();
 
     /* 1. build the request header */
     g_hdr.type     = VIRTIO_BLK_T_IN;
     g_hdr.reserved = 0;
-    g_hdr.sector   = lba;
+    g_hdr.sector   = g_volume_lba + lba;
     g_status       = 0xff;                       /* sentinel; device overwrites */
 
     /* 2. allocate a 3-desc chain (header RO | data WO | status WO) */
@@ -404,7 +441,10 @@ int vblk_read_blocks(uint64_t lba, uint32_t count, void *buf)
     g_q.avail->ring[g_q.avail->idx % g_q.qsz] = h0;
     __sync_synchronize();
     g_q.avail->idx += 1;
-    __sync_synchronize();
+    /* `fence w,o`, not `fence rw,rw`: the doorbell is an I/O write and the ring
+     * updates above are MEMORY writes, and rw,rw does not order memory-before-IO.
+     * Without this the device may read a stale avail->idx and see no work. */
+    virtio_wmb();
     mmio_wr(g_base, VIRTIO_MMIO_QUEUE_NOTIFY, 0);          /* queue index 0 */
 
     /* 4. wait for the used ring completion (depth-1: it is ours) */
@@ -441,13 +481,14 @@ int vblk_write_blocks(uint64_t lba, uint32_t count, const void *buf)
     int ok;
 
     if (!g_base || count == 0 || buf == 0) return -1;
+    if (count > UINT32_MAX / VIRTIO_BLK_SECTOR_SIZE || lba >= g_capacity || count > g_capacity - lba) return -1;
     if (g_readonly) return -1;                  /* never write a read-only device */
     if (g_q.num_free < 3) return -1;            /* depth-1: should never happen */
     t0 = timer_ticks();
 
     g_hdr.type     = VIRTIO_BLK_T_OUT;
     g_hdr.reserved = 0;
-    g_hdr.sector   = lba;
+    g_hdr.sector   = g_volume_lba + lba;
     g_status       = 0xff;                       /* sentinel; device overwrites */
 
     h0 = vq_alloc_desc(&g_q);
@@ -472,7 +513,10 @@ int vblk_write_blocks(uint64_t lba, uint32_t count, const void *buf)
     g_q.avail->ring[g_q.avail->idx % g_q.qsz] = h0;
     __sync_synchronize();
     g_q.avail->idx += 1;
-    __sync_synchronize();
+    /* `fence w,o`, not `fence rw,rw`: the doorbell is an I/O write and the ring
+     * updates above are MEMORY writes, and rw,rw does not order memory-before-IO.
+     * Without this the device may read a stale avail->idx and see no work. */
+    virtio_wmb();
     mmio_wr(g_base, VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
     vblk_wait_used();
@@ -523,7 +567,10 @@ int vblk_flush(void)
     g_q.avail->ring[g_q.avail->idx % g_q.qsz] = h0;
     __sync_synchronize();
     g_q.avail->idx += 1;
-    __sync_synchronize();
+    /* `fence w,o`, not `fence rw,rw`: the doorbell is an I/O write and the ring
+     * updates above are MEMORY writes, and rw,rw does not order memory-before-IO.
+     * Without this the device may read a stale avail->idx and see no work. */
+    virtio_wmb();
     mmio_wr(g_base, VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
     vblk_wait_used();

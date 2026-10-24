@@ -58,6 +58,22 @@ int strncmp(const char *a, const char *b, size_t n)
     return (unsigned char)*a - (unsigned char)*b;
 }
 
+/* boot/fdt.c's riscv,isa fallback needs this. It was missing, and the gap was
+ * hidden: every existing target happened to let --gc-sections drop
+ * fdt_cpu_has_extension, so the undefined reference only appeared once a build
+ * actually kept that path. */
+char *strstr(const char *hay, const char *needle)
+{
+    size_t n;
+
+    if (!*needle) return (char *)hay;
+    n = strlen(needle);
+    for (; *hay; ++hay)
+        if (*hay == *needle && strncmp(hay, needle, n) == 0)
+            return (char *)hay;
+    return (void *)0;
+}
+
 char *strcpy(char *dst, const char *src)
 {
     char *d = dst;

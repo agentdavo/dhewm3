@@ -12,10 +12,18 @@
 #define SGL_PROF_MAXHARTS 8
 
 extern int sgl_prof_enabled;
+/* Collect counters but print nothing. For consumers that render the same
+ * figures themselves (the on-screen overlay) and would otherwise be paired with
+ * ~8 lines of serial spew per frame. Counters are still RESET each frame, so
+ * per-frame values stay per-frame rather than silently becoming cumulative. */
+extern int sgl_prof_quiet;
 extern uint64_t sgl_prof_vertex;    /* vertex transform (sg_vertex_prog_cached) */
 extern uint64_t sgl_prof_dispatch;  /* sg_mt_prog_dispatch (bin + parallel tile raster) */
 extern uint64_t sgl_prof_raster;    /* single-hart emit_tri_prog raster (fragment-dominated) */
 extern uint64_t sgl_prof_present;   /* present/blit */
+extern uint64_t sgl_prof_present_copy;   /* guest fb -> virtio backing copy, or in-place gamma */
+extern uint64_t sgl_prof_present_xfer;   /* VIRTIO_GPU_CMD_TRANSFER_TO_HOST_2D */
+extern uint64_t sgl_prof_present_flush;  /* VIRTIO_GPU_CMD_RESOURCE_FLUSH/display update */
 extern uint64_t sgl_prof_draws;
 extern uint64_t sgl_prof_tris;
 extern uint64_t sgl_prof_frags;     /* shaded fragment lanes (vcpop of write mask; atomic) */
@@ -39,6 +47,26 @@ extern uint64_t sgl_prof_hart_tiles[SGL_PROF_MAXHARTS];
  * move the needle or whether the wrapper/contention dominates. Atomic (cross-
  * hart), gated on prof. */
 extern uint64_t sgl_prof_shade;   /* time inside frag_simt across all harts */
+extern uint64_t sgl_prof_frag_lanes; /* executed SIMT lanes, including inactive lanes */
+/* Vertex-stage algorithmic split. Timed once per draw/path, never per vertex. */
+extern uint64_t sgl_prof_vs_index;
+extern uint64_t sgl_prof_vs_simt;
+/* Attribute gather (indexed fetch into SoA lanes), split out of the transform so
+ * the two can be optimised independently -- gather is scalar-through-a-callback
+ * today, transform is SIMT. Without this split their costs are indistinguishable. */
+extern uint64_t sgl_prof_vs_gather;
+extern uint64_t sgl_prof_vs_scalar;
+extern uint64_t sgl_prof_vs_cache;
+
+/* Last COMPLETED frame's present time and stage total, latched by
+ * sgl_prof_frame_report() just before it zeroes the accumulators.
+ *
+ * `present` is accumulated after the frame's pixels are handed to the display,
+ * which is necessarily after any in-frame consumer (the stats overlay) has
+ * already drawn -- so such a consumer reading sgl_prof_present directly always
+ * sees 0. These are the values to read instead; they trail by one frame. */
+extern uint64_t sgl_prof_last_present;
+extern uint64_t sgl_prof_last_total;
 
 void     sgl_prof_enable(int on);
 uint64_t sgl_prof_now(void);        /* timer_ticks() wrapper (0 when disabled) */

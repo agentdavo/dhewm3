@@ -28,7 +28,10 @@ typedef struct {
 } sg_vary_soa SG_ALIGNED_TYPE(SG_RVV_ALIGN);
 
 typedef struct {
-    float c[4][SGL_SIMT_LANES];
+    union {
+        float c[4][SGL_SIMT_LANES];
+        float mat[16]; /* Uniform matrices must fit even with eight lanes. */
+    };
     int n;
     int is_mat;
     int _pad[14];

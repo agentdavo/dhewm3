@@ -63,6 +63,10 @@ If you have questions concerning this license or the applicable additional terms
 #include "GameCallbacks_local.h"
 #include "Session_local.h" // DG: For FT_IsDemo/isDemo() hack
 
+#ifndef BM_DEMOFLOW
+#define BM_DEMOFLOW 0
+#endif
+
 #define	MAX_PRINT_MSG_SIZE	4096
 #define MAX_WARNING_LIST	256
 
@@ -1493,6 +1497,28 @@ Com_ExecMachineSpecs_f
 void OSX_GetVideoCard( int& outVendorId, int& outDeviceId );
 bool OSX_GetCPUIdentification( int& cpuId, bool& oldArchitecture );
 #endif
+#ifdef BAREMETAL
+// Debugger-controlled startup comparison; normal boots retain source quality.
+extern "C" { int bm_texture_boot_dds = 0; }
+static void Com_ApplyBareMetalTextureQuality() {
+	const char *disabled[] = {
+		"image_useCompression", "image_usePrecompressedTextures",
+		"image_useNormalCompression", "image_ignoreHighQuality",
+		"image_downSize", "image_downSizeSpecular", "image_downSizeBump",
+		"image_forceDownSize", "image_useAllFormats", "image_colorMipLevels"
+	};
+	for ( unsigned i = 0; i < sizeof(disabled) / sizeof(disabled[0]); ++i ) {
+		cvarSystem->SetCVarInteger( disabled[i], 0 );
+	}
+	cvarSystem->SetCVarInteger( "image_lodbias", 0 );
+	cvarSystem->SetCVarString( "image_filter", "GL_LINEAR_MIPMAP_LINEAR" );
+	if ( bm_texture_boot_dds ) {
+		cvarSystem->SetCVarInteger( "image_usePrecompressedTextures", 1 );
+		cvarSystem->SetCVarInteger( "image_useNormalCompression", 2 );
+	}
+}
+#endif
+
 void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 	// DG: add an optional "nores" argument for "don't change the resolution" (r_mode)
 	bool nores = args.Argc() > 1 && idStr::Icmp( args.Argv(1), "nores" ) == 0;
@@ -1584,6 +1610,9 @@ void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 		cvarSystem->SetCVarInteger( "r_multiSamples", 0, CVAR_ARCHIVE );
 	}
 
+#ifdef BAREMETAL
+	Com_ApplyBareMetalTextureQuality();
+#endif
 	cvarSystem->SetCVarBool( "com_purgeAll", false, CVAR_ARCHIVE );
 	cvarSystem->SetCVarBool( "r_forceLoadImages", false, CVAR_ARCHIVE );
 
@@ -2508,7 +2537,9 @@ void idCommonLocal::Frame( void ) {
 
 		static int demoflow_cf = 0;
 		int demoflow_n = demoflow_cf++;
-		Sys_Printf( "[demoflow] Com::Frame %d enter\n", demoflow_n );
+		if ( BM_DEMOFLOW ) {
+			Sys_Printf( "[demoflow] Com::Frame %d enter\n", demoflow_n );
+		}
 
 		// pump all the events
 		Sys_GenerateEvents();
@@ -2547,11 +2578,15 @@ void idCommonLocal::Frame( void ) {
 				session->UpdateScreen( false );
 			}
 		} else {
-			Sys_Printf( "[demoflow] Com::Frame %d -> session->Frame() (game tick)\n", demoflow_n );
+			if ( BM_DEMOFLOW ) {
+				Sys_Printf( "[demoflow] Com::Frame %d -> session->Frame() (game tick)\n", demoflow_n );
+			}
 			session->Frame();
 
 			// normal, in-sequence screen update
-			Sys_Printf( "[demoflow] Com::Frame %d -> UpdateScreen() (render)\n", demoflow_n );
+			if ( BM_DEMOFLOW ) {
+				Sys_Printf( "[demoflow] Com::Frame %d -> UpdateScreen() (render)\n", demoflow_n );
+			}
 			session->UpdateScreen( false );
 		}
 
@@ -3319,15 +3354,20 @@ void idCommonLocal::InitGame( void ) {
 	}
 
 	idCmdArgs args;
+#if defined(BAREMETAL) && !defined(BM_MACHINE_SPEC)
+#define BM_MACHINE_SPEC 0   /* fallback: Low preset (cheapest for software raster) */
+#endif
 	if ( sysDetect ) {
 #ifdef BAREMETAL
-		// dОС: the renderer is the softgles2 software rasteriser, so always pick
-		// the cheapest quality preset (Low: downsized/compressed images, no
-		// anisotropy) for per-frame cost — regardless of the (large) detected
-		// heap, which would otherwise classify as Ultra. Pass "nores" so r_mode
-		// keeps its BAREMETAL default (4 = 800x600, the project's bare-metal
-		// resolution) instead of being overwritten by the preset.
-		com_machineSpec.SetInteger( 0 );
+		// dОС: the renderer is the softgles2 software rasteriser. Pin the quality
+		// preset to BM_MACHINE_SPEC (default 0=Low: downsized/compressed images)
+		// rather than trusting detection, which would classify the (large) heap as
+		// Ultra. "nores" keeps r_mode at its BAREMETAL default so r_customWidth/
+		// Height win. Ultra requests anisotropy/MSAA (no-ops in softgles2) and
+		// r_useSoftParticles 1 (render-to-texture the software path can't do
+		// cheaply); soft particles now work (depth capture implemented) so the
+		// preset owns r_useSoftParticles/r_enableDepthCapture (Ultra on, Low off).
+		com_machineSpec.SetInteger( BM_MACHINE_SPEC );
 		idCmdArgs specArgs( "execMachineSpec nores", false );
 		Com_ExecMachineSpec_f( specArgs );
 #else
@@ -3336,6 +3376,9 @@ void idCommonLocal::InitGame( void ) {
 #endif
 	}
 
+#ifdef BAREMETAL
+	Com_ApplyBareMetalTextureQuality();
+#endif
 	// initialize the renderSystem data structures, but don't start OpenGL yet
 	renderSystem->Init();
 
@@ -3370,6 +3413,13 @@ void idCommonLocal::InitGame( void ) {
 
 	// re-override anything from the config files with command line args
 	StartupVariable( NULL, false );
+#ifdef BAREMETAL
+	Com_ApplyBareMetalTextureQuality();
+	Printf( "bm texture quality: RGB8/RGBA8 compression=%d precompressed=%d downsize=%d\n",
+		cvarSystem->GetCVarInteger("image_useCompression"),
+		cvarSystem->GetCVarInteger("image_usePrecompressedTextures"),
+		cvarSystem->GetCVarInteger("image_downSize") );
+#endif
 
 	// if any archived cvars are modified after this, we will trigger a writing of the config file
 	cvarSystem->ClearModifiedFlags( CVAR_ARCHIVE );
@@ -3429,10 +3479,11 @@ void idCommonLocal::InitGame( void ) {
 	// to mess with all the gl init at this point.. an old vid card will never qualify for
 	if ( sysDetect ) {
 #ifdef BAREMETAL
-		// dОС: keep the Low preset (software rasteriser) + r_mode unchanged here
-		// too — this second pass would otherwise re-detect the large heap as
-		// Ultra and re-enable full-size images. See the matching patch above.
-		com_machineSpec.SetInteger( 0 );
+		// dОС: re-pin BM_MACHINE_SPEC + r_mode here too — this second pass runs
+		// after autoexec.cfg and the command-line +set overrides, so it is the
+		// deciding one; without it detection would re-classify the large heap as
+		// Ultra. See the matching patch above.
+		com_machineSpec.SetInteger( BM_MACHINE_SPEC );
 		idCmdArgs specArgs( "execMachineSpec nores", false );
 		Com_ExecMachineSpec_f( specArgs );
 #else

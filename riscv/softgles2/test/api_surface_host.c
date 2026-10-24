@@ -47,6 +47,29 @@ int main(void)
     if (!fb) return fail("fb alloc");
     sglMakeCurrent(fb);
 
+    /* Core ES 2.0 error and clamping semantics.  These are easy for a renderer
+     * focused on the hot draw path to miss, but applications rely on sticky
+     * first-error behaviour and on invalid calls leaving state unchanged. */
+    glViewport(1, 2, 3, 4);
+    glViewport(9, 9, -1, 4);
+    if (glGetError() != GL_INVALID_VALUE) return fail("negative viewport");
+    glDepthFunc(0xDEADu);
+    if (glGetError() != GL_INVALID_ENUM) return fail("invalid depth func");
+    glEnable(0xDEADu);
+    if (glGetError() != GL_INVALID_ENUM) return fail("invalid enable cap");
+    if (glGetString(0xDEADu) != NULL || glGetError() != GL_INVALID_ENUM)
+        return fail("invalid string name");
+    glEnableVertexAttribArray(SGL_MAX_VERTEX_ATTRIBS);
+    if (glGetError() != GL_INVALID_VALUE) return fail("invalid attrib index");
+    glVertexAttribPointer(0, 5, GL_FLOAT, GL_FALSE, 0, NULL);
+    if (glGetError() != GL_INVALID_VALUE) return fail("invalid attrib size");
+    glClear(0x1u);
+    if (glGetError() != GL_INVALID_VALUE) return fail("invalid clear mask");
+    { GLfloat m2[4] = { 1, 0, 0, 1 };
+      glUniformMatrix2fv(-1, 1, GL_TRUE, m2);
+      if (glGetError() != GL_INVALID_VALUE) return fail("matrix transpose must be false"); }
+    glViewport(0, 0, 4, 4);
+
     glClearColor(1.f, 0.f, 0.f, 1.f);
     glClearDepthf(0.25f);
     glClearStencil(7);

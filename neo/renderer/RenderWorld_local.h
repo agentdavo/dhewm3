@@ -243,6 +243,11 @@ public:
 	// RenderWorld.cpp
 
 	void					ResizeInteractionTable();
+	// Allocate (and populate from whatever already exists) the light/entity
+	// interaction lookup table, WITHOUT eagerly creating every interaction the
+	// way GenerateAllInteractions() does. Split out so a build that skips the
+	// eager pass can still have the table.
+	void					AllocInteractionTable();
 
 	void					AddEntityRefToArea( idRenderEntityLocal *def, portalArea_t *area );
 	void					AddLightRefToArea( idRenderLightLocal *light, portalArea_t *area );

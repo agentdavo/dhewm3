@@ -43,23 +43,27 @@ int _gettimeofday(struct timeval *tv, void *tz)
     (void)tz;
     if (tv) {
         uint64_t t = timer_ticks();
-        tv->tv_sec  = (long)(t / TIMEBASE_HZ);
-        tv->tv_usec = (long)((t % TIMEBASE_HZ) / (TIMEBASE_HZ / 1000000UL));
+        unsigned long hz = timer_hz();
+        tv->tv_sec  = (long)(t / hz);
+        tv->tv_usec = (long)(((t % hz) * 1000000UL) / hz);
     }
     return 0;
 }
 
-/* SDL's unix timer uses select(0,...,timeout) as its sleep. Bounded busy-wait
- * on rdtime (WFI between checks) until the timeout elapses; returns 0 (timeout).
- * TODO: real timer-interrupt sleep once the dOS scheduler exists. */
+/* SDL's unix timer uses select(0,...,timeout) as its sleep; returns 0 (timeout).
+ *
+ * This used to be `while (timer_ticks() < end) asm volatile("wfi");` with
+ * sie.STIE clear and no timer armed. `wfi` only resumes on an interrupt ENABLED
+ * in sie, so on any hart without SEIE that halts PERMANENTLY -- a latent hang
+ * waiting for an interrupt that was never going to arrive. bm_wait_until() arms
+ * the timer (Sstc stimecmp where available) before parking, which is what makes
+ * the wake guaranteed. */
 int select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *to)
 {
     (void)nfds; (void)r; (void)w; (void)e;
     if (to) {
         uint64_t usec = (uint64_t)to->tv_sec * 1000000UL + (uint64_t)to->tv_usec;
-        uint64_t ticks = usec * (TIMEBASE_HZ / 1000000UL);
-        uint64_t end = timer_ticks() + ticks;
-        while (timer_ticks() < end) asm volatile("wfi");
+        bm_wait_until(timer_ticks() + timer_ticks_from_us(usec));
     }
     return 0;
 }

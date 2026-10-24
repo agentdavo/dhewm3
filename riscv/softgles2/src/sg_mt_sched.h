@@ -13,6 +13,14 @@
 typedef void (*sg_mt_work_fn)(void *ctx, int worker, int nworkers);
 
 void sg_mt_sched_run(sg_mt_work_fn fn, void *ctx);
+
+/* Non-zero while a parallel section is already running. sg_mt_sched_run() uses
+ * one global handshake, so re-entering it would deadlock -- callers that may run
+ * either inside or outside a parallel section must check first. */
+int  sg_mt_sched_busy(void);
+
+/* Harts available to sg_mt_sched_run (1 = single-hart). Triggers lazy init. */
+int  sg_mt_sched_nharts(void);
 /* Decide whether MT has enough visible work for a tile-queued path.
  * Callers pass the final dispatch layout/tile area and ownership counts;
  * this routine does not perform ownership checks beyond read-only contract checks

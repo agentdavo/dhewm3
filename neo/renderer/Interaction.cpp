@@ -656,7 +656,13 @@ idInteraction::HasShadows
 ===============
 */
 ID_INLINE bool idInteraction::HasShadows( void ) const {
-	return ( !lightDef->parms.noShadows && !entityDef->parms.noShadow && lightDef->lightShader->LightCastsShadows() );
+	// r_shadows belongs here, not only in the back end. Without it, turning
+	// shadows off still ran the whole shadow FRONT end: entities that are
+	// off-screen but inside a light volume were pulled into the frame, had their
+	// interactions created and their models skinned -- all to produce shadow
+	// drawsurfs the back end then threw away. On the software rasteriser that
+	// front-end work is not free.
+	return ( r_shadows.GetBool() && !lightDef->parms.noShadows && !entityDef->parms.noShadow && lightDef->lightShader->LightCastsShadows() );
 }
 
 /*

@@ -346,6 +346,8 @@ FILL DEPTH BUFFER
 */
 
 
+static int RB_DepthFillColorMask( void );	// defined below, next to RB_STD_FillDepthBuffer
+
 /*
 ==================
 RB_T_FillDepthBuffer
@@ -507,13 +509,61 @@ void RB_T_FillDepthBuffer( const drawSurf_t *surf ) {
 		qglDisable( GL_POLYGON_OFFSET_FILL );
 	}
 
-	// reset blending
+	// reset blending. The subview branch above turned color writes back on, so
+	// restore the pass-wide mask here or every surface after a subview would
+	// keep shading.
 	if ( shader->GetSort() == SS_SUBVIEW ) {
-		GL_State( GLS_DEPTHFUNC_LESS );
+		GL_State( GLS_DEPTHFUNC_LESS | RB_DepthFillColorMask() );
 	}
 
 }
 
+
+/*
+=====================
+RB_DepthFillColorMask
+
+The depth-fill pass exists to lay down Z, but it also paints the world black --
+and RB_SetBuffer has already cleared the whole color buffer to black this frame,
+so those color writes are redundant. Masking them lets a software rasteriser drop
+the fragment shader for the entire pass (softgles2 gates on color_mask == 0 and
+skips both the varying gather and the shader dispatch, while still resolving
+coverage, early-Z and the depth write). Alpha-tested surfaces are unaffected:
+gl4es compiles the alpha test into a `discard`, and the fast path is gated on the
+shader having no discard, so they keep shading.
+
+Returns the GLS_* mask bits to add, or 0 to keep the original behaviour.
+
+This is only safe when the frame really did clear to *black*, because the light
+passes blend additively onto whatever the fill pass leaves behind -- with
+r_clear 1 (purple) the world would come out tinted.
+=====================
+*/
+static int RB_DepthFillColorMask( void ) {
+	if ( !r_useDepthOnlyFill.GetBool() ) {
+		return 0;
+	}
+	// A subview renders inside a rectangular scissor but has a non-rectangular
+	// silhouette; the main view's black fill is what erases the leakage outside
+	// it. Keep color writes whenever clip planes are in play.
+	if ( backEnd.viewDef->numClipPlanes ) {
+		return 0;
+	}
+	// r_showOverDraw clears to white and wants to see the fill pass's writes.
+	if ( r_showOverDraw.GetBool() ) {
+		return 0;
+	}
+	// Mirror RB_SetBuffer's own branch order to decide the actual clear color.
+	float c[3];
+	if ( sscanf( r_clear.GetString(), "%f %f %f", &c[0], &c[1], &c[2] ) == 3 ) {
+		if ( c[0] != 0.0f || c[1] != 0.0f || c[2] != 0.0f ) {
+			return 0;
+		}
+	} else if ( r_clear.GetInteger() != 2 ) {
+		return 0;	// 1 = purple, 0 = no clear at all
+	}
+	return GLS_COLORMASK | GLS_ALPHAMASK;
+}
 
 void RB_SetProgramEnvironment( bool isPostProcess ); // so RB_STD_FillDepthBuffer() can use it
 
@@ -547,7 +597,7 @@ void RB_STD_FillDepthBuffer( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	// decal surfaces may enable polygon offset
 	qglPolygonOffset( r_offsetFactor.GetFloat(), r_offsetUnits.GetFloat() );
 
-	GL_State( GLS_DEPTHFUNC_LESS );
+	GL_State( GLS_DEPTHFUNC_LESS | RB_DepthFillColorMask() );
 
 	// Enable stencil test if we are going to be using it for shadows.
 	// If we didn't do this, it would be legal behavior to get z fighting

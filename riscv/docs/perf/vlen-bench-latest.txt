@@ -1,0 +1,19 @@
+# softgles2 interaction kernels — 2026-07-21 later session
+# host local QEMU 11.0.1, SMP=2, PIN_HARTS=1, BATCHES=4000
+# Phase 2: MVP/color kernels, additive blend, pow int path
+
+==== VLEN=1024 gl4es interaction (cube+gamma) ====
+[gik] VM     12708 ns/frag
+[gik] kernel 10820 ns/frag  speedup=1.17x  maxdiff=0  bitmiss=0  OK(bit-exact)
+
+==== VLEN=1024 synthetic interaction (pow16) ====
+[iakern] VM     5570 ns/frag
+[iakern] kernel 4263 ns/frag  speedup=1.30x  maxdiff=0  OK
+
+Notes:
+- ns/frag is guest-time under TCG; lower is better per shaded fragment.
+- On this host, VLEN=1024 wins pure interaction microbench ns/frag.
+- Full-frame cost also depends on MT tile geometry (tile W=lanes); re-measure
+  with TCG_PROFILE demorun before changing the shipping default (still 1024).
+- TCG_PROFILE=1 still defaults to VLEN=256 + 512x288 for faster *map load* and
+  fewer pixels; override with RVV_VLEN=1024 if microbench preference holds.

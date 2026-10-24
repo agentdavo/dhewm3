@@ -21,6 +21,6 @@
 void  *sg_frame_alloc(size_t n);   /* 16-byte aligned; never returns 0 unless OOM */
 void   sg_frame_reset(void);       /* reclaim the whole frame's scratch (at present) */
 size_t sg_frame_highwater(void);   /* peak arena bytes used in a single frame */
-size_t sg_frame_overflow(void);    /* bytes served by the malloc fallback (reserve too small) */
+size_t sg_frame_overflow(void);    /* reusable overflow-chunk capacity */
 
 #endif /* SOFTGLES2_SG_FRAME_H */

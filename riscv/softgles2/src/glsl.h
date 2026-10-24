@@ -116,9 +116,14 @@ int  glsl_run_fragment_simt_u(glsl_program *p, const float *varys, int nvaryf, i
                               const float *ustore, float *out);
 int  glsl_fs_simt_ok(const glsl_program *p);  /* FS has IR AND is SIMT-vectorisable */
 int  glsl_fs_has_discard(const glsl_program *p);  /* FS uses discard -> SIMT emits a per-lane kill mask */
+/* Bit k = the bound fs_kernel reads varying float k; 0 = interpolate all. */
+unsigned int glsl_fs_vary_live_mask(const glsl_program *p);
+unsigned int glsl_fs_derivative_mask(const glsl_program *p);
+int glsl_fs_uses_fragcoord(const glsl_program *p);
 int  glsl_fs_alpha_zero_if_color_zero(const glsl_program *p);  /* out.a==0 wherever vary[3] (Color.a)==0 */
 void glsl_dbg_record_draw_class(glsl_program *p, int cls);     /* 0=opaque 1=additive 2=alpha (glsl_link_dump) */
 int  glsl_fs_has_kernel(const glsl_program *p);  /* 1 if a specialised kernel is bound */
+const char *glsl_kernel_name(const glsl_program *p);  /* bound kernel label ("heathaze", ...) or "VM"/0 */
 int  glsl_fs_cost(const glsl_program *p);     /* cheap draw-time fragment cost estimate */
 
 /* SIMT vertex transform — process up to GLSL_SIMT_MAXLANE vertices per IR op

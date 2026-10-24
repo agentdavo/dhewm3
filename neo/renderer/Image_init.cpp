@@ -1888,7 +1888,7 @@ void idImageManager::CompleteBackgroundImageLoads() {
 			numActiveBackgroundImageLoads--;
 			fileSystem->CloseFile( image->bgl.f );
 			// upload the image
-			image->UploadPrecompressedImage( (byte *)image->bgl.file.buffer, image->bgl.file.length );
+			if ( !image->UploadPrecompressedImage( (byte *)image->bgl.file.buffer, image->bgl.file.length ) ) image->MakeDefault();
 			R_StaticFree( image->bgl.file.buffer );
 			if ( image_showBackgroundLoads.GetBool() ) {
 				common->Printf( "R_CompleteBackgroundImageLoad: %s\n", image->imgName.c_str() );

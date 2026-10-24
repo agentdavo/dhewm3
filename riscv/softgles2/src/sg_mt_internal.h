@@ -25,7 +25,16 @@
                                   * harts), so this is min(8, guest harts). The
                                   * guest hart count = QEMU -smp; keep -smp <= host
                                   * cores to avoid MTTCG oversubscription. */
-#define SGL_MT_MIN_VERTS  192    /* ~64 triangles: below this, dispatch cost wins */
+/* ~64 triangles: below this, dispatch cost wins.
+ * DELIBERATELY NOT LOWERED. It is the most-hit rejection by draw COUNT (808 of
+ * 975 in a measured lit frame) so it looks like the obvious lever, but those 808
+ * draws carry only 6800 triangles between them -- and admitting a draw costs a
+ * full bin pass plus 7 mallocs. Measured binning is ~165ms for ~30 admitted
+ * draws, so paying it on ~800 tiny draws would add seconds per frame and lose
+ * far more than the single-hart shading it saves. Many-small-draws is exactly
+ * the workload per-draw MT cannot serve; the fix is frame-level binning
+ * (sg_framebin.c), not a lower threshold here. */
+#define SGL_MT_MIN_VERTS  192
 /* ...UNLESS the draw covers a large screen area: a low-vertex/high-coverage
  * blit (the gl4es 2D overlay is a 4-vertex GL_TRIANGLE_FAN filling the screen)
  * is huge fragment work the vertex count hides. Admit such draws to binning so
@@ -41,8 +50,34 @@
 #define SGL_MT_TILE_H     (SGL_SIMT_LANES / 4)
 #define SGL_MT_MIN_ACTIVE_TILES 24
 #define SGL_MT_MIN_BIN_REFS     512
-#define SGL_MT_MIN_REF_SPAN_X10 18
+/* Minimum average tiles touched per primitive, x10. This gate asks "is this
+ * draw spread out enough to be worth fanning across harts?", but tile-span per
+ * primitive is the wrong proxy for that: with a 16x4 tile at VLEN=256 there are
+ * 2304 tiles on a 512x288 screen, so a draw of 4000 one-tile triangles has
+ * ample tile-parallelism yet scores span=10 and is rejected. Total work is
+ * already captured by SGL_MT_MIN_WORK_SCORE below, which is the gate that
+ * should be making this call. Lowered 18 -> 10 so single-tile primitives are
+ * admitted on the strength of their aggregate work; see [rprof-mt] mtrej=. */
+#define SGL_MT_MIN_REF_SPAN_X10 10
 #define SGL_MT_MIN_WORK_SCORE   180000L
+
+/* Reasons a draw is declined to the single-hart path. The first group fires in
+ * sg_mt_prog_dispatch() BEFORE binning, the second in sg_mt_sched_should_mt()
+ * after. Instrumenting only the second group would have been misleading: Doom 3
+ * averages ~122 verts/draw against SGL_MT_MIN_VERTS=192, so most draws are
+ * rejected by MTR_SMALL and never reach the scheduler's gates at all. */
+enum {
+    MTR_SMALL = 0,    /* under SGL_MT_MIN_VERTS and under SGL_MT_MIN_COVER_PX */
+    MTR_NOPRIM,       /* no primitives built (or malloc failed) */
+    MTR_NOREFS,       /* binning produced no tile references */
+    MTR_ACTIVE,       /* too few active tiles */
+    MTR_BINREFS,      /* too few tile references */
+    MTR_SPAN,         /* tiles-per-primitive below SGL_MT_MIN_REF_SPAN_X10 */
+    MTR_SCORE,        /* aggregate work below SGL_MT_MIN_WORK_SCORE */
+    MTR_N
+};
+extern volatile unsigned long sgl_dbg_mt_reject[MTR_N];
+extern volatile unsigned long sgl_dbg_mt_reject_prims[MTR_N];
 /* Geometry tuning for large primitive batches.
  * Keep unchanged unless profiling justifies a different split point.
  */

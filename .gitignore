@@ -58,3 +58,6 @@ base/*.pk4
 /riscv/shots_gamma
 /riscv/shots_cullfix
 /riscv/shots_hero_final
+
+# Optional repository-local compiler and QEMU installations
+/riscv/tools/

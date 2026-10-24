@@ -16,6 +16,7 @@
 #include "sg_raster.h"
 #include "glsl.h"
 #include "glsl_internal.h"
+#include "sg_frag.h"
 
 /* The parser/evaluator use compact one-line guarded statements deliberately. */
 #pragma GCC diagnostic ignored "-Wmisleading-indentation"
@@ -25,9 +26,67 @@ static inline float g_sqrt(float x) { return sgl_math_sqrt_f(x); }
 static inline float g_abs(float x)  { return sgl_math_abs_f(x); }
 static inline float g_floor(float x){ return sgl_math_floor_f(x); }
 static inline float g_ceil(float x) { return sgl_math_ceil_f(x); }
-static inline float g_log2(float x) { return sgl_math_log2_f(x); }
+/* log2 for the GLSL builtin: the sg_math kernel (sgl_math_log2_f) that backs
+ * pow() is a coarse placeholder (~30%% mid-mantissa error, exact only at powers
+ * of two), unfit to expose as log2(). Use the exact identity
+ *   log2(m) = (2/ln2)*artanh((m-1)/(m+1))   on the mantissa m in [1,2), + exp
+ * (max abs err vs libm ~2.3e-6). simt_log2_m2() in glsl_simt.c uses the
+ * identical formula so scalar and RVV lanes agree; pow() is left unchanged. */
+static inline float g_log2(float x) {
+    union { float f; unsigned u; } v; v.f = x;
+    float e = (float)((int)((v.u >> 23) & 0xFF) - 127);
+    v.u = (v.u & 0x007FFFFFu) | 0x3F800000u; float m = v.f;
+    float t = (m - 1.0f) / (m + 1.0f), t2 = t * t;
+    float s = 0.11111111f;                 /* 1/9 */
+    s = 0.14285715f + t2 * s;              /* 1/7 */
+    s = 0.2f + t2 * s;                     /* 1/5 */
+    s = 0.33333334f + t2 * s;              /* 1/3 */
+    s = 1.0f + t2 * s;
+    return e + (t * s) * 2.8853900817779268f;   /* 2/ln2 */
+}
 static inline float g_exp2(float x) { return sgl_math_exp2_f(x); }
 static inline float g_pow(float x, float y){ return sgl_math_pow_f(x, y); }
+/* Transcendentals for the tree-walk + IR scalar paths (no libm in the lean
+ * profile). exp2 reuses the deterministic sg_math kernel (sgl_math_exp2_f, ~8e-4
+ * rel), matched on the RVV SIMT path by sgl_rvv_exp2_m2. log2 uses the accurate
+ * artanh series in g_log2 above, matched by simt_log2_m2. sin/cos use the SAME
+ * minimax range-reduced polynomial as sgl_rvv_sincos_f_m1. In every case the
+ * scalar and vector lanes share constants/op-order so they agree closely. */
+#define G_LOG2E  1.4426950408889634f   /* 1/ln2   */
+#define G_LN2    0.6931471805599453f   /* ln2     */
+#define G_DEG2R  0.017453292519943295f /* PI/180  */
+#define G_R2DEG  57.29577951308232f    /* 180/PI  */
+#define G_PI_2         1.5707963267948966f
+#define G_TWO_OVER_PI  0.63661977236758134f
+#define G_SC_S1 (-0.16666667f)
+#define G_SC_S2  0.0083333310f
+#define G_SC_S3 (-0.00019840874f)
+#define G_SC_C1 (-0.5f)
+#define G_SC_C2  0.041666418f
+#define G_SC_C3 (-0.0013888397f)
+static inline float g_exp(float x)  { return sgl_math_exp2_f(x * G_LOG2E); }
+static inline float g_log(float x)  { return g_log2(x) * G_LN2; }
+static inline float g_radians(float x){ return x * G_DEG2R; }
+static inline float g_degrees(float x){ return x * G_R2DEG; }
+static inline void g_sincos(float a, float *so, float *co)
+{
+    float t  = a * G_TWO_OVER_PI;
+    int   ki = (int)(t + (t >= 0.f ? 0.5f : -0.5f));   /* round to nearest quadrant */
+    float kf = (float)ki;
+    float r  = a - kf * G_PI_2;                        /* r in [-pi/4, pi/4] */
+    float r2 = r * r;
+    float cosv = 1.f + r2 * (G_SC_C1 + r2 * (G_SC_C2 + r2 * G_SC_C3));
+    float sinv = r + r * r2 * (G_SC_S1 + r2 * (G_SC_S2 + r2 * G_SC_S3));
+    int kq = ki & 3, b0 = kq & 1, b2 = kq & 2;
+    int swap = b0 != 0, sinneg = b2 != 0, cosneg = (((b0 << 1) ^ b2) != 0);
+    float s_sel = swap ? cosv : sinv;
+    float c_sel = swap ? sinv : cosv;
+    *so = sinneg ? -s_sel : s_sel;
+    *co = cosneg ? -c_sel : c_sel;
+}
+static inline float g_sin(float x){ float s,c; g_sincos(x,&s,&c); return s; }
+static inline float g_cos(float x){ float s,c; g_sincos(x,&s,&c); return c; }
+static inline float g_tan(float x){ float s,c; g_sincos(x,&s,&c); return c!=0.f ? s/c : 0.f; }
 static inline float g_dot(const float *a, const float *b, int n) { return sgl_math_dot_f(a, b, n); }
 static inline void g_matvec(const float *a, const float *b, float *out, int n)
 { sgl_math_matvec_f(a, b, out, n); }
@@ -248,6 +307,15 @@ static gval eval(env *e, node *n)
         if (!strcmp(f,"smoothstep")) { int m=a[2].n; g.n=m; for(int i=0;i<m;i++){float e0=(a[0].n==1)?a[0].v[0]:a[0].v[i],e1=(a[1].n==1)?a[1].v[0]:a[1].v[i],x=a[2].v[i]; float t=(x-e0)/(e1-e0); t=t<0?0:(t>1?1:t); g.v[i]=t*t*(3.f-2.f*t);} return g; }
         if (!strcmp(f,"reflect")) { int m=a[0].n; float d=g_dot(a[1].v,a[0].v,m); float td=d+d; g.n=m; for(int i=0;i<m;i++)g.v[i]=__builtin_fmaf(-td,a[1].v[i],a[0].v[i]); return g; }
         if (!strcmp(f,"pow")) { int m=a[0].n; g.n=m; for(int i=0;i<m;i++){float y=(a[1].n==1)?a[1].v[0]:a[1].v[i]; g.v[i]=g_pow(a[0].v[i],y);} return g; }
+        if (!strcmp(f,"sin")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_sin(a[0].v[i]); return g; }
+        if (!strcmp(f,"cos")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_cos(a[0].v[i]); return g; }
+        if (!strcmp(f,"tan")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_tan(a[0].v[i]); return g; }
+        if (!strcmp(f,"exp")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_exp(a[0].v[i]); return g; }
+        if (!strcmp(f,"log")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_log(a[0].v[i]); return g; }
+        if (!strcmp(f,"exp2")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_exp2(a[0].v[i]); return g; }
+        if (!strcmp(f,"log2")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_log2(a[0].v[i]); return g; }
+        if (!strcmp(f,"radians")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_radians(a[0].v[i]); return g; }
+        if (!strcmp(f,"degrees")) { g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_degrees(a[0].v[i]); return g; }
         if (!strcmp(f,"texture2DProj")) {
             int unit=(int)a[0].v[0]; const sgl_tex *t=(unit>=0&&unit<GLSL_MAX_SAMPLERS)?e->samplers[unit]:0;
             float q=(a[1].n>=4)?a[1].v[3]:a[1].v[2]; if(q==0.f)q=1.f;
@@ -338,6 +406,15 @@ gval ir_do_builtin(int id, const gval *a, int nargs, const sgl_tex *const *sampl
     case BI_SMOOTHSTEP: { int m=a[2].n; g.n=m; for(int i=0;i<m;i++){float e0=(a[0].n==1)?a[0].v[0]:a[0].v[i],e1=(a[1].n==1)?a[1].v[0]:a[1].v[i],x=a[2].v[i]; float t=(x-e0)/(e1-e0); t=t<0?0:(t>1?1:t); g.v[i]=t*t*(3.f-2.f*t);} return g; }
     case BI_REFLECT: { int m=a[0].n; float d=g_dot(a[1].v,a[0].v,m); float td=d+d; g.n=m; for(int i=0;i<m;i++)g.v[i]=__builtin_fmaf(-td,a[1].v[i],a[0].v[i]); return g; }
     case BI_POW: { int m=a[0].n; g.n=m; for(int i=0;i<m;i++){float y=(a[1].n==1)?a[1].v[0]:a[1].v[i]; g.v[i]=g_pow(a[0].v[i],y);} return g; }
+    case BI_SIN: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_sin(a[0].v[i]); return g;
+    case BI_COS: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_cos(a[0].v[i]); return g;
+    case BI_TAN: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_tan(a[0].v[i]); return g;
+    case BI_EXP: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_exp(a[0].v[i]); return g;
+    case BI_LOG: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_log(a[0].v[i]); return g;
+    case BI_EXP2: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_exp2(a[0].v[i]); return g;
+    case BI_LOG2: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_log2(a[0].v[i]); return g;
+    case BI_RADIANS: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_radians(a[0].v[i]); return g;
+    case BI_DEGREES: g.n=a[0].n; for(int i=0;i<a[0].n;i++)g.v[i]=g_degrees(a[0].v[i]); return g;
     case BI_TEXTURE2DPROJ: { int u=(int)a[0].v[0]; const sgl_tex *t=(u>=0&&u<GLSL_MAX_SAMPLERS)?samplers[u]:0; float q=(a[1].n>=4)?a[1].v[3]:a[1].v[2]; if(q==0.f)q=1.f; float o[4]={0,0,0,1}; if(t) sgl_sample(t,a[1].v[0]/q,a[1].v[1]/q,o); g.n=4; for(int i=0;i<4;i++)g.v[i]=o[i]; return g; }
     case BI_TEXTURECUBE: { int u=(int)a[0].v[0]; const sgl_tex *t=(u>=0&&u<GLSL_MAX_SAMPLERS)?samplers[u]:0; float o[4]={0,0,0,1}; if(t) sample_cube_tex(t,a[1].v[0],a[1].v[1],a[1].v[2],o); g.n=4; for(int i=0;i<4;i++)g.v[i]=o[i]; return g; }
     }
@@ -358,6 +435,9 @@ int ir_run_fragment_u(glsl_program *p, const float *varying, const sgl_tex *cons
         switch (o->op) {
         case IR_LOADK: { gval *d=&reg[o->dst]; d->n=1; d->v[0]=o->k; break; }
         case IR_LOADZ: { gval *d=&reg[o->dst]; d->n=o->i0; for(int i=0;i<o->i0&&i<16;i++)d->v[i]=0; break; }
+        case IR_LOADFC: { /* gl_FragCoord for scalar path */
+            gval *d=&reg[o->dst]; d->n=4;
+            d->v[0]=sgl_scalar_frag_x; d->v[1]=sgl_scalar_frag_y; d->v[2]=0.f; d->v[3]=1.f; break; }
         case IR_LOADV: { gval *d=&reg[o->dst]; d->n=o->i1; for(int i=0;i<o->i1;i++)d->v[i]=varying[o->i0+i]; break; }
         case IR_LOADU: { gval *d=&reg[o->dst]; int ui=o->i0; d->n=o->i1; for(int i=0;i<o->i1;i++)d->v[i]=ustore[p->uni[ui].offset+i]; break; }
         case IR_LOADS: { gval *d=&reg[o->dst]; d->n=1; d->v[0]=(float)p->uni[o->i0].unit; break; }
@@ -404,6 +484,8 @@ int ir_run_fragment(glsl_program *p, const float *varying, const sgl_tex *const 
 glsl_program *glsl_program_create(void){ glsl_program *p=(glsl_program*)malloc(sizeof(glsl_program)); if(p) memset(p,0,sizeof(*p)); return p; }
 static void glsl_dbg_unregister(glsl_program *p);   /* fwd: drop from the workload registry */
 void glsl_program_destroy(glsl_program *p){ if(p){ glsl_dbg_unregister(p); arena_free(&p->vs.ast_arena); arena_free(&p->fs.ast_arena); ir_free(&p->fs_ir); ir_free(&p->vs_ir); free(p); } }
+static int glsl_src_contains(const char *s, const char *needle)
+{ int n=0; while(needle[n])++n; for(;*s;++s) if(!strncmp(s,needle,(size_t)n))return 1; return 0; }
 
 int glsl_attach_source(glsl_program *p, int stage, const char *src, char *err, int errlen)
 {
@@ -411,6 +493,8 @@ int glsl_attach_source(glsl_program *p, int stage, const char *src, char *err, i
     if (glsl_link_dump && stage == 1 && src) {   /* dump the exact gl4es-generated FS GLSL */
         printf("[fssrc] >>>>>>>>>>\n%s\n[fssrc] <<<<<<<<<<\n", src);
     }
+    if (glsl_link_dump && stage == 0 && src && glsl_src_contains(src, "_gl4es_Vertex_ProgramEnv_17"))
+        printf("[vssrc-interaction] >>>>>>>>>>\n%s\n[vssrc-interaction] <<<<<<<<<<\n", src);
     arena_free(&sh->ast_arena);   /* reclaim a prior parse's AST before re-parsing this stage */
     return parse_shader(sh, src, err, errlen);
 }
@@ -460,6 +544,23 @@ void glsl_bind_attrib(glsl_program *p, int index, const char *name)
 
 int glsl_link_dump = 0;   /* when set, print each linked FS's fingerprint at link */
 
+static uint32_t glsl_ir_signature(const ir_prog *ir)
+{
+    uint32_t h = 2166136261u;
+#define HSIG(V) do { uint32_t _v=(uint32_t)(V); for(int _b=0;_b<4;++_b){h^=(_v>>(8*_b))&255u;h*=16777619u;} } while(0)
+    HSIG(ir->ninst); HSIG(ir->nreg); HSIG(ir->nlocal);
+    for (int i=0;i<ir->ninst;++i) {
+        const ir_inst *o=&ir->inst[i];
+        HSIG(o->op); HSIG(o->dst); HSIG(o->a); HSIG(o->b); HSIG(o->c);
+        HSIG(o->nargs); for(int j=0;j<8;++j) HSIG(o->args[j]);
+        HSIG(o->i0); HSIG(o->i1); HSIG(o->swzn);
+        for(int j=0;j<4;++j) HSIG(o->swz[j]);
+        union { float f; uint32_t u; } k={o->k}; HSIG(k.u);
+    }
+#undef HSIG
+    return h;
+}
+
 /* Shader-workload registry (active with glsl_link_dump): track linked programs so
  * the per-frame report (glsl_dbg_workload_report) can rank them by REAL fragment
  * cost — the archetype-specialisation work-list. */
@@ -489,6 +590,33 @@ void glsl_dbg_record_draw_class(glsl_program *p, int cls)
     if (cls == 0) p->dbg_draws_opaque++;
     else if (cls == 1) p->dbg_draws_add++;
     else p->dbg_draws_alpha++;
+}
+
+/* Registry totals for callers that render this themselves (the on-screen stats
+ * overlay) rather than parsing the [fswork] serial dump. Counts only programs
+ * that actually shaded a fragment -- "linked but never used" is noise on a HUD.
+ * nkernel is how many of those ran a specialised kernel rather than the VM,
+ * which is the single number that says whether shader specialisation is
+ * covering the real workload. */
+void glsl_dbg_workload_totals(int *nprogs, int *nkernel,
+                              unsigned long *frags_kernel, unsigned long *frags_vm)
+{
+    int np = 0, nk = 0;
+    unsigned long fk = 0, fv = 0;
+    for (int i = 0; i < g_dbg_nprogs; ++i) {
+        glsl_program *p = g_dbg_progs[i];
+        if (!p) continue;
+        unsigned long f = p->dbg_frags_kernel + p->dbg_frags_vm;
+        if (!f) continue;
+        ++np;
+        if (p->dbg_kernel_name) ++nk;
+        fk += p->dbg_frags_kernel;
+        fv += p->dbg_frags_vm;
+    }
+    if (nprogs) *nprogs = np;
+    if (nkernel) *nkernel = nk;
+    if (frags_kernel) *frags_kernel = fk;
+    if (frags_vm) *frags_vm = fv;
 }
 
 void glsl_dbg_workload_report(void)
@@ -531,6 +659,9 @@ int glsl_link(glsl_program *p, char *err, int errlen)
                 if (!strcmp(p->abind[b].name, p->vs.globals[i].name)) { p->vs.globals[i].location = p->abind[b].index; break; }
 
     p->nvary=0; p->nvaryfloats=0; p->nuni=0;
+    /* The uniform/attribute tables are about to be rebuilt, so any cached
+     * name->index answers held by the RVV kernels are now meaningless. */
+    /* glsl_fs_classify rebuilds kernel_binding after successful linking. */
     /* varyings: those declared in the VS (FS should match by name) */
     for (int i=0;i<p->vs.nglob;i++) if(p->vs.globals[i].qual==Q_VARYING) {
         glvar *g=&p->vs.globals[i]; int comp=type_comp(g->type); int arr=g->arr>0?g->arr:1;
@@ -554,7 +685,34 @@ int glsl_link(glsl_program *p, char *err, int errlen)
         }
         int idx=p->nuni++; int k=0; for(;g->name[k];k++)p->uni[idx].name[k]=g->name[k]; p->uni[idx].name[k]=0;
         p->uni[idx].type=g->type;
-        if (g->type==T_SAMPLER2D||g->type==T_SAMPLERCUBE){ p->uni[idx].is_sampler=1; p->uni[idx].unit=0; p->uni[idx].offset=-1; }
+        if (g->type==T_SAMPLER2D||g->type==T_SAMPLERCUBE){
+            p->uni[idx].is_sampler=1;
+            p->uni[idx].unit=0;       /* GLES 2.0 default for ordinary samplers */
+            p->uni[idx].offset=-1;
+
+            /* gl4es' ARB-program converter encodes the source texture image
+             * unit in these internal uniform names. Unlike its FPE
+             * _gl4es_TexSampler_N path, gl4es 1.1.7 does not upload initial
+             * values for _gl4es_Sampler2D_N/_gl4es_SamplerCube_N. Leaving all
+             * of them at the GLES default unit zero makes the Doom 3
+             * interaction shader sample the normalization cube for bump,
+             * projection, falloff, diffuse, specular and lookup inputs, which
+             * collapses the light term and renders the world black.
+             *
+             * Treat this as driver-side compatibility for gl4es-generated
+             * shaders. A later explicit glUniform1i still overrides it. */
+            static const char s2d[] = "_gl4es_Sampler2D_";
+            static const char scube[] = "_gl4es_SamplerCube_";
+            const char *q = 0;
+            int plen = 0;
+            if (!strncmp(g->name, s2d, sizeof(s2d)-1)) { q = g->name + sizeof(s2d)-1; plen = 1; }
+            else if (!strncmp(g->name, scube, sizeof(scube)-1)) { q = g->name + sizeof(scube)-1; plen = 1; }
+            if (plen && q && *q >= '0' && *q <= '9') {
+                int unit = 0;
+                while (*q >= '0' && *q <= '9') { unit = unit * 10 + (*q++ - '0'); }
+                if (*q == 0 && unit < GLSL_MAX_SAMPLERS) p->uni[idx].unit = unit;
+            }
+        }
         else { p->uni[idx].is_sampler=0; p->uni[idx].offset=ucur; ucur+=nc; }
     }
     (void)err;(void)errlen;
@@ -571,9 +729,10 @@ int glsl_link(glsl_program *p, char *err, int errlen)
         for (int i=0;i<ir->ninst;i++){ const ir_inst *o=&ir->inst[i]; if(o->op==IR_BUILTIN){ switch(o->i0){
             case BI_TEXTURE2D:t2++;break; case BI_TEXTURE2DPROJ:tp++;break; case BI_TEXTURECUBE:tc++;break;
             case BI_NORMALIZE:nm++;break; case BI_POW:pw++;break; case BI_DOT:dt++;break; default:ot++; } } }
-        printf("[fsdump] id=%d path=%s ok=%d simt=%d ninst=%d nvaryf=%d nuni=%d | tex2d=%d proj=%d cube=%d norm=%d pow=%d dot=%d oth=%d\n",
+        printf("[fsdump] id=%d path=%s ok=%d simt=%d ninst=%d nvaryf=%d nuni=%d vs(ninst=%d sig=%08x) | tex2d=%d proj=%d cube=%d norm=%d pow=%d dot=%d oth=%d\n",
                p->dbg_id, p->dbg_kernel_name ? p->dbg_kernel_name : "VM",
-               ir->ok, ir->simt_ok, ir->ninst, p->nvaryfloats, p->nuni, t2,tp,tc,nm,pw,dt,ot);
+               ir->ok, ir->simt_ok, ir->ninst, p->nvaryfloats, p->nuni,
+               p->vs_ir.ninst, glsl_ir_signature(&p->vs_ir), t2,tp,tc,nm,pw,dt,ot);
         for (int i=0;i<p->nvary;i++) printf("[fsdump]   vary[%d] %s comp=%d off=%d\n", i, p->vary[i].name, p->vary[i].comp, p->vary[i].offset);
         for (int i=0;i<p->nuni;i++)  printf("[fsdump]   uni  %s %s=%d\n", p->uni[i].name, p->uni[i].is_sampler?"unit":"off", p->uni[i].is_sampler?p->uni[i].unit:p->uni[i].offset);
     }
@@ -662,7 +821,27 @@ void glsl_uniform(glsl_program *p, int loc, const float *data, int nfloats)
     if (loc<0||loc>=p->nuni||p->uni[loc].is_sampler) return;
     int off=p->uni[loc].offset; for(int i=0;i<nfloats && off+i<GLSL_USTORE_FLOATS;i++) p->ustore[off+i]=data[i];
 }
-void glsl_uniform_sampler(glsl_program *p, int loc, int unit){ if(loc>=0&&loc<p->nuni&&p->uni[loc].is_sampler) p->uni[loc].unit=unit; }
+void glsl_uniform_sampler(glsl_program *p, int loc, int unit)
+{
+    if (loc < 0 || loc >= p->nuni || !p->uni[loc].is_sampler) return;
+
+    /* gl4es ARB-program samplers have a fixed source texture unit encoded in
+     * their internal name. gl4es may subsequently replay a zero-initialised
+     * uniform cache over the driver after link; accepting that replay collapses
+     * every input back onto unit zero and undoes the link-time compatibility
+     * default above. Preserve the converter's explicit unit contract. */
+    static const char s2d[] = "_gl4es_Sampler2D_";
+    static const char scube[] = "_gl4es_SamplerCube_";
+    const char *q = 0;
+    if (!strncmp(p->uni[loc].name, s2d, sizeof(s2d)-1)) q = p->uni[loc].name + sizeof(s2d)-1;
+    else if (!strncmp(p->uni[loc].name, scube, sizeof(scube)-1)) q = p->uni[loc].name + sizeof(scube)-1;
+    if (q && *q >= '0' && *q <= '9') {
+        int fixed = 0;
+        while (*q >= '0' && *q <= '9') fixed = fixed * 10 + (*q++ - '0');
+        if (*q == 0 && fixed < GLSL_MAX_SAMPLERS) { p->uni[loc].unit = fixed; return; }
+    }
+    p->uni[loc].unit = unit;
+}
 
 void glsl_run_vertex(glsl_program *p, const float attribs[GLSL_MAX_ATTRIBS][4], float clip[4], float *varying_out)
 {

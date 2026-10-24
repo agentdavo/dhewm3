@@ -1478,6 +1478,7 @@ void idRenderWorldLocal::GenerateAllInteractions() {
 	}
 
 	int start = Sys_Milliseconds();
+	(void)start;	// only read by the non-BAREMETAL timing print below
 
 	generateAllInteractionsCalled = false;
 
@@ -1488,6 +1489,20 @@ void idRenderWorldLocal::GenerateAllInteractions() {
 	// try and do any view specific optimizations
 	tr.viewDef = NULL;
 
+#if defined(BAREMETAL)
+	// Skip only the EAGER pass. Precomputing every light/surface interaction up
+	// front is a multi-minute wall under QEMU TCG, and the renderer's lazy path
+	// is explicitly designed to create visible interactions on demand -- so this
+	// loop is genuinely not wanted here.
+	//
+	// The table below is a different thing and IS wanted. Skipping the whole
+	// function (what this build used to do) left interactionTable NULL forever,
+	// since this is its only allocation site: tr_light.cpp's per-frame early-out
+	// was dead code and every frame walked the interaction chain instead. It also
+	// left generateAllInteractionsCalled false, so every noDynamicInteractions
+	// hint a level designer set was ignored. Both are pure losses.
+	common->Printf( "idRenderWorld::GenerateAllInteractions: skipping eager pass (bare-metal lazy interactions); table still built\n" );
+#else
 	for ( int i = 0 ; i < this->lightDefs.Num() ; i++ ) {
 		idRenderLightLocal	*ldef = this->lightDefs[i];
 		if ( !ldef ) {
@@ -1500,37 +1515,59 @@ void idRenderWorldLocal::GenerateAllInteractions() {
 	int	msec = end - start;
 
 	common->Printf( "idRenderWorld::GenerateAllInteractions, msec = %i, staticAllocCount = %i.\n", msec, tr.staticAllocCount );
+#endif
 
 
 	// build the interaction table
-	if ( r_useInteractionTable.GetBool() ) {
-		interactionTableWidth = entityDefs.Num() + 100;
-		interactionTableHeight = lightDefs.Num() + 100;
-		int	size =  interactionTableWidth * interactionTableHeight * sizeof( *interactionTable );
-		interactionTable = (idInteraction **)R_ClearedStaticAlloc( size );
-
-		int	count = 0;
-		for ( int i = 0 ; i < this->lightDefs.Num() ; i++ ) {
-			idRenderLightLocal	*ldef = this->lightDefs[i];
-			if ( !ldef ) {
-				continue;
-			}
-			idInteraction	*inter;
-			for ( inter = ldef->firstInteraction; inter != NULL; inter = inter->lightNext ) {
-				idRenderEntityLocal	*edef = inter->entityDef;
-				int index = ldef->index * interactionTableWidth + edef->index;
-
-				interactionTable[ index ] = inter;
-				count++;
-			}
-		}
-
-		common->Printf( "interactionTable size: %i bytes\n", size );
-		common->Printf( "%d interaction take %zd bytes\n", count, count * sizeof( idInteraction ) );
-	}
+	AllocInteractionTable();
 
 	// entities flagged as noDynamicInteractions will no longer make any
 	generateAllInteractionsCalled = true;
+}
+
+/*
+===================
+idRenderWorldLocal::AllocInteractionTable
+
+The table half of GenerateAllInteractions(), separated from the eager
+"create every interaction up front" loop above.
+
+Allocating the table is cheap (one cleared alloc) and is what makes
+tr_light.cpp's early-out live; creating every interaction is the part that costs
+minutes under TCG. Because idInteraction::AllocAndLink() and UnlinkAndFree()
+maintain the table incrementally, and AddEntityDef()/AddLightDef() drop it via
+ResizeInteractionTable() if it is ever overflowed, populating it from an empty
+world is perfectly well defined -- it simply fills in as interactions appear.
+===================
+*/
+void idRenderWorldLocal::AllocInteractionTable() {
+	if ( !r_useInteractionTable.GetBool() || interactionTable ) {
+		return;
+	}
+
+	interactionTableWidth = entityDefs.Num() + 100;
+	interactionTableHeight = lightDefs.Num() + 100;
+	int	size =  interactionTableWidth * interactionTableHeight * sizeof( *interactionTable );
+	interactionTable = (idInteraction **)R_ClearedStaticAlloc( size );
+
+	int	count = 0;
+	for ( int i = 0 ; i < this->lightDefs.Num() ; i++ ) {
+		idRenderLightLocal	*ldef = this->lightDefs[i];
+		if ( !ldef ) {
+			continue;
+		}
+		idInteraction	*inter;
+		for ( inter = ldef->firstInteraction; inter != NULL; inter = inter->lightNext ) {
+			idRenderEntityLocal	*edef = inter->entityDef;
+			int index = ldef->index * interactionTableWidth + edef->index;
+
+			interactionTable[ index ] = inter;
+			count++;
+		}
+	}
+
+	common->Printf( "interactionTable size: %i bytes\n", size );
+	common->Printf( "%d interaction take %zd bytes\n", count, count * sizeof( idInteraction ) );
 }
 
 /*

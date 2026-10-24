@@ -25,9 +25,18 @@
  *   WAKE   : workers `wfi`-park when the ring is empty; the submitter sends an
  *            SBI IPI to wake them after publishing (NO tight spin). On finishing
  *            a batch, a worker IPIs the submitter so its own barrier `wfi`
- *            returns. The IPI is delivered as an SSIP handled by
- *            sched_trap_vector (sched_secondary.S), which clears it and `sret`s,
- *            so the `wfi` simply falls through to re-check.
+ *            returns. Both parks go through park_wfi(), which masks sstatus.SIE
+ *            across the `wfi`.
+ *
+ *            That masking is REQUIRED, and this comment used to claim the
+ *            opposite -- that the IPI is taken by sched_trap_vector
+ *            (sched_secondary.S), "which clears it and `sret`s, so the `wfi`
+ *            simply falls through to re-check." It does not. `.Lirq` clears
+ *            SSIP and `sret`s WITHOUT advancing sepc, and an interrupt taken at
+ *            a `wfi` has sepc pointing AT that `wfi` -- so the hart re-executes
+ *            it with the pending bit already cleared and sleeps until some later
+ *            IPI. With SIE masked no trap is taken, the `wfi` genuinely falls
+ *            through, and the explicit clear_ssip()/re-check works as written.
  *
  *   N=1    : with zero workers `sched_submit` runs every job INLINE on the
  *            submitter — no ring, no atomics, no barrier, no WFI. Identical
@@ -41,7 +50,7 @@
 #include <stdint.h>
 #include "sched.h"
 #include "sched_sbi.h"
-#include "boot/runtime.h"
+#include "smp_timer.h"   /* NOT boot/runtime.h -- see that header */
 
 /* ------------------------------------------------------------------ ring --- */
 
@@ -91,6 +100,32 @@ static inline void enable_ssie(void)
 static inline void clear_ssip(void)
 {
     asm volatile("csrc sip, %0" :: "r"(1UL << 1) : "memory"); /* SIP.SSIP */
+}
+
+/* Park until an interrupt, with sstatus.SIE MASKED across the wfi.
+ *
+ * A bare `wfi` here is a hang, not a sleep. os_irq_init_local() sets sstatus.SIE
+ * on every hart, so the waking IPI is delivered as a TRAP whose sepc points AT
+ * the wfi. The handler clears SSIP, `sret` re-executes the wfi -- and now
+ * nothing is pending, so the hart sleeps until some LATER IPI that may never
+ * come. The submitter's 10s "safety net" cannot save it either: that deadline is
+ * only re-checked after the wfi returns.
+ *
+ * Masking SIE makes the wake fall through instead of trapping. `wfi` resumes on
+ * anything enabled in `sie` regardless of sstatus.SIE, so nothing is lost: the
+ * caller's own clear_ssip()/re-check loop then runs exactly as designed, and any
+ * interrupt that came due is taken when SIE is restored.
+ *
+ * Same defect and same fix as bm_wait_until() in riscv/boot/runtime.c, where it
+ * was caught red-handed on a hung guest (pc=wfi+4, sepc=wfi, scause=S-timer,
+ * wake source disarmed by the handler). */
+static inline void park_wfi(void)
+{
+    unsigned long prev;
+    asm volatile("csrrc %0, sstatus, %1" : "=r"(prev) : "r"(1UL << 1) : "memory");
+    asm volatile("wfi");
+    if (prev & (1UL << 1))
+        asm volatile("csrs sstatus, %0" :: "r"(1UL << 1) : "memory");
 }
 
 /* --------------------------------------------------------------- public --- */
@@ -168,7 +203,7 @@ void sched_submit(const sched_job_t *jobs, int n)
      * rdtime deadline as a safety net so a stuck worker fails instead of
      * hanging QEMU. */
     unsigned long target = base + (unsigned long)n;
-    uint64_t deadline = timer_ticks() + 10UL * TIMEBASE_HZ; /* 10 s budget */
+    uint64_t deadline = timer_ticks() + 10UL * timer_hz(); /* 10 s budget */
     for (;;) {
         unsigned long d = __atomic_load_n(&q.done, __ATOMIC_ACQUIRE);
         if (d >= target)
@@ -181,7 +216,7 @@ void sched_submit(const sched_job_t *jobs, int n)
         clear_ssip();
         if (__atomic_load_n(&q.done, __ATOMIC_ACQUIRE) >= target)
             break;
-        asm volatile("wfi");
+        park_wfi();
     }
 
     /* Observe all framebuffer/result writes the workers published. */
@@ -239,7 +274,7 @@ void hart_worker_main(unsigned long hartid)
             t = __atomic_load_n(&q.tail, __ATOMIC_ACQUIRE);
             if (t < h)
                 continue;                  /* work appeared; don't sleep      */
-            asm volatile("wfi");
+            park_wfi();
         }
     }
 }

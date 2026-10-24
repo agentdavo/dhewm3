@@ -34,7 +34,9 @@ static int builtin_id(const char *f)
 {
     static const char *nm[BI_COUNT] = { "texture2D","dot","length","distance","normalize",
         "cross","mix","clamp","min","max","abs","floor","ceil","fract","sign","sqrt",
-        "inversesqrt","mod","step","smoothstep","reflect","pow","texture2DProj","textureCube" };
+        "inversesqrt","mod","step","smoothstep","reflect","pow","texture2DProj","textureCube",
+        /* index-parallel with the BI_* enum in glsl_internal.h */
+        "sin","cos","tan","exp","log","exp2","log2","radians","degrees" };
     for (int i=0;i<BI_COUNT;i++) if(!strcmp(f,nm[i])) return i;
     return -1;
 }
@@ -44,7 +46,10 @@ static int ir_load_var(ircomp *c, const char *name)
     int ls = ir_local_slot(c, name, 0);
     if (ls>=0) return ls;
     int r = ir_tmp(c); ir_inst *o;
-    if (!strcmp(name,"gl_FragColor")||!strcmp(name,"gl_Position")||!strcmp(name,"gl_FragCoord")) {
+    if (!strcmp(name,"gl_FragCoord")) {
+        o=ir_emit(c); o->op=IR_LOADFC; o->dst=r; o->i0=4; return r;
+    }
+    if (!strcmp(name,"gl_FragColor")||!strcmp(name,"gl_Position")) {
         o=ir_emit(c); o->op=IR_LOADZ; o->dst=r; o->i0=4; return r;
     }
     glvar *gv=find_global(c->sh,name);

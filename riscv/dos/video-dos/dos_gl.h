@@ -25,6 +25,11 @@ void *gl4es_GetProcAddress(const char *name);
  * SDL assumes creation makes the context current. */
 void *dos_gl_create_context(int w, int h);
 int   dos_gl_make_current(void *ctx);       /* 0 ok; NULL = release (no-op) */
+
+/* Supersampling factor (1..4). Call before dos_gl_create_context. When >1 the
+ * (w,h) passed to create_context is treated as the supersampled render size and
+ * the scanout is downsampled to (w/s, h/s) at present. Defaults to BM_SSAA. */
+void  dos_gl_set_ssaa(int s);
 void  dos_gl_destroy_context(void *ctx);
 
 /* Present the current GL surface: scan it out to the virtio-gpu device. Capture

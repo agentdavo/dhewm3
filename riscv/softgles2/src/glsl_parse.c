@@ -54,7 +54,8 @@ static int is_builtin_fn(const char *s)
 {
     static const char *b[] = { "texture2D","texture2DProj","textureCube","dot","length","distance",
         "normalize","cross","mix","clamp","min","max","abs","floor","ceil","fract","sign","sqrt",
-        "inversesqrt","mod","step","smoothstep","reflect","pow",0 };
+        "inversesqrt","mod","step","smoothstep","reflect","pow",
+        "sin","cos","tan","exp","log","exp2","log2","radians","degrees",0 };
     for (int i=0;b[i];i++) if(!strcmp(s,b[i])) return 1;
     return 0;
 }

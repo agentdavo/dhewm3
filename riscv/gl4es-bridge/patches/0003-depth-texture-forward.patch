@@ -1,0 +1,30 @@
+diff --git a/src/gl/texture.c b/src/gl/texture.c
+index c0d479a..2dfdbb4 100644
+--- a/src/gl/texture.c
++++ b/src/gl/texture.c
+@@ -712,6 +712,13 @@ GLenum swizzle_internalformat(GLenum *internalformat, GLenum format, GLenum type
+                 sret = ret = GL_RGBA;
+             }
+             break;
++        case GL_DEPTH_COMPONENT24:
++            if(hardext.depthtex) {
++                sret = ret = GL_DEPTH_COMPONENT;
++            } else {
++                sret = ret = GL_RGBA;
++            }
++            break;
+         case GL_DEPTH_COMPONENT32:
+             if(hardext.depthtex) {
+                 sret = ret = GL_DEPTH_COMPONENT;
+diff --git a/src/gl/texture_read.c b/src/gl/texture_read.c
+index 2d70cd9..ea8eac8 100644
+--- a/src/gl/texture_read.c
++++ b/src/gl/texture_read.c
+@@ -148,6 +148,7 @@ void APIENTRY_GL4ES gl4es_glCopyTexSubImage2D(GLenum target, GLint level, GLint
+             gles_glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE_OES, (GLint *) &glstate->fbo.current_fb->read_type);
+         }
+         copytex = ((bound->format==GL_RGBA && bound->type==GL_UNSIGNED_BYTE) 
++            || (bound->format==GL_DEPTH_COMPONENT) || (bound->format==GL_DEPTH_STENCIL)
+             || (bound->format==glstate->fbo.current_fb->read_format && bound->type==glstate->fbo.current_fb->read_type));
+         if (copytex || !glstate->colormask[0] || !glstate->colormask[1] || !glstate->colormask[2] || !glstate->colormask[3]) {
+             gles_glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);

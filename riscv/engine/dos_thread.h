@@ -23,6 +23,12 @@ unsigned long dos_thread_hartid(const void *handle);
 unsigned long dos_thread_self_id(void);
 int           dos_thread_is_worker(void);
 
+/* 1 (and prints which worker) if any worker stack has run past its low end into
+ * its poisoned red zone. There is no MMU guard page here, so this is how a stack
+ * overflow becomes visible instead of silently corrupting the neighbouring
+ * worker's stack. */
+int           dos_thread_stack_overflowed(void);
+
 /* Secondary-hart entry point implemented in dos_hart_entry.S. */
 void          dos_hart_entry(void);
 void          dos_thread_entry_c(void *opaque);

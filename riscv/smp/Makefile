@@ -24,8 +24,16 @@ ARCH    ?= rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfwma_zvbc_zvkng_zvksg_zvl256
 ABI     ?= lp64d
 BOOT    := ../boot
 LIBC    := ../libc
-SCRIPTS := ../scripts
+# run.sh lives at riscv/run.sh; this pointed at ../scripts, which does not
+# exist, so every `make run*/srun*` target failed with "No such file".
+SCRIPTS := ..
 BUILD   := build
+
+# Derived from ARCH's zvl<N>b, never hardcoded. run.sh defaults RVV_VLEN to 1024
+# while these images are built zvl256b, and with -mrvv-vector-bits=zvl that
+# mismatch is a hard panic at boot ("VLEN mismatch") -- every run target failed
+# this way. Deriving it means changing ARCH cannot desynchronise the two.
+RVV_VLEN ?= $(shell echo '$(ARCH)' | grep -oE 'zvl[0-9]+b' | grep -oE '[0-9]+')
 
 # Per-hart sizing shared by C (kmain.c) and asm (secondary.S).
 SMP_MAX_HARTS        := 8
@@ -43,7 +51,12 @@ RVCFLAGS  := -march=$(ARCH) -mabi=$(ABI) -mcmodel=medany -O2 -ffreestanding \
 RVLDFLAGS := -nostartfiles -Wl,-T$(BOOT)/linker.ld -Wl,--gc-sections
 
 # Boot/libc objects shared by BOTH payloads (smoke test + scheduler test).
+# fdt.o is REQUIRED, not optional: runtime.c's timebase/RAM/ISA discovery calls
+# fdt_find_compatible/fdt_reg/fdt_next_node/... Leaving it out is a link error
+# (the engine build hit the same gap; it only appeared to link there because
+# --gc-sections happened to drop the timer path).
 COMMON_OBJS := $(BUILD)/start.o $(BUILD)/runtime.o $(BUILD)/sbi.o $(BUILD)/trap.o \
+               $(BUILD)/fdt.o \
                $(BUILD)/printf.o $(BUILD)/string.o $(BUILD)/malloc.o
 
 # Smoke-test payload objects (unchanged).
@@ -72,6 +85,7 @@ $(BUILD)/start.o:    $(BOOT)/start.S   | $(BUILD); $(RVCC) $(RVCFLAGS) -c $< -o 
 $(BUILD)/runtime.o:  $(BOOT)/runtime.c | $(BUILD); $(RVCC) $(RVCFLAGS) -c $< -o $@
 $(BUILD)/sbi.o:      $(BOOT)/sbi.c     | $(BUILD); $(RVCC) $(RVCFLAGS) -c $< -o $@
 $(BUILD)/trap.o:     $(BOOT)/trap.c    | $(BUILD); $(RVCC) $(RVCFLAGS) -c $< -o $@
+$(BUILD)/fdt.o:      $(BOOT)/fdt.c     | $(BUILD); $(RVCC) $(RVCFLAGS) -c $< -o $@
 
 # --- reused libc (READ-ONLY) ---
 $(BUILD)/printf.o:   $(LIBC)/printf.c  | $(BUILD); $(RVCC) $(RVCFLAGS) -c $< -o $@
@@ -116,7 +130,7 @@ SMOKE_OK := SMP smoke:
 define run_smp
 	@ok=0; for i in $$(seq 1 $(RETRIES)); do \
 	  echo ">>> [$(1) hart(s)] run.sh attempt $$i/$(RETRIES)"; \
-	  if SMP=$(1) TIMEOUT=30 $(SCRIPTS)/run.sh $(BUILD)/smp_smoke.elf 2>&1 \
+	  if SMP=$(1) TIMEOUT=30 RVV_VLEN=$(RVV_VLEN) $(SCRIPTS)/run.sh $(BUILD)/smp_smoke.elf 2>&1 \
 	       | tee /tmp/smp_run_$(1).log | grep -q "$(SMOKE_OK)"; then ok=1; break; fi; \
 	  echo ">>> (boot hart != 0; retrying)"; \
 	done; \
@@ -124,7 +138,7 @@ define run_smp
 endef
 
 run: $(BUILD)/smp_smoke.elf
-	$(SCRIPTS)/run.sh $(BUILD)/smp_smoke.elf
+	RVV_VLEN=$(RVV_VLEN) $(SCRIPTS)/run.sh $(BUILD)/smp_smoke.elf
 
 run1: $(BUILD)/smp_smoke.elf
 	$(call run_smp,1)
@@ -143,7 +157,7 @@ SCHED_OK := SCHED test: PASS
 define run_sched
 	@ok=0; for i in $$(seq 1 $(RETRIES)); do \
 	  echo ">>> [sched, $(1) hart(s)] run.sh attempt $$i/$(RETRIES)"; \
-	  if SMP=$(1) TIMEOUT=30 $(SCRIPTS)/run.sh $(BUILD)/sched_test.elf 2>&1 \
+	  if SMP=$(1) TIMEOUT=30 RVV_VLEN=$(RVV_VLEN) $(SCRIPTS)/run.sh $(BUILD)/sched_test.elf 2>&1 \
 	       | tee /tmp/sched_run_$(1).log | grep -q "$(SCHED_OK)"; then ok=1; break; fi; \
 	  echo ">>> (boot hart != 0; retrying)"; \
 	done; \
@@ -151,7 +165,7 @@ define run_sched
 endef
 
 srun: $(BUILD)/sched_test.elf
-	$(SCRIPTS)/run.sh $(BUILD)/sched_test.elf
+	RVV_VLEN=$(RVV_VLEN) $(SCRIPTS)/run.sh $(BUILD)/sched_test.elf
 
 srun1: $(BUILD)/sched_test.elf
 	$(call run_sched,1)

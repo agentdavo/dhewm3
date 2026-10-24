@@ -7,6 +7,10 @@
 #if defined(__riscv_v_intrinsic) && __riscv_v_intrinsic >= 1000000
 #  include <riscv_vector.h>
 #endif
+#include "sg_prof.h"
+#include "boot/virtio_mmio.h"
+#include "boot/dma.h"
+#include "boot/bm_pause.h"
 
 #define VIRT_MMIO_BASE     0x10001000UL
 #define VIRT_MMIO_STRIDE   0x1000UL
@@ -177,20 +181,35 @@ static int g_ready;
 static int g_width;
 static int g_height;
 static uint32_t *g_scanout;
+static void *g_scanout_alloc;
 static uint32_t g_scanout_bytes;
 static int g_reported_no_device;
 static int g_disabled;
 static uint32_t g_scanout_limit_w;
 static uint32_t g_scanout_limit_h;
 
+/* Now fenced -- see boot/virtio_mmio.h. */
 static inline uint32_t mmio_rd(uintptr_t base, uint32_t off)
 {
-    return *(volatile uint32_t *)(base + off);
+    return virtio_mmio_rd(base, off);
 }
 
 static inline void mmio_wr(uintptr_t base, uint32_t off, uint32_t v)
 {
-    *(volatile uint32_t *)(base + off) = v;
+    virtio_mmio_wr(base, off, v);
+}
+
+static void *vgpu_alloc_aligned(uint32_t bytes, uint32_t align, void **owner)
+{
+    uintptr_t mask = (uintptr_t)align - 1u;
+    unsigned char *raw = (unsigned char *)malloc((size_t)bytes + (size_t)align - 1u);
+    if (!raw) {
+        if (owner) *owner = NULL;
+        return NULL;
+    }
+    uintptr_t p = ((uintptr_t)raw + mask) & ~mask;
+    if (owner) *owner = raw;
+    return (void *)p;
 }
 
 static uintptr_t vgpu_scan_slots(void)
@@ -280,23 +299,56 @@ static void vgpu_disable_device(void)
     g_disabled = 1;
 }
 
+/* Line-isolated staging for the control queue. Every caller of vgpu_submit()
+ * passes stack locals for both the request and the response -- and the response
+ * descriptor is VIRTQ_DESC_F_WRITE, i.e. the DEVICE writes into it. Exposing a
+ * stack address to a device is wrong independently of coherency: on a
+ * non-coherent SoC the cache maintenance that would make it work destroys the
+ * live registers sharing that cache line. Bouncing through a static, 64-byte
+ * aligned, line-rounded buffer here fixes every caller at once and keeps their
+ * signatures unchanged. See boot/dma.h. */
+/* Must hold the LARGEST control-queue message in either direction. The biggest
+ * is the GET_DISPLAY_INFO reply: a 24-byte header plus VGPU_MAX_SCANOUTS (16)
+ * 24-byte mode entries = 408 bytes. A flat 256 silently broke the whole device:
+ * vgpu_submit() rejects an oversized transfer up front, so the scanout probe
+ * returned -1 before ever reaching the device, ensure_scanout failed, and every
+ * VIDEO=gpu run fell back to the private framebuffer -- i.e. a QEMU window that
+ * stays blank, with no error beyond one "validation failed rc=-1" line.
+ * Derive it from the structs, and assert it, so it cannot drift again. */
+#define VGPU_STAGE_MAX ((uint32_t)sizeof(struct virtio_gpu_resp_display_info))
+DMA_BUFFER(g_dma_req, VGPU_STAGE_MAX);
+DMA_BUFFER(g_dma_resp, VGPU_STAGE_MAX);
+
+/* C99-compatible compile-time assert (this file is built as freestanding C). */
+typedef char vgpu_stage_fits_display_info[
+    (VGPU_STAGE_MAX >= sizeof(struct virtio_gpu_resp_display_info)) ? 1 : -1];
+typedef char vgpu_stage_fits_attach_req[
+    (VGPU_STAGE_MAX >= sizeof(struct vgpu_attach_req)) ? 1 : -1];
+
 static int vgpu_submit(const void *req, uint32_t req_len,
                        void *resp, uint32_t resp_len)
 {
-    int d_req = vq_alloc_desc(&g_q);
-    int d_resp = vq_alloc_desc(&g_q);
+    int d_req, d_resp;
+
+    if (req_len > sizeof(g_dma_req) || resp_len > sizeof(g_dma_resp))
+        return -1;
+
+    d_req = vq_alloc_desc(&g_q);
+    d_resp = vq_alloc_desc(&g_q);
     if (d_req < 0 || d_resp < 0) {
         if (d_req >= 0) vq_free_desc(&g_q, (uint16_t)d_req);
         if (d_resp >= 0) vq_free_desc(&g_q, (uint16_t)d_resp);
         return -1;
     }
 
+    memcpy(g_dma_req, req, req_len);
+    memset(g_dma_resp, 0, resp_len);
     memset(resp, 0, resp_len);
-    g_q.desc[d_req].addr = (uint64_t)(uintptr_t)req;
+    g_q.desc[d_req].addr = (uint64_t)(uintptr_t)g_dma_req;
     g_q.desc[d_req].len = req_len;
     g_q.desc[d_req].flags = VIRTQ_DESC_F_NEXT;
     g_q.desc[d_req].next = (uint16_t)d_resp;
-    g_q.desc[d_resp].addr = (uint64_t)(uintptr_t)resp;
+    g_q.desc[d_resp].addr = (uint64_t)(uintptr_t)g_dma_resp;
     g_q.desc[d_resp].len = resp_len;
     g_q.desc[d_resp].flags = VIRTQ_DESC_F_WRITE;
     g_q.desc[d_resp].next = 0;
@@ -305,12 +357,13 @@ static int vgpu_submit(const void *req, uint32_t req_len,
     g_q.avail->ring[slot] = (uint16_t)d_req;
     __sync_synchronize();
     g_q.avail->idx++;
-    __sync_synchronize();
+    /* memory-before-IO; `fence rw,rw` does not provide it. See virtio_mmio.h. */
+    virtio_wmb();
     mmio_wr(g_base, VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
     uint32_t spins = 0;
     while (g_q.used->idx == g_q.last_used && spins < VGPU_SUBMIT_SPIN_LIMIT) {
-        __asm__ __volatile__(".insn i 0x0F, 0, x0, x0, 0x010" ::: "memory");
+        bm_pause();
         spins++;
     }
     if (g_q.used->idx == g_q.last_used) {
@@ -332,6 +385,8 @@ static int vgpu_submit(const void *req, uint32_t req_len,
         vgpu_disable_device();
         return -3;
     }
+    /* Hand the device's reply back to the caller's own storage. */
+    memcpy(resp, g_dma_resp, resp_len);
     return ((struct virtio_gpu_ctrl_hdr *)resp)->type;
 }
 
@@ -386,13 +441,21 @@ static int vgpu_validate_scanout(int w, int h)
     scanout = &info.pmodes[0];
     if (!scanout->enabled) return -10;
     if (scanout->r.width == 0 || scanout->r.height == 0) return -11;
-    if ((uint32_t)w > scanout->r.width || (uint32_t)h > scanout->r.height) {
-        g_scanout_limit_w = scanout->r.width;
-        g_scanout_limit_h = scanout->r.height;
-        return -12;
-    }
+
+    /* pmodes[] is the host's PREFERRED/current mode, NOT a maximum. In virtio-gpu
+     * the guest picks the scanout size: SET_SCANOUT with a larger resource makes
+     * the host resize its console to match (QEMU calls qemu_console_resize()).
+     * Treating the reported mode as a ceiling made the driver refuse its own
+     * native resolution -- under `-display gtk` QEMU reports the initial 640x480
+     * window, so a 768x432 framebuffer was rejected and the whole device fell
+     * back to the private framebuffer, leaving the window blank. Record the
+     * reported mode for reference and let the caller set the size it wants. */
     g_scanout_limit_w = scanout->r.width;
     g_scanout_limit_h = scanout->r.height;
+    if ((uint32_t)w > scanout->r.width || (uint32_t)h > scanout->r.height) {
+        printf("dvgpu: requesting %dx%d scanout (host reports %ux%u; host will resize)\n",
+               w, h, scanout->r.width, scanout->r.height);
+    }
     return 0;
 }
 
@@ -403,10 +466,11 @@ static int vgpu_ensure_scanout(int w, int h)
     if (g_scanout && g_scanout_bytes == bytes) {
         return 0;
     }
-    free(g_scanout);
+    free(g_scanout_alloc ? g_scanout_alloc : g_scanout);
     g_scanout = NULL;
+    g_scanout_alloc = NULL;
     g_scanout_bytes = 0;
-    g_scanout = (uint32_t *)malloc(bytes);
+    g_scanout = (uint32_t *)vgpu_alloc_aligned(bytes, 128u, &g_scanout_alloc);
     if (!g_scanout) {
         return -1;
     }
@@ -534,7 +598,36 @@ static int vgpu_init(int w, int h)
     return 0;
 }
 
-int dvgpu_present_rgba(const uint32_t *pixels, int w, int h)
+static void vgpu_copy_rgba(uint32_t *dst, const uint32_t *src, uint32_t bytes,
+                           const uint8_t *gamma_lut)
+{
+    size_t nw = (size_t)bytes / 4u;
+    if (dst == src && !gamma_lut) {
+        return;
+    }
+    if (gamma_lut) {
+        for (size_t i = 0; i < nw; ++i) {
+            uint32_t c = src[i];
+            dst[i] = (c & 0xFF000000u)
+                   | ((uint32_t)gamma_lut[(c >> 16) & 0xFF] << 16)
+                   | ((uint32_t)gamma_lut[(c >>  8) & 0xFF] <<  8)
+                   |  (uint32_t)gamma_lut[ c        & 0xFF];
+        }
+        return;
+    }
+
+#if defined(__riscv_v_intrinsic) && __riscv_v_intrinsic >= 1000000
+    for (size_t i = 0; i < nw; ) {
+        size_t vl = __riscv_vsetvl_e32m8(nw - i);
+        __riscv_vse32_v_u32m8(&dst[i], __riscv_vle32_v_u32m8(&src[i], vl), vl);
+        i += vl;
+    }
+#else
+    memcpy(dst, src, bytes);
+#endif
+}
+
+int dvgpu_present_rgba_gamma(const uint32_t *pixels, int w, int h, const uint8_t *gamma_lut)
 {
     uint32_t bytes;
     if (!pixels || w <= 0 || h <= 0) return -1;
@@ -554,21 +647,11 @@ int dvgpu_present_rgba(const uint32_t *pixels, int w, int h)
         }
     }
 
-#if defined(__riscv_v_intrinsic) && __riscv_v_intrinsic >= 1000000
-    /* RVV present blit: fb->color -> GPU scanout, ~1.9 MB/frame at 800x600.
-     * Runs on the present (non-IRQ) path. */
-    {
-        size_t nw = (size_t)bytes / 4u;
-        for (size_t i = 0; i < nw; ) {
-            size_t vl = __riscv_vsetvl_e32m8(nw - i);
-            __riscv_vse32_v_u32m8(&g_scanout[i], __riscv_vle32_v_u32m8(&pixels[i], vl), vl);
-            i += vl;
-        }
-    }
-#else
-    memcpy(g_scanout, pixels, bytes);
-#endif
+    uint64_t t0 = sgl_prof_now();
+    vgpu_copy_rgba(g_scanout, pixels, bytes, gamma_lut);
     __sync_synchronize();
+    uint64_t t1 = sgl_prof_now();
+    sgl_prof_present_copy += t1 - t0;
 
     struct virtio_gpu_transfer_to_host_2d transfer;
     memset(&transfer, 0, sizeof(transfer));
@@ -577,6 +660,8 @@ int dvgpu_present_rgba(const uint32_t *pixels, int w, int h)
     transfer.offset = 0;
     transfer.resource_id = VGPU_RESOURCE_ID;
     int transfer_rc = vgpu_cmd_ok(&transfer, sizeof(transfer));
+    uint64_t t2 = sgl_prof_now();
+    sgl_prof_present_xfer += t2 - t1;
     if (transfer_rc != 0) {
         printf("dvgpu: TRANSFER_TO_HOST_2D failed rc=%d (%dx%d); disabling virtio-gpu\n",
                transfer_rc, w, h);
@@ -590,6 +675,8 @@ int dvgpu_present_rgba(const uint32_t *pixels, int w, int h)
     flush.r = vgpu_rect((uint32_t)w, (uint32_t)h);
     flush.resource_id = VGPU_RESOURCE_ID;
     int flush_rc = vgpu_cmd_ok(&flush, sizeof(flush));
+    uint64_t t3 = sgl_prof_now();
+    sgl_prof_present_flush += t3 - t2;
     if (flush_rc != 0) {
         printf("dvgpu: RESOURCE_FLUSH failed rc=%d (%dx%d); disabling virtio-gpu\n",
                flush_rc, w, h);
@@ -598,4 +685,29 @@ int dvgpu_present_rgba(const uint32_t *pixels, int w, int h)
     }
 
     return 0;
+}
+
+int dvgpu_present_rgba(const uint32_t *pixels, int w, int h)
+{
+    return dvgpu_present_rgba_gamma(pixels, w, h, NULL);
+}
+
+uint32_t *dvgpu_scanout_rgba(int w, int h)
+{
+    if (w <= 0 || h <= 0 || g_disabled) {
+        return NULL;
+    }
+    if (!g_ready || g_width != w || g_height != h) {
+        g_ready = 0;
+        int init_rc = vgpu_init(w, h);
+        if (init_rc != 0) {
+            if (!g_reported_no_device) {
+                printf("dvgpu: no virtio-gpu scanout rc=%d; using private framebuffer\n", init_rc);
+                g_reported_no_device = 1;
+            }
+            g_disabled = 1;
+            return NULL;
+        }
+    }
+    return g_scanout;
 }

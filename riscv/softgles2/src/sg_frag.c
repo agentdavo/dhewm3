@@ -1,5 +1,7 @@
 #include "sg_frag.h"
 
+/* FragCoord storage lives in glsl_simt.c so GLSLCORE-only test payloads link. */
+
 void sg_frag_ctx_init(sg_frag_ctx *ctx, glsl_program *gp, const sgl_tex *const *samplers)
 {
     if (!ctx) return;

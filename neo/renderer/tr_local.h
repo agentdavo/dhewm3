@@ -865,6 +865,7 @@ extern idCVar r_useEntityScissors;		// 1 = use custom scissor rectangle for each
 extern idCVar r_useInteractionCulling;	// 1 = cull interactions
 extern idCVar r_useInteractionScissors;	// 1 = use a custom scissor rectangle for each interaction
 extern idCVar r_useFrustumFarDistance;	// if != 0 force the view frustum far distance to this distance
+extern idCVar r_useDepthOnlyFill;		// 1 = mask color writes during the depth-fill pass
 extern idCVar r_useShadowCulling;		// try to cull shadows from partially visible lights
 extern idCVar r_usePreciseTriangleInteractions;	// 1 = do winding clipping to determine if each ambiguous tri should be lit
 extern idCVar r_useTurboShadow;			// 1 = use the infinite projection with W technique for dynamic shadows

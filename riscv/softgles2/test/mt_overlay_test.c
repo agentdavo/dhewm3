@@ -95,6 +95,7 @@ int kmain(void)
     glClear(GL_COLOR_BUFFER_BIT);
     sgl_dbg_mt_engaged = 0; sgl_dbg_mt_cover_admit = 0;
     blit_quad(pp, pc, pt, 1.0f);                 /* fills 800x600 */
+    glFlush();                                    /* FrameBin dispatch boundary */
     unsigned long full_eng = sgl_dbg_mt_engaged, full_blit = sgl_dbg_mt_cover_admit;
     printf("[mt] fullscreen 4-vert blit : mt_engaged=%lu cover_admit=%lu  -> %s\n",
            full_eng, full_blit, (full_eng >= 1 && full_blit >= 1) ? "ENGAGED (ok)" : "SINGLE-HART (FAIL)");
@@ -103,6 +104,7 @@ int kmain(void)
     /* --- tiny blit: must STAY single-hart (below the coverage floor) --- */
     sgl_dbg_mt_engaged = 0; sgl_dbg_mt_cover_admit = 0;
     blit_quad(pp, pc, pt, 0.05f);                /* ~40x30 px, well under 64x64 */
+    glFlush();
     unsigned long tiny_eng = sgl_dbg_mt_engaged;
     printf("[mt] tiny 4-vert blit       : mt_engaged=%lu              -> %s\n",
            tiny_eng, (tiny_eng == 0) ? "single-hart (ok)" : "ENGAGED (FAIL)");

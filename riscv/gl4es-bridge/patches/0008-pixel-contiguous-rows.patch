@@ -1,0 +1,76 @@
+diff --git a/src/gl/pixel.c b/src/gl/pixel.c
+index 34f00db..d623f8f 100644
+--- a/src/gl/pixel.c
++++ b/src/gl/pixel.c
+@@ -764,10 +764,29 @@ bool quarter_pixel(const GLvoid *src[16],
+     #undef write_each
+ }
+ 
++/* Typed contiguous indexing exposes the four-byte pixel layout to GCC.
++ * Do not promise disjoint buffers: preserve forward-loop overlap semantics. */
++static void pixel_swap_rb_row(const GLuint *in, GLuint *out, GLuint width)
++{
++    for (GLuint j = 0; j < width; ++j) {
++        const GLuint tmp = in[j];
++#ifdef __BIG_ENDIAN__
++        out[j] = (tmp&0x00ff00ff) | ((tmp&0x0000ff00)<<16) | ((tmp&0xff000000)>>16);
++#else
++        out[j] = (tmp&0xff00ff00) | ((tmp&0x00ff0000)>>16) | ((tmp&0x000000ff)<<16);
++#endif
++    }
++}
++
+ bool pixel_convert(const GLvoid *src, GLvoid **dst,
+                    GLuint width, GLuint height,
+                    GLenum src_format, GLenum src_type,
+                    GLenum dst_format, GLenum dst_type, GLuint stride, GLuint align) {
++    /* TexSubImage/conversion requires readable source storage and a destination
++     * pointer slot.  Do not turn an upstream failed allocation or invalid NULL
++     * upload into a late bare-metal load/store trap. */
++    if (!src || !dst)
++        return false;
+     const colorlayout_t *src_color, *dst_color;
+     GLuint pixels = width * height;
+     if(src_type==GL_INT8_REV) src_type=GL_UNSIGNED_BYTE;
+@@ -791,6 +810,8 @@ bool pixel_convert(const GLvoid *src, GLvoid **dst,
+         }
+         if (*dst == NULL)        // alloc dst only if dst==NULL
+             *dst = malloc(dst_size);
++        if (*dst == NULL)
++            return false;
+         if (stride)	// for in-place conversion
+ 			for (int yy=0; yy<height; yy++)
+ 				memcpy((char*)(*dst)+yy*dst_width2, (char*)src+yy*src_width, src_width);
+@@ -809,6 +830,8 @@ bool pixel_convert(const GLvoid *src, GLvoid **dst,
+     GLsizei dst_stride = pixel_sizeof(dst_format, dst_type);
+     if (*dst == src || *dst == NULL)
+         *dst = malloc(dst_size);
++    if (*dst == NULL)
++        return false;
+     uintptr_t src_pos = widthalign((uintptr_t)src, align);
+     uintptr_t dst_pos = widthalign((uintptr_t)*dst, align);
+     // fast optimized loop for common conversion cases first...
+@@ -816,20 +839,10 @@ bool pixel_convert(const GLvoid *src, GLvoid **dst,
+     // simple BGRA <-> RGBA / UNSIGNED_BYTE 
+     if ((((src_format == GL_BGRA) && (dst_format == GL_RGBA)) || ((src_format == GL_RGBA) && (dst_format == GL_BGRA))) 
+         && (dst_type == GL_UNSIGNED_BYTE) && ((src_type == GL_UNSIGNED_BYTE))) {
+-        GLuint tmp;
+         for (int i = 0; i < height; i++) {
+-			for (int j = 0; j < width; j++) {
+-				tmp = *(const GLuint*)src_pos;
+-                #ifdef __BIG_ENDIAN__
+-                *(GLuint*)dst_pos = (tmp&0x00ff00ff) | ((tmp&0x0000ff00)<<16) | ((tmp&0xff000000)>>16);
+-                #else
+-				*(GLuint*)dst_pos = (tmp&0xff00ff00) | ((tmp&0x00ff0000)>>16) | ((tmp&0x000000ff)<<16);
+-                #endif
+-				src_pos += src_stride;
+-				dst_pos += dst_stride;
+-			}
+-			dst_pos += dst_width;
+-            src_pos += src_widthadj;
++            pixel_swap_rb_row((const GLuint *)src_pos, (GLuint *)dst_pos, width);
++            dst_pos += width * 4 + dst_width;
++            src_pos += width * 4 + src_widthadj;
+         }
+         return true;
+     }

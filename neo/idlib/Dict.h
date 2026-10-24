@@ -141,6 +141,12 @@ public:
 						// finds the next key/value pair with the given key prefix.
 						// lastMatch can be used to do additional searches past the first match.
 	const idKeyValue *	MatchPrefix( const char *prefix, const idKeyValue *lastMatch = NULL ) const;
+
+						// Attribution counters (Dict.cpp). scanned/calls is the
+						// average elements compared per call; the O(n^2)
+						// continuation used to make it grow with dict size.
+	static int			matchPrefixCalls;
+	static int			matchPrefixScanned;
 						// randomly chooses one of the key/value pairs with the given key prefix and returns it's value
 	const char *		RandomPrefix( const char *prefix, idRandom &random ) const;
 

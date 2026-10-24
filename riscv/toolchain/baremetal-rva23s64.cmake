@@ -49,7 +49,30 @@ set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 # --- ISA / ABI. medany is mandatory: static window at 0x80200000, heap far
 #     above (doc 00 §A.10). ---
-set(BM_MARCH "rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfmin_zvfbfwma_zvbc_zvkg_zvkned_zvknha_zvknhb_zvksc_zvksed_zvksg_zvksh_zvl1024b")
+set(BM_RVV_VLEN "1024" CACHE STRING "Exact RVV VLEN used by this DoomOS image")
+set_property(CACHE BM_RVV_VLEN PROPERTY STRINGS 256 512 1024)
+if(NOT BM_RVV_VLEN MATCHES "^(256|512|1024)$")
+	message(FATAL_ERROR "BM_RVV_VLEN must be 256, 512, or 1024")
+endif()
+math(EXPR BM_SIMT_LANES "${BM_RVV_VLEN} / 16") # e32m2 VLMAX
+# BM_VECTOR=OFF builds the scalar RVA-less baseline: plain rv64imafdc
+# (== rv64gc), no V, no Zb*/Zk*/Zfh, no fixed-VLEN codegen. softgles2, the
+# boot runtime and dos_virtio_gpu already carry non-RVV reference paths
+# behind __riscv_v_intrinsic, so this selects those instead of the RVV
+# kernels. The renderer is MUCH slower this way -- it is a portability
+# target, not a shipping configuration.
+option(BM_VECTOR "Build with the RVA23S64 vector profile (OFF = scalar rv64imafdc)" ON)
+if(BM_VECTOR)
+	set(BM_MARCH "rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfmin_zvfbfwma_zvbc_zvkg_zvkned_zvknha_zvknhb_zvksc_zvksed_zvksg_zvksh_zvl${BM_RVV_VLEN}b")
+	set(BM_VECTOR_FLAGS "-mrvv-vector-bits=zvl")
+else()
+	# Canonical extension order; "rv64imacfdc" is rejected by GCC (dup 'c').
+	set(BM_MARCH "rv64imafdc")
+	set(BM_VECTOR_FLAGS "")
+	# No vsetvl to query: keep the SoA stride at the softgles2 header default
+	# so the multithread tile height (SGL_SIMT_LANES/4) stays the validated 16.
+	set(BM_SIMT_LANES 64)
+endif()
 set(BM_ARCH_FLAGS "-march=${BM_MARCH} -mabi=lp64d -mcmodel=medany")
 
 # Existing build directories cache CMAKE_*_FLAGS after the first configure, so
@@ -58,16 +81,25 @@ set(BM_ARCH_FLAGS "-march=${BM_MARCH} -mabi=lp64d -mcmodel=medany")
 function(bm_migrate_cached_march var_name)
 	if(DEFINED ${var_name})
 		set(_bm_value "${${var_name}}")
+		string(REGEX REPLACE "zvl(256|512|1024)b" "zvl${BM_RVV_VLEN}b" _bm_value "${_bm_value}")
+		string(REGEX REPLACE "-DSGL_SIMT_LANES=[0-9]+" "-DSGL_SIMT_LANES=${BM_SIMT_LANES}" _bm_value "${_bm_value}")
 		string(REPLACE "-march=rva23s64_zvl256b " "-march=${BM_MARCH} " _bm_value "${_bm_value} ")
 		string(REPLACE "-march=rva23s64_zbc_zbkb_zbkc_zbkx_zfh_zvfh_zvfbfwma_zvbc_zvkng_zvksg_zvl1024b " "-march=${BM_MARCH} " _bm_value "${_bm_value} ")
 		string(REPLACE "-march=rva23s64 " "-march=${BM_MARCH} " _bm_value "${_bm_value} ")
+		if(NOT BM_VECTOR)
+			string(REGEX REPLACE "-march=rva23s64[^ ]*" "-march=${BM_MARCH}" _bm_value "${_bm_value}")
+			string(REGEX REPLACE " ?-mrvv-vector-bits=[^ ]*" "" _bm_value "${_bm_value}")
+		endif()
 		# Fixed-VLEN codegen (RVV audit §2): QEMU pins -cpu rva23s64,vlen=1024, so
 		# let GCC treat the vector width as the compile-time constant zvl minimum
 		# (1024b). Folds every `csrr vlenb` + shift into immediates: measured
 		# simt_run_ir -8.8%, sgl_raster_tri_prog -22.6%. C/C++ only (the assembler
 		# does not need it); safe because runtime VLEN never differs from 1024.
-		if((NOT "${var_name}" STREQUAL "CMAKE_ASM_FLAGS") AND (NOT "${_bm_value}" MATCHES "mrvv-vector-bits"))
+		if(BM_VECTOR AND (NOT "${var_name}" STREQUAL "CMAKE_ASM_FLAGS") AND (NOT "${_bm_value}" MATCHES "mrvv-vector-bits"))
 			string(APPEND _bm_value " -mrvv-vector-bits=zvl")
+		endif()
+		if((NOT "${var_name}" STREQUAL "CMAKE_ASM_FLAGS") AND (NOT "${_bm_value}" MATCHES "SGL_SIMT_LANES"))
+			string(APPEND _bm_value " -DSGL_SIMT_LANES=${BM_SIMT_LANES}")
 		endif()
 		string(STRIP "${_bm_value}" _bm_value)
 		set(${var_name} "${_bm_value}" CACHE STRING "" FORCE)
@@ -83,7 +115,7 @@ endforeach()
 #     * -fno-pic / -fno-common : fixed-address static image, no GOT/COMMON.
 #     * -fno-stack-protector   : no __stack_chk_guard / TLS canary.
 #     * -fno-strict-aliasing   : the SW rasteriser type-puns RGBA8 <-> uint32.
-set(BM_COMMON_FLAGS "${BM_ARCH_FLAGS} -mrvv-vector-bits=zvl -ffreestanding -fno-pic -fno-common -fno-stack-protector -fno-strict-aliasing")
+set(BM_COMMON_FLAGS "${BM_ARCH_FLAGS} ${BM_VECTOR_FLAGS} -DSGL_SIMT_LANES=${BM_SIMT_LANES} -ffreestanding -fno-pic -fno-common -fno-stack-protector -fno-strict-aliasing")
 
 # --- C++ extras. CORRECTION vs the original plan (verified building the engine,
 #     see riscv/docs/design/31-engine-crossbuild-status.md §"toolchain"):
@@ -97,7 +129,7 @@ set(BM_COMMON_FLAGS "${BM_ARCH_FLAGS} -mrvv-vector-bits=zvl -ffreestanding -fno-
 #       is already prebuilt; gl4es/softgles2/boot are C too).
 #     * -fno-threadsafe-statics : single cooperative hart -> trivial guards (kept).
 #     * NOT -fno-exceptions — exceptions are load-bearing (common->Error throws).
-set(BM_CXX_COMMON_FLAGS "${BM_ARCH_FLAGS} -mrvv-vector-bits=zvl -fno-pic -fno-common -fno-stack-protector -fno-strict-aliasing")
+set(BM_CXX_COMMON_FLAGS "${BM_ARCH_FLAGS} ${BM_VECTOR_FLAGS} -DSGL_SIMT_LANES=${BM_SIMT_LANES} -fno-pic -fno-common -fno-stack-protector -fno-strict-aliasing")
 set(BM_CXX_EXTRA "-fno-threadsafe-statics")
 
 set(CMAKE_C_FLAGS_INIT   "${BM_COMMON_FLAGS}")

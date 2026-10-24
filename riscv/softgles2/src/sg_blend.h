@@ -138,6 +138,53 @@ static inline void sgl_blend_generic_m2(
 
     *cr = r; *cg = g; *cb = b; *ca = a;
 }
+
+/* Hot gl4es/Doom blend states, resolved once per batch instead of through
+ * twelve generic factor/equation switches. Keep mul/FMA ordering unchanged. */
+static inline int sgl_blend_fast_m2(
+        vfloat32m2_t *cr, vfloat32m2_t *cg, vfloat32m2_t *cb, vfloat32m2_t *ca,
+        vfloat32m2_t dr, vfloat32m2_t dg, vfloat32m2_t db, vfloat32m2_t da,
+        const sgl_blend_state *bs, size_t vl)
+{
+    if (bs->eq_rgb != GL_FUNC_ADD || bs->eq_a != GL_FUNC_ADD) return 0;
+    vfloat32m2_t sr=*cr, sg=*cg, sb=*cb, sa=*ca;
+    if (bs->src_rgb==GL_ONE && bs->dst_rgb==GL_ONE && bs->src_a==GL_ONE && bs->dst_a==GL_ONE) {
+        /* Additive light accumulation (Doom interaction lights). Pure add is
+         * bit-identical to the generic ONE*src + ONE*dst chain for finite
+         * floats and is far cheaper under TCG. */
+        *cr=__riscv_vfadd_vv_f32m2(sr,dr,vl);
+        *cg=__riscv_vfadd_vv_f32m2(sg,dg,vl);
+        *cb=__riscv_vfadd_vv_f32m2(sb,db,vl);
+        *ca=__riscv_vfadd_vv_f32m2(sa,da,vl);
+        return 1;
+    }
+    /* RGB additive, alpha keep-dst (common gl4es light path variant). */
+    if (bs->src_rgb==GL_ONE && bs->dst_rgb==GL_ONE &&
+        bs->src_a==GL_ZERO && bs->dst_a==GL_ONE) {
+        *cr=__riscv_vfadd_vv_f32m2(sr,dr,vl);
+        *cg=__riscv_vfadd_vv_f32m2(sg,dg,vl);
+        *cb=__riscv_vfadd_vv_f32m2(sb,db,vl);
+        *ca=da;
+        return 1;
+    }
+    if (bs->src_rgb==GL_SRC_ALPHA && bs->dst_rgb==GL_ONE_MINUS_SRC_ALPHA &&
+        bs->src_a==GL_SRC_ALPHA && bs->dst_a==GL_ONE_MINUS_SRC_ALPHA) {
+        vfloat32m2_t oma=__riscv_vfrsub_vf_f32m2(sa,1.f,vl);
+        *cr=__riscv_vfmacc_vv_f32m2(__riscv_vfmul_vv_f32m2(sr,sa,vl),dr,oma,vl);
+        *cg=__riscv_vfmacc_vv_f32m2(__riscv_vfmul_vv_f32m2(sg,sa,vl),dg,oma,vl);
+        *cb=__riscv_vfmacc_vv_f32m2(__riscv_vfmul_vv_f32m2(sb,sa,vl),db,oma,vl);
+        *ca=__riscv_vfmacc_vv_f32m2(__riscv_vfmul_vv_f32m2(sa,sa,vl),da,oma,vl);
+        return 1;
+    }
+    if (bs->src_rgb==GL_ONE && bs->dst_rgb==GL_ONE_MINUS_SRC_ALPHA &&
+        bs->src_a==GL_ONE && bs->dst_a==GL_ONE_MINUS_SRC_ALPHA) {
+        vfloat32m2_t oma=__riscv_vfrsub_vf_f32m2(sa,1.f,vl);
+        *cr=__riscv_vfmacc_vv_f32m2(sr,dr,oma,vl); *cg=__riscv_vfmacc_vv_f32m2(sg,dg,oma,vl);
+        *cb=__riscv_vfmacc_vv_f32m2(sb,db,oma,vl); *ca=__riscv_vfmacc_vv_f32m2(sa,da,oma,vl);
+        return 1;
+    }
+    return 0;
+}
 #endif /* __riscv_v_intrinsic */
 
 #endif /* SOFTGLES2_SG_BLEND_H */

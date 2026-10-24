@@ -1,0 +1,13 @@
+diff --git a/src/gl/gl4es.c b/src/gl/gl4es.c
+index 674eaa5..b14ceab 100644
+--- a/src/gl/gl4es.c
++++ b/src/gl/gl4es.c
+@@ -63,6 +63,8 @@ int adjust_vertices(GLenum mode, int nb) {
+ #define clone_gl_pointer(t, s, n)\
+     t.size = s; t.type = type; t.stride = stride; t.pointer = (void*)((char*)pointer + (uintptr_t)((glstate->vao->vertex)?glstate->vao->vertex->data:0));\
+     t.real_buffer=(glstate->vao->vertex)?glstate->vao->vertex->real_buffer:0; t.real_pointer=(glstate->vao->vertex)?pointer:0;   \
++    /* pointer already includes the VBO shadow base; do not add a stale generic buffer again. */\
++    t.buffer = NULL;\
+     t.normalized=n; t.divisor=0
+ #define break_lockarrays(t)\
+     if(glstate->vao->vertexattrib[t].real_buffer && glstate->vao->locked_mapped[t]) {    \
